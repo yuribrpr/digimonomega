@@ -79,6 +79,41 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground relative min-h-screen overflow-x-hidden;
+  }
+  
+  /* Global Soft Gradient Background */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -2;
+    background: radial-gradient(ellipse 80% 80% at 50% -20%, rgba(120,119,198,0.3), rgba(255,255,255,0));
+    pointer-events: none;
+  }
+  
+  body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    background-image: 
+      linear-gradient(to right, rgba(79, 79, 79, 0.1) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(79, 79, 79, 0.1) 1px, transparent 1px);
+    background-size: 14px 24px;
+    mask-image: radial-gradient(ellipse 60% 50% at 50% 0%, #000 70%, transparent 100%);
+    pointer-events: none;
+  }
+}
+
+@layer utilities {
+  .pixelated {
+    image-rendering: pixelated;
   }
 }

@@ -2,12 +2,26 @@ const db = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
+// Helper to find the correct table name for user digimons
+async function getUserDigimonTable() {
+    const [rows] = await db.execute("SHOW TABLES LIKE '%user%digimon%'");
+    if (rows.length > 0) {
+        return Object.values(rows[0])[0];
+    }
+    return 'user_digimons'; // Fallback
+}
+
 exports.register = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, starterId, nickname } = req.body;
 
     if (!username || !email || !password) {
         return res.status(400).json({ message: 'Please provide all fields' });
+    }
+    
+    // Validate starterId
+    if (!starterId || ![1, 5, 13].includes(Number(starterId))) {
+         return res.status(400).json({ message: 'Please select a valid starter Digimon (Agumon, Gaomon, or Lalamon)' });
     }
 
     // Check if user exists
@@ -20,12 +34,51 @@ exports.register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert user
-    // Assuming standard 'users' table structure. If 'created_at' etc are needed, add them.
-    // If the existing table has different column names, this query will need adjustment.
     const [result] = await db.execute(
       'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
       [username, email, hashedPassword]
     );
+    
+    const userId = result.insertId;
+
+    // Create Starter Digimon
+    try {
+        const table = await getUserDigimonTable();
+        
+        // Get base stats
+        const [digiRows] = await db.execute('SELECT * FROM digidex WHERE id = ?', [starterId]);
+        if (digiRows.length > 0) {
+             const baseHp = digiRows[0].base_hp || 100;
+             const baseAttack = digiRows[0].base_attack || 10;
+             const baseDefense = digiRows[0].base_defense || 10;
+             
+             const digimonNickname = nickname || digiRows[0].name;
+
+             // Insert with is_main = 1
+             const sql = `INSERT INTO ${table} (user_id, digidex_id, nickname, level, exp, current_hp, max_hp, attack, defense, is_main) VALUES (?, ?, ?, 1, 0, ?, ?, ?, ?, 1)`;
+             
+             await db.execute(sql, [userId, starterId, digimonNickname, baseHp, baseHp, baseAttack, baseDefense]);
+        }
+    } catch (digiError) {
+        console.error('Error creating starter digimon:', digiError);
+    }
+
+    // Give Starter Items (10x Basic Attack Chip, 10x Basic Defense Chip)
+    try {
+        const starterItems = [
+            { itemId: 1, quantity: 10 }, // Chip de Ataque Básico
+            { itemId: 4, quantity: 10 }  // Chip de Defesa Básico
+        ];
+
+        for (const item of starterItems) {
+            await db.execute(
+                'INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?)',
+                [userId, item.itemId, item.quantity]
+            );
+        }
+    } catch (itemError) {
+        console.error('Error giving starter items:', itemError);
+    }
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {

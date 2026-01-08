@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
-  Package, 
+  Backpack,
   Zap, 
   Shield, 
   Heart, 
@@ -28,6 +28,8 @@ import {
 export default function Inventory() {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
   const user = JSON.parse(localStorage.getItem('user'));
 
   useEffect(() => {
@@ -46,6 +48,48 @@ export default function Inventory() {
       setLoading(false);
     }
   };
+
+  const getTypeLabel = (type) => {
+    switch(type) {
+      case 'consumable': return 'Consumíveis';
+      case 'object': return 'Itens Chave';
+      case 'equipable': return 'Equipamentos';
+      case 'quest': return 'Itens de Missão';
+      default: return type.charAt(0).toUpperCase() + type.slice(1);
+    }
+  };
+
+  const itemTypes = ['all', ...new Set(inventory.map(item => item.type))];
+
+  const filteredInventory = inventory.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTab = activeTab === 'all' || item.type === activeTab;
+    return matchesSearch && matchesTab;
+  });
+
+  const groupedInventory = activeTab === 'all' 
+    ? {
+        consumable: filteredInventory.filter(item => item.type === 'consumable'),
+        object: filteredInventory.filter(item => item.type === 'object'),
+        ...filteredInventory.reduce((acc, item) => {
+          if (!['consumable', 'object'].includes(item.type)) {
+            if (!acc[item.type]) acc[item.type] = [];
+            acc[item.type].push(item);
+          }
+          return acc;
+        }, {})
+      }
+    : { [activeTab]: filteredInventory };
+
+  const sectionOrder = ['consumable', 'object', 'equipable', 'quest'];
+  const availableSections = Object.keys(groupedInventory).sort((a, b) => {
+    const indexA = sectionOrder.indexOf(a);
+    const indexB = sectionOrder.indexOf(b);
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    return a.localeCompare(b);
+  });
 
   const [useModalOpen, setUseModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -130,14 +174,41 @@ export default function Inventory() {
 
   return (
     <div className="container mx-auto py-8 space-y-8">
-      <div className="flex items-center gap-4">
-        <div className="p-3 bg-primary/10 rounded-full">
-            <Package className="w-8 h-8 text-primary" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-primary/10 rounded-full">
+              <Backpack className="w-8 h-8 text-primary" />
+          </div>
+          <div>
+              <h1 className="text-3xl font-bold tracking-tight">Inventário</h1>
+              <p className="text-muted-foreground">Gerencie seus itens e equipamentos.</p>
+          </div>
         </div>
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight">Inventário</h1>
-            <p className="text-muted-foreground">Gerencie seus itens e equipamentos.</p>
+
+        <div className="relative w-full md:w-64">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar item..."
+            className="pl-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 border-b pb-4 overflow-x-auto">
+        {itemTypes.map(type => (
+          <Button 
+            key={type}
+            variant={activeTab === type ? 'default' : 'ghost'} 
+            size="sm" 
+            onClick={() => setActiveTab(type)}
+            className="rounded-full capitalize whitespace-nowrap"
+          >
+            {type === 'all' ? 'Todos' : getTypeLabel(type)}
+          </Button>
+        ))}
       </div>
 
       {loading ? (
@@ -146,64 +217,80 @@ export default function Inventory() {
         </div>
       ) : inventory.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed rounded-lg bg-secondary/10">
-            <Package className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+            <Backpack className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
             <h3 className="text-xl font-semibold">Mochila Vazia</h3>
             <p className="text-muted-foreground mt-2">Você ainda não possui nenhum item.</p>
             <p className="text-xs text-muted-foreground mt-1">Explore mapas e derrote inimigos para encontrar itens.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {inventory.map((slot) => (
-                <Card key={slot.inventory_id} className="relative group overflow-hidden border-muted hover:border-primary/50 transition-all">
-                    <CardContent className="p-4 flex flex-col items-center text-center space-y-3 pt-6">
-                        <div className="w-16 h-16 bg-secondary/50 rounded-md flex items-center justify-center mb-2 relative">
-                            {slot.icon ? (
-                                <img src={`http://localhost:5000/${slot.icon}`} alt={slot.name} className="w-12 h-12 object-contain" />
-                            ) : (
-                                <Package className="w-8 h-8 text-muted-foreground/50" />
-                            )}
-                            <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-1.5 min-w-[20px] h-5 flex items-center justify-center">
-                                {slot.quantity}
-                            </Badge>
-                        </div>
-                        
-                        <div>
-                            <h3 className="font-bold text-sm leading-tight">{slot.name}</h3>
-                            <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2 min-h-[2.5em]">{slot.description}</p>
-                        </div>
+        <div className="space-y-8">
+          {availableSections.map(type => {
+            const items = groupedInventory[type];
+            if (items.length === 0) return null;
+            
+            return (
+              <div key={type} className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-semibold tracking-tight">{getTypeLabel(type)}</h2>
+                  <Badge variant="outline" className="text-xs">{items.length}</Badge>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {items.map((slot) => (
+                    <Card key={slot.inventory_id} className="relative group overflow-hidden border-muted hover:border-primary/50 transition-all">
+                      <CardContent className="p-4 flex flex-col items-center text-center space-y-3 pt-6">
+                          <div className="w-16 h-16 bg-secondary/50 rounded-md flex items-center justify-center mb-2 relative">
+                              {slot.icon ? (
+                                  <img src={`http://localhost:5000/${slot.icon}`} alt={slot.name} className="w-12 h-12 object-contain" />
+                              ) : (
+                                  <Backpack className="w-8 h-8 text-muted-foreground/50" />
+                              )}
+                              <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-1.5 min-w-[20px] h-5 flex items-center justify-center">
+                                  {slot.quantity}
+                              </Badge>
+                          </div>
+                          
+                          <div>
+                              <h3 className="font-bold text-sm leading-tight min-h-[2.5em] flex items-center justify-center">{slot.name}</h3>
+                              <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2 min-h-[2.5em]">{slot.description}</p>
+                          </div>
 
-                        {slot.type === 'consumable' && slot.effect_target !== 'none' && (
-                            <div className="flex items-center gap-1 text-[10px] font-mono bg-secondary/30 px-2 py-1 rounded w-full justify-center">
-                                {slot.effect_target === 'attack' && <Zap className="w-3 h-3 text-yellow-500" />}
-                                {slot.effect_target === 'defense' && <Shield className="w-3 h-3 text-blue-500" />}
-                                {slot.effect_target === 'hp' && <Heart className="w-3 h-3 text-red-500" />}
-                                <span className="uppercase">{slot.effect_target === 'hp' ? 'HP' : slot.effect_target === 'attack' ? 'ATK' : 'DEF'}</span>
-                                <span className="font-bold">+{slot.effect_value}{slot.is_percent ? '%' : ''}</span>
-                            </div>
-                        )}
-                        
-                        <div className="w-full pt-2">
-                            <Button 
-                                variant="secondary" 
-                                size="sm" 
-                                className="w-full text-xs h-7"
-                                onClick={() => handleOpenUseModal(slot)}
-                                disabled={slot.type !== 'consumable'}
-                            >
-                                {slot.type === 'consumable' ? 'Usar' : slot.type === 'equipable' ? 'Equipar' : 'Detalhes'}
-                            </Button>
-                            <Button 
-                                variant="outline"
-                                size="sm"
-                                className="w-full text-xs h-7 mt-2"
-                                onClick={() => handleOpenDiscardModal(slot)}
-                            >
-                                Descartar
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            ))}
+                          {slot.type === 'consumable' && slot.effect_target !== 'none' && (
+                              <div className="flex items-center gap-1 text-[10px] font-mono bg-secondary/30 px-2 py-1 rounded w-full justify-center">
+                                  {slot.effect_target === 'attack' && <Zap className="w-3 h-3 text-yellow-500" />}
+                                  {slot.effect_target === 'defense' && <Shield className="w-3 h-3 text-blue-500" />}
+                                  {slot.effect_target === 'hp' && <Heart className="w-3 h-3 text-red-500" />}
+                                  <span className="uppercase">{slot.effect_target === 'hp' ? 'HP' : slot.effect_target === 'attack' ? 'ATK' : 'DEF'}</span>
+                                  <span className="font-bold">+{slot.effect_value}{slot.is_percent ? '%' : ''}</span>
+                              </div>
+                          )}
+                          
+                          <div className="w-full pt-2 mt-auto">
+                              <Button 
+                                  variant="secondary" 
+                                  size="sm" 
+                                  className="w-full text-xs h-7"
+                                  onClick={() => handleOpenUseModal(slot)}
+                                  disabled={slot.type !== 'consumable'}
+                              >
+                                  {slot.type === 'consumable' ? 'Usar' : slot.type === 'equipable' ? 'Equipar' : 'Detalhes'}
+                              </Button>
+                              <Button 
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full text-xs h-7 mt-2"
+                                  onClick={() => handleOpenDiscardModal(slot)}
+                              >
+                                  Descartar
+                              </Button>
+                          </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -230,7 +317,7 @@ export default function Inventory() {
                          <div className="bg-secondary/20 rounded-md p-2">
                             {selectedItem.icon ? (
                                 <img src={`http://localhost:5000/${selectedItem.icon}`} alt={selectedItem.name} className="w-12 h-12 object-contain" />
-                            ) : <Package className="w-12 h-12 text-muted-foreground" />}
+                            ) : <Backpack className="w-12 h-12 text-muted-foreground" />}
                          </div>
                          <div>
                              <h3 className="font-bold">{selectedItem.name}</h3>
@@ -312,7 +399,7 @@ export default function Inventory() {
                          <div className="bg-secondary/20 rounded-md p-2">
                             {selectedItem.icon ? (
                                 <img src={`http://localhost:5000/${selectedItem.icon}`} alt={selectedItem.name} className="w-12 h-12 object-contain" />
-                            ) : <Package className="w-12 h-12 text-muted-foreground" />}
+                            ) : <Backpack className="w-12 h-12 text-muted-foreground" />}
                          </div>
                          <div>
                              <h3 className="font-bold">{selectedItem.name}</h3>

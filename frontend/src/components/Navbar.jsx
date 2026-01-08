@@ -9,23 +9,24 @@ import {
   Dna, 
   Home as HomeIcon, 
   BookOpen, 
-  Package, 
-  Coins,
-  ShoppingBag,
-  LogOut
+  Backpack,
+  Coins, 
+  ShoppingBag, 
+  LogOut,
+  Settings
 } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger, 
 } from "@/components/ui/tooltip";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = JSON.parse(localStorage.getItem('user'));
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [adminOpen, setAdminOpen] = useState(false);
   const [userBits, setUserBits] = useState(0);
 
@@ -62,6 +63,11 @@ export default function Navbar() {
     navigate('/login');
   };
 
+  // Don't show navbar on login or register pages
+  if (location.pathname === '/login' || location.pathname === '/register') {
+    return null;
+  }
+
   if (!user) return null;
 
   const navItems = [
@@ -69,7 +75,7 @@ export default function Navbar() {
     { icon: Dna, label: 'Digimons', path: '/meus-digimons', color: 'text-blue-500' },
     { icon: ShoppingBag, label: 'Loja de Digimons', path: '/adoption', color: 'text-purple-500' },
     { icon: BookOpen, label: 'Digidex', path: '/digidex', color: 'text-amber-500' },
-    { icon: Package, label: 'Inventário', path: '/inventory', color: 'text-indigo-500' },
+    { icon: Backpack, label: 'Inventário', path: '/inventory', color: 'text-indigo-500' },
   ];
 
   return (
@@ -96,7 +102,7 @@ export default function Navbar() {
                        <Link to={item.path}>
                          <Button 
                            variant={isActive ? "secondary" : "ghost"} 
-                           size="icon"
+                           size="icon" 
                            className={`relative ${isActive ? 'bg-secondary' : ''}`}
                          >
                            <item.icon className={`h-5 w-5 ${item.color}`} />
@@ -113,18 +119,18 @@ export default function Navbar() {
 
              {user.username === 'clovis' && (
                 <div 
-                  className="relative ml-2"
+                  className="relative"
                   onMouseEnter={() => setAdminOpen(true)}
                   onMouseLeave={() => setAdminOpen(false)}
                >
                  <Button 
                    variant="ghost" 
+                   size="icon"
                    aria-haspopup="menu" 
                    aria-expanded={adminOpen}
                    onClick={() => setAdminOpen(v => !v)}
-                   className="font-medium"
                  >
-                   Admin
+                   <Settings className="h-5 w-5" />
                  </Button>
                  <div 
                    className={`absolute left-0 top-full min-w-[180px] rounded-md border bg-background shadow-md p-1 z-50 ${adminOpen ? 'block' : 'hidden'}`}
@@ -155,21 +161,13 @@ export default function Navbar() {
              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
            </Button>
            
-           <div className="flex items-center gap-3 pl-2 border-l ml-2">
-             <span className="text-sm font-medium hidden sm:inline-block">{user.username}</span>
-             <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={handleLogout} className="text-red-500 hover:text-red-600 hover:bg-red-100/10">
-                            <LogOut className="h-5 w-5" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Sair</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
-           </div>
+           <span className="text-sm font-medium text-muted-foreground hidden sm:inline-block">
+             {user.username}
+           </span>
+           
+           <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
+             <LogOut className="h-5 w-5 text-destructive" />
+           </Button>
         </div>
       </div>
     </nav>
