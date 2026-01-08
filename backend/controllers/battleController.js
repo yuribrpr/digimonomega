@@ -443,6 +443,35 @@ exports.attack = async (req, res) => {
         // Update bits in users table
         await db.execute('UPDATE users SET bits = COALESCE(bits, 0) + ? WHERE id = ?', [bitsGain, battle.user_id]);
 
+        // --- USER LEVEL UP LOGIC ---
+        // 15% of Digimon XP to User
+        const userXpGain = Math.max(1, Math.floor(xpGain * 0.15));
+        
+        // Fetch current user stats
+        const [uRows] = await db.execute('SELECT exp, exp_m, level FROM users WHERE id = ?', [battle.user_id]);
+        if (uRows.length > 0) {
+            let u = uRows[0];
+            let newExp = (u.exp || 0) + userXpGain;
+            let newLevel = u.level || 1;
+            let newExpM = u.exp_m || 1000;
+            let leveledUp = false;
+
+            while (newExp >= newExpM) {
+                newExp -= newExpM;
+                newLevel++;
+                // Increase requirement by 20% or flat amount? 
+                // User said "padrão 1000", but didn't specify growth. Let's use 1.2 multiplier.
+                newExpM = Math.floor(newExpM * 1.2); 
+                leveledUp = true;
+            }
+
+            await db.execute('UPDATE users SET exp = ?, exp_m = ?, level = ? WHERE id = ?', [newExp, newExpM, newLevel, battle.user_id]);
+            
+            if (leveledUp) {
+                extraLogs.push(`Você subiu para o nível ${newLevel}!`);
+            }
+        }
+
         // --- LEVEL UP & EVOLUTION LOGIC ---
         if (xpCol && levelCol) {
             // Fetch updated data

@@ -126,11 +126,26 @@ exports.login = async (req, res) => {
             id: user.id,
             username: user.username,
             email: user.email,
-            bits: user.bits || 0
+            bits: user.bits || 0,
+            role: user.role || 'user'
         }
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
+};
+
+exports.verifyToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return res.status(403).json({ message: 'No token provided' });
+
+    const token = authHeader.split(' ')[1]; // Bearer <token>
+    if (!token) return res.status(403).json({ message: 'No token provided' });
+
+    jwt.verify(token, process.env.JWT_SECRET || 'secret_key', (err, decoded) => {
+        if (err) return res.status(401).json({ message: 'Unauthorized' });
+        req.user = decoded;
+        next();
+    });
 };

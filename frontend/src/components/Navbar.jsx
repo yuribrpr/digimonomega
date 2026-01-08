@@ -13,7 +13,9 @@ import {
   Coins, 
   ShoppingBag, 
   LogOut,
-  Settings
+  Settings,
+  Search,
+  User
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -21,6 +23,7 @@ import {
   TooltipProvider, 
   TooltipTrigger, 
 } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -29,6 +32,11 @@ export default function Navbar() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [adminOpen, setAdminOpen] = useState(false);
   const [userBits, setUserBits] = useState(0);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -37,6 +45,25 @@ export default function Navbar() {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (searchQuery.length > 0) {
+        try {
+          const res = await axios.get(`http://localhost:5000/api/users/search?q=${searchQuery}`);
+          setSearchResults(res.data);
+          setShowResults(true);
+        } catch (error) {
+          console.error('Error searching users:', error);
+        }
+      } else {
+        setSearchResults([]);
+        setShowResults(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
 
   const fetchUserBits = async () => {
     if (!user?.id) return;
@@ -117,9 +144,11 @@ export default function Navbar() {
                })}
              </TooltipProvider>
 
-             {user.username === 'clovis' && (
+             {/* Search Bar - Removed from here */}
+
+             {(user.username === 'clovis' || user.role === 'admin') && (
                 <div 
-                  className="relative"
+                  className="relative ml-2"
                   onMouseEnter={() => setAdminOpen(true)}
                   onMouseLeave={() => setAdminOpen(false)}
                >
@@ -137,6 +166,7 @@ export default function Navbar() {
                    onMouseEnter={() => setAdminOpen(true)}
                    onMouseLeave={() => setAdminOpen(false)}
                  >
+                   <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/users')}>Usuários</Button>
                    <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/digidex')}>Digidex</Button>
                    <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/enemydex')}>Enemydex</Button>
                    <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/items')}>Itens</Button>
@@ -151,6 +181,45 @@ export default function Navbar() {
         {/* Right Side: Bits, Theme, User */}
         <div className="flex items-center space-x-4">
            
+           {/* Search Bar */}
+           <div className="relative hidden md:block w-64">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Buscar jogadores..." 
+                  className="pl-9 rounded-full bg-secondary/50 border-border/50 focus:bg-background transition-colors" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => searchQuery && setShowResults(true)}
+                  onBlur={() => setTimeout(() => setShowResults(false), 200)}
+                />
+              </div>
+              
+              {showResults && searchResults.length > 0 && (
+                <div className="absolute top-full mt-2 w-full bg-popover border rounded-xl shadow-lg z-50 overflow-hidden">
+                  {searchResults.map(result => (
+                    <div 
+                      key={result.id}
+                      className="p-3 hover:bg-accent cursor-pointer flex items-center gap-3 transition-colors"
+                      onClick={() => {
+                        navigate(`/profile/${result.id}`);
+                        setSearchQuery('');
+                        setShowResults(false);
+                      }}
+                    >
+                       <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                       </div>
+                       <div className="flex flex-col">
+                          <span className="text-sm font-medium leading-none">{result.username}</span>
+                          <span className="text-[10px] text-muted-foreground">Lvl {result.level || 1}</span>
+                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+           </div>
+
            {/* Bits Display */}
            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary/20 rounded-full border border-border/50">
               <Coins className="h-4 w-4 text-yellow-500" />
@@ -161,9 +230,10 @@ export default function Navbar() {
              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
            </Button>
            
-           <span className="text-sm font-medium text-muted-foreground hidden sm:inline-block">
+           <Button variant="ghost" className="text-sm font-medium text-muted-foreground hidden sm:inline-flex gap-2" onClick={() => navigate(`/profile/${user.id}`)}>
+             <User className="h-4 w-4" />
              {user.username}
-           </span>
+           </Button>
            
            <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
              <LogOut className="h-5 w-5 text-destructive" />

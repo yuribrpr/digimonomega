@@ -7,6 +7,8 @@ import AdminEnemydex from './pages/AdminEnemydex';
 import AdminMaps from './pages/AdminMaps';
 import AdminGameSettings from './pages/AdminGameSettings';
 import AdminItems from './pages/AdminItems';
+import Profile from './pages/Profile';
+import AdminUsers from './pages/AdminUsers';
 import Digidex from './pages/Digidex';
 import Battle from './pages/Battle';
 import MeusDigimons from './pages/MeusDigimons';
@@ -22,7 +24,7 @@ function PrivateRoute({ children }) {
 
 function AdminRoute({ children }) {
     const user = JSON.parse(localStorage.getItem('user'));
-    return user && user.username === 'clovis' ? children : <Navigate to="/" />;
+    return user && (user.username === 'clovis' || user.role === 'admin') ? children : <Navigate to="/" />;
 }
 
 function App() {
@@ -35,6 +37,11 @@ function App() {
         <Route path="/" element={
             <PrivateRoute>
                 <Home />
+            </PrivateRoute>
+        } />
+        <Route path="/profile/:id" element={
+            <PrivateRoute>
+                <Profile />
             </PrivateRoute>
         } />
         <Route path="/digidex" element={
@@ -99,6 +106,13 @@ function App() {
             <PrivateRoute>
                 <AdminRoute>
                     <AdminItems />
+                </AdminRoute>
+            </PrivateRoute>
+        } />
+        <Route path="/admin/users" element={
+            <PrivateRoute>
+                <AdminRoute>
+                    <AdminUsers />
                 </AdminRoute>
             </PrivateRoute>
         } />

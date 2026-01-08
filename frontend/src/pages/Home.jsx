@@ -24,8 +24,14 @@ export default function Home() {
   const navigate = useNavigate();
   const [mainDigimon, setMainDigimon] = useState(null);
   const [ranking, setRanking] = useState([]);
-  const [userBits, setUserBits] = useState(0);
-  const [userRank, setUserRank] = useState(1);
+  const [userStats, setUserStats] = useState({
+      bits: 0,
+      rank: 1,
+      profile_image: null,
+      exp: 0,
+      exp_m: 1000,
+      level: 1
+  });
   const [loading, setLoading] = useState(true);
   const user = JSON.parse(localStorage.getItem('user'));
 
@@ -47,11 +53,17 @@ export default function Home() {
 
   const fetchUserData = async () => {
     try {
-      // Fetch user details (bits)
+      // Fetch user details
       const userRes = await axios.get(`http://localhost:5000/api/users/${user.id}`);
       if (userRes.data) {
-        setUserBits(userRes.data.bits || 0);
-        setUserRank(userRes.data.rank || 1);
+        setUserStats({
+            bits: userRes.data.bits || 0,
+            rank: userRes.data.role === 'admin' ? 2 : userRes.data.role === 'owner' ? 3 : 1,
+            profile_image: userRes.data.profile_image,
+            exp: userRes.data.exp || 0,
+            exp_m: userRes.data.exp_m || 1000,
+            level: userRes.data.level || 1
+        });
       }
 
       // Fetch user digimons
@@ -106,21 +118,31 @@ export default function Home() {
         {/* Header / User Panel */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card border rounded-lg p-6 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="h-6 w-6 text-primary" />
+            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border-2 border-border">
+              {userStats.profile_image ? (
+                  <img src={`http://localhost:5000/${userStats.profile_image}`} alt="Avatar" className="h-full w-full object-cover" />
+              ) : (
+                  <User className="h-8 w-8 text-primary" />
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight">{user.username}</h1>
                 <Badge variant="outline" className={`${
-                  userRank === 3 ? "text-yellow-500 border-yellow-500" : 
-                  userRank === 2 ? "text-red-500 border-red-500" : 
+                  userStats.rank === 3 ? "text-yellow-500 border-yellow-500" : 
+                  userStats.rank === 2 ? "text-red-500 border-red-500" : 
                   "text-blue-500 border-blue-500"
                 }`}>
-                  {userRank === 3 ? "Owner" : userRank === 2 ? "Admin" : "Tamer"}
+                  {userStats.rank === 3 ? "Owner" : userStats.rank === 2 ? "Admin" : "Tamer"}
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">Tamer Rank: Novato</p>
+              <div className="mt-1 space-y-1 min-w-[150px]">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Lvl {userStats.level}</span>
+                      <span>{userStats.exp}/{userStats.exp_m}</span>
+                  </div>
+                  <Progress value={Math.min(100, (userStats.exp / userStats.exp_m) * 100)} className="h-1.5" />
+              </div>
             </div>
           </div>
           
@@ -130,7 +152,7 @@ export default function Home() {
               <div className="flex flex-col">
                  <span className="text-xs text-muted-foreground font-bold uppercase">Bits</span>
                  <span className="font-mono font-bold text-lg leading-none">
-                   {userBits.toLocaleString()}
+                   {userStats.bits.toLocaleString()}
                  </span>
               </div>
             </div>
@@ -349,7 +371,15 @@ export default function Home() {
                                         <div className="text-xs space-y-1">
                                             <div className="flex justify-between text-slate-300">
                                                 <span>Tamer</span>
-                                                <span className="text-white">{digi.owner_name}</span>
+                                                <span 
+                                                    className="text-white cursor-pointer hover:underline hover:text-yellow-400"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/profile/${digi.owner_id || digi.user_id}`);
+                                                    }}
+                                                >
+                                                    {digi.owner_name}
+                                                </span>
                                             </div>
                                             <div className="flex justify-between text-slate-300">
                                                 <span>Poder Total</span>
@@ -388,7 +418,13 @@ export default function Home() {
                                             <span className="text-sm font-medium leading-none group-hover:text-primary transition-colors">
                                                 {digi.name || digi.species_name}
                                             </span>
-                                            <span className="text-[10px] text-muted-foreground mt-1">
+                                            <span 
+                                                className="text-[10px] text-muted-foreground mt-1 hover:text-primary cursor-pointer hover:underline"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/profile/${digi.owner_id || digi.user_id}`);
+                                                }}
+                                            >
                                                 {digi.owner_name}
                                             </span>
                                         </div>

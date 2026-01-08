@@ -71,6 +71,7 @@ exports.getRanking = async (req, res) => {
         const sql = `
             SELECT 
                 ud.*,
+                u.id as owner_id,
                 u.username as owner_name,
                 d.name as species_name,
                 d.sprite_path,
