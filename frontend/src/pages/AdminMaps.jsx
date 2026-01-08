@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +28,7 @@ export default function AdminMaps() {
   const [requireItem, setRequireItem] = useState(false);
   const [requiredItemId, setRequiredItemId] = useState('');
   const [consumeOnEnter, setConsumeOnEnter] = useState(false);
+  const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
     fetchMaps();
@@ -72,6 +74,7 @@ export default function AdminMaps() {
     setRequireItem(false);
     setRequiredItemId('');
     setConsumeOnEnter(false);
+    setIsActive(true);
   };
 
   const handleEdit = (map) => {
@@ -86,6 +89,7 @@ export default function AdminMaps() {
     setRequireItem(Boolean(map.require_item));
     setRequiredItemId(map.required_item_id ? String(map.required_item_id) : '');
     setConsumeOnEnter(Boolean(map.consume_on_enter));
+    setIsActive(map.is_active !== undefined ? Boolean(map.is_active) : true);
     setIsOpen(true);
   };
 
@@ -111,6 +115,7 @@ export default function AdminMaps() {
     formData.append('require_item', requireItem ? 'true' : 'false');
     formData.append('required_item_id', requiredItemId || '');
     formData.append('consume_on_enter', consumeOnEnter ? 'true' : 'false');
+    formData.append('is_active', isActive ? 'true' : 'false');
 
     try {
         if (editingId) {
@@ -204,6 +209,11 @@ export default function AdminMaps() {
               <div className="space-y-2">
                 <Label htmlFor="image">Thumbnail</Label>
                 <Input id="image" type="file" onChange={(e) => setFile(e.target.files[0])} accept="image/*" />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox id="isActive" checked={isActive} onCheckedChange={setIsActive} />
+                <Label htmlFor="isActive">Mapa Ativo (Visível no Explorar)</Label>
               </div>
 
               <div className="space-y-2">
@@ -301,7 +311,10 @@ export default function AdminMaps() {
                         <MapIcon className="w-12 h-12 opacity-20" />
                     </div>
                 )}
-                <div className="absolute top-2 right-2">
+                <div className="absolute top-2 right-2 flex gap-1">
+                    <Badge variant={map.is_active ? "default" : "destructive"} className="shadow-md">
+                        {map.is_active ? 'Ativo' : 'Inativo'}
+                    </Badge>
                     <Badge variant="secondary" className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm">
                         Lvl {map.min_level}+
                     </Badge>

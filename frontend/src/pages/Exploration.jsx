@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Map as MapIcon, Compass, Lock, Search } from 'lucide-react';
+import { Map as MapIcon, Compass, Lock, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Exploration() {
@@ -177,6 +177,50 @@ export default function Exploration() {
     );
   };
 
+  const ScrollSection = ({ title, maps }) => {
+    const scrollRef = React.useRef(null);
+
+    const scroll = (direction) => {
+        if (scrollRef.current) {
+            const { current } = scrollRef;
+            const scrollAmount = 350; // Card width + gap
+            if (direction === 'left') {
+                current.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+            } else {
+                current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            }
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+                <div className="flex gap-2">
+                    <Button variant="outline" size="icon" onClick={() => scroll('left')}>
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => scroll('right')}>
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+            
+            <div 
+                ref={scrollRef} 
+                className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x" 
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+                {maps.map(map => (
+                    <div key={map.id} className="min-w-[300px] w-[300px] snap-start">
+                        {renderMapCard(map)}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+  };
+
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -216,26 +260,21 @@ export default function Exploration() {
         if (filterType !== 'all' && filterType !== type) return null;
         
         const typeMaps = maps.filter(m => 
-            (m.type === type || (!m.type && type === 'Campanha')) && // Default to Campanha if undefined
+            (m.is_active === 1 || m.is_active === true) && // Filter active maps
+            (m.type === type || (!m.type && type === 'Campanha')) && 
             m.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
         if (typeMaps.length === 0) return null;
 
-        return (
-            <div key={type} className="space-y-4">
-                <h2 className="text-2xl font-semibold tracking-tight">{type}</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {typeMaps.map(map => renderMapCard(map))}
-                </div>
-            </div>
-        );
+        return <ScrollSection key={type} title={type} maps={typeMaps} />;
       })}
 
       {/* Show message if no maps found */}
       {maps.length > 0 && ['Campanha', 'Raid', 'Evento'].every(type => {
           if (filterType !== 'all' && filterType !== type) return true;
           const typeMaps = maps.filter(m => 
+            (m.is_active === 1 || m.is_active === true) &&
             (m.type === type || (!m.type && type === 'Campanha')) && 
             m.name.toLowerCase().includes(searchTerm.toLowerCase())
           );

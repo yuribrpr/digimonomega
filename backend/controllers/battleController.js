@@ -133,10 +133,25 @@ exports.startBattle = async (req, res) => {
         const [mapCols] = await db.execute('DESCRIBE maps');
         const colNames = mapCols.map(c => c.Field);
         const hasReq = colNames.includes('require_item') && colNames.includes('required_item_id') && colNames.includes('consume_on_enter');
-        if (hasReq) {
-          const [mapRows] = await db.execute('SELECT require_item, required_item_id, consume_on_enter FROM maps WHERE id = ? LIMIT 1', [map_id]);
-          const mapRow = mapRows && mapRows[0];
-          if (mapRow && Number(mapRow.require_item) === 1 && Number(mapRow.required_item_id)) {
+        
+        // Fetch map details including is_active if available
+        let query = 'SELECT require_item, required_item_id, consume_on_enter';
+        if (colNames.includes('is_active')) query += ', is_active';
+        query += ' FROM maps WHERE id = ? LIMIT 1';
+
+        const [mapRows] = await db.execute(query, [map_id]);
+        const mapRow = mapRows && mapRows[0];
+
+        // Check if map is active
+        if (mapRow && colNames.includes('is_active')) {
+            const isActive = mapRow.is_active === 1 || mapRow.is_active === true;
+            if (!isActive) {
+                return res.status(403).json({ message: 'Este mapa está desativado no momento.' });
+            }
+        }
+
+        if (hasReq && mapRow) {
+          if (Number(mapRow.require_item) === 1 && Number(mapRow.required_item_id)) {
             const requiredItemId = Number(mapRow.required_item_id);
             const [invRows] = await db.execute('SELECT id, quantity FROM inventory WHERE user_id = ? AND item_id = ? LIMIT 1', [user_id, requiredItemId]);
             const inv = invRows && invRows[0];

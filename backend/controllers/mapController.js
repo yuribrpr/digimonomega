@@ -15,6 +15,9 @@ async function ensureRequirementColumns() {
   if (!names.includes('type')) {
     await db.execute("ALTER TABLE maps ADD COLUMN type VARCHAR(50) DEFAULT 'Campanha'");
   }
+  if (!names.includes('is_active')) {
+    await db.execute('ALTER TABLE maps ADD COLUMN is_active TINYINT(1) DEFAULT 1');
+  }
 }
 
 exports.getAllMaps = async (req, res) => {
@@ -40,7 +43,7 @@ exports.getAllMaps = async (req, res) => {
 
 exports.createMap = async (req, res) => {
   try {
-    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type } = req.body;
+    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active } = req.body;
     const image_path = req.file ? `assets/maps/${req.file.filename}` : null;
 
     if (!name) return res.status(400).json({ message: 'Nome é obrigatório' });
@@ -49,8 +52,15 @@ exports.createMap = async (req, res) => {
 
     // Insert Map
     const [result] = await db.execute(
-      'INSERT INTO maps (name, min_level, description, image_path, type) VALUES (?, ?, ?, ?, ?)',
-      [name, min_level || 1, description, image_path, type || 'Campanha']
+      'INSERT INTO maps (name, min_level, description, image_path, type, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        name, 
+        min_level || 1, 
+        description, 
+        image_path, 
+        type || 'Campanha',
+        is_active === 'true' || is_active === 1 || is_active === true ? 1 : 0
+      ]
     );
 
     const mapId = result.insertId;
@@ -92,7 +102,7 @@ exports.createMap = async (req, res) => {
 exports.updateMap = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type } = req.body;
+    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active } = req.body;
     
     // Check if map exists
     const [existing] = await db.execute('SELECT * FROM maps WHERE id = ?', [id]);
@@ -107,8 +117,16 @@ exports.updateMap = async (req, res) => {
 
     // Update Map
     await db.execute(
-      'UPDATE maps SET name = ?, min_level = ?, description = ?, image_path = ?, type = ? WHERE id = ?',
-      [name, min_level || 1, description, image_path, type || 'Campanha', id]
+      'UPDATE maps SET name = ?, min_level = ?, description = ?, image_path = ?, type = ?, is_active = ? WHERE id = ?',
+      [
+        name, 
+        min_level || 1, 
+        description, 
+        image_path, 
+        type || 'Campanha', 
+        is_active === 'true' || is_active === 1 || is_active === true ? 1 : 0,
+        id
+      ]
     );
 
     // Update requirement fields
