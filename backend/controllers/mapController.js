@@ -12,6 +12,9 @@ async function ensureRequirementColumns() {
   if (!names.includes('consume_on_enter')) {
     await db.execute('ALTER TABLE maps ADD COLUMN consume_on_enter TINYINT(1) DEFAULT 0');
   }
+  if (!names.includes('type')) {
+    await db.execute("ALTER TABLE maps ADD COLUMN type VARCHAR(50) DEFAULT 'Campanha'");
+  }
 }
 
 exports.getAllMaps = async (req, res) => {
@@ -37,7 +40,7 @@ exports.getAllMaps = async (req, res) => {
 
 exports.createMap = async (req, res) => {
   try {
-    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter } = req.body;
+    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type } = req.body;
     const image_path = req.file ? `assets/maps/${req.file.filename}` : null;
 
     if (!name) return res.status(400).json({ message: 'Nome é obrigatório' });
@@ -46,8 +49,8 @@ exports.createMap = async (req, res) => {
 
     // Insert Map
     const [result] = await db.execute(
-      'INSERT INTO maps (name, min_level, description, image_path) VALUES (?, ?, ?, ?)',
-      [name, min_level || 1, description, image_path]
+      'INSERT INTO maps (name, min_level, description, image_path, type) VALUES (?, ?, ?, ?, ?)',
+      [name, min_level || 1, description, image_path, type || 'Campanha']
     );
 
     const mapId = result.insertId;
@@ -89,7 +92,7 @@ exports.createMap = async (req, res) => {
 exports.updateMap = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter } = req.body;
+    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type } = req.body;
     
     // Check if map exists
     const [existing] = await db.execute('SELECT * FROM maps WHERE id = ?', [id]);
@@ -104,8 +107,8 @@ exports.updateMap = async (req, res) => {
 
     // Update Map
     await db.execute(
-      'UPDATE maps SET name = ?, min_level = ?, description = ?, image_path = ? WHERE id = ?',
-      [name, min_level || 1, description, image_path, id]
+      'UPDATE maps SET name = ?, min_level = ?, description = ?, image_path = ?, type = ? WHERE id = ?',
+      [name, min_level || 1, description, image_path, type || 'Campanha', id]
     );
 
     // Update requirement fields

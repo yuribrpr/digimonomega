@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ export default function AdminMaps() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const [name, setName] = useState('');
+  const [type, setType] = useState('Campanha');
   const [minLevel, setMinLevel] = useState('1');
   const [description, setDescription] = useState('');
   const [file, setFile] = useState(null);
@@ -61,6 +63,7 @@ export default function AdminMaps() {
 
   const resetForm = () => {
     setName('');
+    setType('Campanha');
     setMinLevel('1');
     setDescription('');
     setFile(null);
@@ -74,6 +77,7 @@ export default function AdminMaps() {
   const handleEdit = (map) => {
     setEditingId(map.id);
     setName(map.name);
+    setType(map.type || 'Campanha');
     setMinLevel(map.min_level);
     setDescription(map.description || '');
     // Pre-select enemies
@@ -96,6 +100,7 @@ export default function AdminMaps() {
     const formData = new FormData();
     
     formData.append('name', name);
+    formData.append('type', type);
     formData.append('min_level', minLevel);
     formData.append('description', description);
     if (file) formData.append('image', file);
@@ -168,9 +173,22 @@ export default function AdminMaps() {
                   <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="type">Tipo</Label>
+                  <Select value={type} onValueChange={setType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Campanha">Campanha</SelectItem>
+                      <SelectItem value="Raid">Raid</SelectItem>
+                      <SelectItem value="Evento">Evento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
                   <Label htmlFor="minLevel">Nível Mínimo</Label>
                   <Input id="minLevel" type="number" value={minLevel} onChange={(e) => setMinLevel(e.target.value)} required min="1" />
-                </div>
               </div>
               
               <div className="space-y-2">
