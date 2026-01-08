@@ -10,10 +10,18 @@ const adoptionRoutes = require('./routes/adoptionRoutes');
 const mapRoutes = require('./routes/mapRoutes');
 const gameSettingsRoutes = require('./routes/gameSettingsRoutes');
 const itemRoutes = require('./routes/itemRoutes');
+const chatRoutes = require('./routes/chatRoutes');
+
+const http = require('http');
+const socketHandler = require('./socketHandler');
 
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+socketHandler(server);
 
 const path = require('path');
 
@@ -33,6 +41,7 @@ app.use('/api/adoption', adoptionRoutes);
 app.use('/api/maps', mapRoutes);
 app.use('/api/settings', gameSettingsRoutes);
 app.use('/api/items', itemRoutes);
+app.use('/api/chat', chatRoutes);
 
 app.get('/', (req, res) => {
     res.send('Digimon API is running');
@@ -40,6 +49,6 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

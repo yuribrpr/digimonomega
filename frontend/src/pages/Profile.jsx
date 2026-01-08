@@ -4,7 +4,8 @@ import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { User, Calendar, Shield, Zap, Heart, Star, Upload } from 'lucide-react';
+import { User, Calendar, Shield, Zap, Heart, Star, Upload, MessageCircle } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 
 export default function Profile() {
   const { id } = useParams();
@@ -112,7 +113,12 @@ export default function Profile() {
           />
           
           <div className="flex-1">
-            <CardTitle className="text-2xl">{user.username}</CardTitle>
+            <div className="flex justify-between items-start">
+              <div>
+                  <CardTitle className="text-2xl">{user.username}</CardTitle>
+                  <CardDescription>Treinador desde {new Date(user.created_at).toLocaleDateString()}</CardDescription>
+              </div>
+            </div>
             <div className="text-sm text-muted-foreground flex flex-wrap items-center gap-4 mt-2">
                 <Badge variant="outline" className="flex items-center gap-1">
                     <Star className="h-3 w-3" /> Nível {user.level || 1}

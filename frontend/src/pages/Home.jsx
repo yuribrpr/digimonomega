@@ -94,14 +94,14 @@ export default function Home() {
      );
   }
 
-  const NavCard = ({ title, description, icon: Icon, to, colorClass = "text-primary" }) => (
+  const NavCard = ({ title, description, icon, to, colorClass = "text-primary" }) => (
     <Card 
       className="group hover:shadow-lg transition-all cursor-pointer border-muted hover:border-primary/50"
       onClick={() => navigate(to)}
     >
       <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
         <div className={`p-4 rounded-full bg-secondary/30 group-hover:scale-110 transition-transform ${colorClass}`}>
-          <Icon className="w-8 h-8" />
+          {React.createElement(icon, { className: "w-8 h-8" })}
         </div>
         <div>
           <h3 className="font-bold text-lg">{title}</h3>
@@ -301,7 +301,7 @@ export default function Home() {
                                <Shield className="w-4 h-4 text-muted-foreground" />
                                <div>
                                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-mono">Defesa</p>
-                                 <p className="font-mono text-sm">
+                                 <div className="font-mono text-sm">
                                   {(() => {
                                     const base = Number(mainDigimon.base_defense || 0);
                                     const defCols = ['defense','def','defesa'];
@@ -324,7 +324,7 @@ export default function Home() {
                                       </GlobalTooltip>
                                     );
                                   })()}
-                                 </p>
+                                 </div>
                                </div>
                             </div>
                          </div>

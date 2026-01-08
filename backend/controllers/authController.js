@@ -127,7 +127,8 @@ exports.login = async (req, res) => {
             username: user.username,
             email: user.email,
             bits: user.bits || 0,
-            role: user.role || 'user'
+            role: user.role || 'user',
+            profile_image: user.profile_image
         }
     });
   } catch (error) {

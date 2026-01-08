@@ -19,7 +19,6 @@ import {
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
 
   // Dialog states
   const [editOpen, setEditOpen] = useState(false);
@@ -49,8 +48,6 @@ export default function AdminUsers() {
       setUsers(res.data);
     } catch (error) {
       console.error(error);
-    } finally {
-      setLoading(false);
     }
   };
 

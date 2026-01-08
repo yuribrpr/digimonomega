@@ -14,6 +14,16 @@ export default function Digidex() {
   const [search, setSearch] = useState('');
   const user = JSON.parse(localStorage.getItem('user'));
 
+  const fetchDigimons = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/digimons');
+      setDigimons(response.data);
+      setFilteredDigimons(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar digimons:', error);
+    }
+  };
+
   useEffect(() => {
     fetchDigimons();
   }, []);
@@ -26,16 +36,6 @@ export default function Digidex() {
     );
     setFilteredDigimons(filtered);
   }, [search, digimons]);
-
-  const fetchDigimons = async () => {
-    try {
-      const response = await axios.get('http://localhost:5000/api/digimons');
-      setDigimons(response.data);
-      setFilteredDigimons(response.data);
-    } catch (error) {
-      console.error('Erro ao buscar digimons:', error);
-    }
-  };
 
   const getStageName = (level) => {
     switch(level) {

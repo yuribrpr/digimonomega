@@ -16,6 +16,8 @@ import Adoption from './pages/Adoption';
 import Exploration from './pages/Exploration';
 import Inventory from './pages/Inventory';
 import Navbar from './components/Navbar';
+import ChatWidget from './components/chat/ChatWidget';
+import { ChatProvider } from './context/ChatContext';
 
 function PrivateRoute({ children }) {
     const token = localStorage.getItem('token');
@@ -29,11 +31,12 @@ function AdminRoute({ children }) {
 
 function App() {
   return (
-    <Router>
-      <Navbar />
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+    <ChatProvider>
+      <Router>
+        <Navbar />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
         <Route path="/" element={
             <PrivateRoute>
                 <Home />
@@ -117,7 +120,9 @@ function App() {
             </PrivateRoute>
         } />
       </Routes>
-    </Router>
+        <ChatWidget />
+      </Router>
+    </ChatProvider>
   );
 }
 
