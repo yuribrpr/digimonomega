@@ -130,16 +130,21 @@ exports.updateDigimon = async (req, res) => {
         const { id } = req.params;
         const { 
             name, type, base_hp, base_attack, base_defense,
-            evolution_line_id, next_evolution_id, evolution_level, base_level, required_evoluters
+            evolution_line_id, next_evolution_id, evolution_level, base_level, required_evoluters,
+            required_item_id, required_item_quantity
         } = req.body;
         
         const nextEvoId = next_evolution_id || null;
         const evoLevel = evolution_level || null;
         const bLevel = base_level || 1;
-        const reqEvoluters = required_evoluters || 0;
+        
+        // Handle both old and new field names for backward compatibility
+        // If required_item_quantity is provided, use it. Else fallback to required_evoluters.
+        const reqItemQty = required_item_quantity !== undefined ? required_item_quantity : (required_evoluters || 0);
+        const reqItemId = required_item_id || 12; // Default to Evoluter if not specified
 
-        let query = 'UPDATE digidex SET name=?, type=?, base_hp=?, base_attack=?, base_defense=?, evolution_line_id=?, next_evolution_id=?, evolution_level=?, base_level=?, required_evoluters=?';
-        let params = [name, type, base_hp, base_attack, base_defense, evolution_line_id, nextEvoId, evoLevel, bLevel, reqEvoluters];
+        let query = 'UPDATE digidex SET name=?, type=?, base_hp=?, base_attack=?, base_defense=?, evolution_line_id=?, next_evolution_id=?, evolution_level=?, base_level=?, required_evoluters=?, required_item_id=?, required_item_quantity=?';
+        let params = [name, type, base_hp, base_attack, base_defense, evolution_line_id, nextEvoId, evoLevel, bLevel, reqItemQty, reqItemId, reqItemQty];
 
         if (req.file) {
             query += ', sprite_path=?';
@@ -192,13 +197,24 @@ exports.getEvolutionLine = async (req, res) => {
         // If evolution_line_id is null, it might be a standalone or base.
         // We'll search for anything sharing the same evolution_line_id, OR linked via next_evolution_id graph.
         // Assuming evolution_line_id is consistently used.
-        let lineQuery = 'SELECT * FROM digidex WHERE evolution_line_id = ? ORDER BY base_level ASC';
+        let lineQuery = `
+            SELECT d.*, i.name as required_item_name, i.icon as required_item_icon 
+            FROM digidex d 
+            LEFT JOIN items i ON d.required_item_id = i.id 
+            WHERE d.evolution_line_id = ? 
+            ORDER BY d.base_level ASC
+        `;
         let lineParams = [currentSpecies.evolution_line_id];
         
         if (!currentSpecies.evolution_line_id) {
             // Fallback: try to find connected nodes (simple up/down 1 level check or just return itself)
             // For now, return just itself if no line ID
-             lineQuery = 'SELECT * FROM digidex WHERE id = ?';
+             lineQuery = `
+                SELECT d.*, i.name as required_item_name, i.icon as required_item_icon 
+                FROM digidex d 
+                LEFT JOIN items i ON d.required_item_id = i.id 
+                WHERE d.id = ?
+             `;
              lineParams = [currentSpecies.id];
         }
 
@@ -266,18 +282,23 @@ exports.unlockEvolution = async (req, res) => {
             return res.status(400).json({ message: `Level ${targetSpecies.evolution_level} required` });
         }
 
-        // c. Check Items (Evoluter ID = 12)
-        const requiredEvoluters = targetSpecies.required_evoluters || 0;
-        if (requiredEvoluters > 0) {
-            const [invRows] = await db.execute('SELECT quantity FROM inventory WHERE user_id = ? AND item_id = 12', [userId]);
-            const userEvoluters = invRows.length > 0 ? invRows[0].quantity : 0;
+        // c. Check Items
+        const requiredItemId = targetSpecies.required_item_id || 12; // Default to Evoluter (ID 12)
+        const requiredQty = targetSpecies.required_item_quantity !== undefined ? targetSpecies.required_item_quantity : (targetSpecies.required_evoluters || 0);
+        
+        if (requiredQty > 0) {
+            const [invRows] = await db.execute('SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ?', [userId, requiredItemId]);
+            const userQty = invRows.length > 0 ? invRows[0].quantity : 0;
 
-            if (userEvoluters < requiredEvoluters) {
-                return res.status(400).json({ message: `Insufficient Evoluters. Need ${requiredEvoluters}` });
+            if (userQty < requiredQty) {
+                // Get item name for error message
+                const [itemRows] = await db.execute('SELECT name FROM items WHERE id = ?', [requiredItemId]);
+                const itemName = itemRows[0]?.name || 'Item';
+                return res.status(400).json({ message: `Insufficient ${itemName}. Need ${requiredQty}` });
             }
 
             // Deduct items
-            await db.execute('UPDATE inventory SET quantity = quantity - ? WHERE user_id = ? AND item_id = 12', [requiredEvoluters, userId]);
+            await db.execute('UPDATE inventory SET quantity = quantity - ? WHERE user_id = ? AND item_id = ?', [requiredQty, userId, requiredItemId]);
             // Clean up if 0? Usually keep 0 or delete. Keeping is fine.
         }
 
@@ -306,6 +327,11 @@ exports.evolveDigimon = async (req, res) => {
         if (udRows.length === 0) return res.status(404).json({ message: 'Digimon not found' });
         const userDigimon = udRows[0];
 
+        // Get Current Species (to calculate stat diffs)
+        const [currentSpeciesRows] = await db.execute('SELECT * FROM digidex WHERE id = ?', [userDigimon[digiIdCol]]);
+        if (currentSpeciesRows.length === 0) return res.status(404).json({ message: 'Current species not found' });
+        const currentSpecies = currentSpeciesRows[0];
+
         // 2. Check if unlocked
         let unlockedIds = [];
         try {
@@ -317,24 +343,24 @@ exports.evolveDigimon = async (req, res) => {
         }
 
         // 3. Evolve (Switch Form)
-        // Note: Stats (HP/ATK/DEF) should probably be recalculated or updated?
-        // Current implementation in adoption/adminGive seems to define current stats.
-        // If we switch form, we should probably update base stats to the new form + bonus.
-        // For simplicity, let's update stats based on new form base + level.
-        
+        // Calculate stat differences to preserve extra attributes (items, etc)
         const [targetRows] = await db.execute('SELECT * FROM digidex WHERE id = ?', [targetDigidexId]);
         const targetSpecies = targetRows[0];
 
-        const hp = targetSpecies.base_hp + (userDigimon.level * 10);
-        const atk = targetSpecies.base_attack + (userDigimon.level * 2);
-        const def = targetSpecies.base_defense + (userDigimon.level * 2);
+        const diffHp = targetSpecies.base_hp - currentSpecies.base_hp;
+        const diffAtk = targetSpecies.base_attack - currentSpecies.base_attack;
+        const diffDef = targetSpecies.base_defense - currentSpecies.base_defense;
+
+        const newMaxHp = userDigimon.max_hp + diffHp;
+        const newAtk = userDigimon.attack + diffAtk;
+        const newDef = userDigimon.defense + diffDef;
 
         await db.execute(
             `UPDATE ${table} SET ${digiIdCol} = ?, max_hp = ?, attack = ?, defense = ? WHERE id = ?`,
-            [targetDigidexId, hp, atk, def, userDigimonId]
+            [targetDigidexId, newMaxHp, newAtk, newDef, userDigimonId]
         );
         
-        // Also heal to full? Or keep percentage? Let's heal to full max for now as a bonus.
+        // Heal to full on evolution
         await db.execute(`UPDATE ${table} SET current_hp = max_hp WHERE id = ?`, [userDigimonId]);
 
         res.json({ message: 'Digimon evolved!', newSpecies: targetSpecies });

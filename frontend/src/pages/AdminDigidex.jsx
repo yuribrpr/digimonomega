@@ -23,6 +23,7 @@ import {
 
 export default function AdminDigidex() {
   const [digimons, setDigimons] = useState([]);
+  const [items, setItems] = useState([]);
   const [filteredDigimons, setFilteredDigimons] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [editingDigimon, setEditingDigimon] = useState(null);
@@ -46,11 +47,52 @@ export default function AdminDigidex() {
   const [evolutionLevel, setEvolutionLevel] = useState('');
   const [baseLevel, setBaseLevel] = useState('');
   const [requiredEvoluters, setRequiredEvoluters] = useState('');
+  const [requiredItemId, setRequiredItemId] = useState('12'); // Default to Evoluter
+  const [requiredItemQty, setRequiredItemQty] = useState('');
   const [file, setFile] = useState(null);
+
+  const fetchItems = async () => {
+    try {
+        const res = await axios.get('http://localhost:5000/api/items');
+        setItems(res.data);
+    } catch (error) {
+        console.error('Error fetching items:', error);
+    }
+  };
+
+  const fetchDigimons = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/digimons');
+      setDigimons(response.data);
+      setFilteredDigimons(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar digimons:', error);
+    }
+  };
 
   useEffect(() => {
     fetchDigimons();
+    fetchItems();
   }, []);
+
+  useEffect(() => {
+    let result = digimons;
+
+    if (searchTerm) {
+      result = result.filter(d => d.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+
+    if (typeFilter !== 'Todos') {
+      result = result.filter(d => d.type === typeFilter);
+    }
+
+    if (evoLineFilter !== 'Todas') {
+      result = result.filter(d => d.evolution_line_id === evoLineFilter);
+    }
+
+    setFilteredDigimons(result);
+    setPage(1); // Reset to first page when filters change
+  }, [digimons, searchTerm, typeFilter, evoLineFilter]);
 
   // ... (omitted)
 
@@ -65,6 +107,8 @@ export default function AdminDigidex() {
     setEvolutionLevel('');
     setBaseLevel('');
     setRequiredEvoluters('');
+    setRequiredItemId('12');
+    setRequiredItemQty('');
     setFile(null);
     setEditingDigimon(null);
     setIsCreatingLine(false);
@@ -86,6 +130,9 @@ export default function AdminDigidex() {
     setNextEvolutionId(digimon.next_evolution_id ? String(digimon.next_evolution_id) : '');
     setEvolutionLevel(digimon.evolution_level || '');
     setBaseLevel(digimon.base_level || '');
+    setRequiredEvoluters(digimon.required_evoluters || '');
+    setRequiredItemId(digimon.required_item_id ? String(digimon.required_item_id) : '12');
+    setRequiredItemQty(digimon.required_item_quantity || '');
     setIsOpen(true);
   };
 
@@ -98,6 +145,9 @@ export default function AdminDigidex() {
     formData.append('base_attack', atk);
     formData.append('base_defense', def);
     formData.append('evolution_line_id', evolutionLineId);
+    formData.append('required_evoluters', requiredItemQty); // Legacy support
+    formData.append('required_item_id', requiredItemId);
+    formData.append('required_item_quantity', requiredItemQty);
     
     if (nextEvolutionId === 'no-evolution') {
         formData.append('next_evolution_id', '');
@@ -338,8 +388,26 @@ export default function AdminDigidex() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reqEvo">Evoluters Necessários</Label>
-                    <Input id="reqEvo" type="number" value={requiredEvoluters} onChange={(e) => setRequiredEvoluters(e.target.value)} placeholder="0" />
+                    <Label htmlFor="reqItemId">Item de Evolução</Label>
+                    <Select value={requiredItemId} onValueChange={setRequiredItemId}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Selecione o item" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {items.map(item => (
+                                <SelectItem key={item.id} value={String(item.id)}>
+                                    <div className="flex items-center gap-2">
+                                        {item.icon && <img src={`http://localhost:5000/${item.icon}`} className="h-4 w-4 object-contain" />}
+                                        {item.name}
+                                    </div>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reqItemQty">Quantidade do Item</Label>
+                    <Input id="reqItemQty" type="number" value={requiredItemQty} onChange={(e) => setRequiredItemQty(e.target.value)} placeholder="0" />
                   </div>
                   <div className="space-y-2 col-span-2">
                     <Label htmlFor="sprite">Imagem (Sprite)</Label>

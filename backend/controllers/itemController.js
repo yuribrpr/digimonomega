@@ -46,7 +46,7 @@ exports.getUserInventory = async (req, res) => {
   try {
     const { userId } = req.params;
     const [inventory] = await db.execute(`
-      SELECT i.*, inv.quantity, inv.id as inventory_id
+      SELECT i.*, inv.item_id, inv.quantity, inv.id as inventory_id
       FROM inventory inv
       JOIN items i ON inv.item_id = i.id
       WHERE inv.user_id = ?

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Heart, Shield, Swords, Dna, ArrowRight } from 'lucide-react';
+import { Search, Heart, Shield, Swords, Dna, ArrowRight, Zap } from 'lucide-react';
 
 export default function Digidex() {
   const navigate = useNavigate();
