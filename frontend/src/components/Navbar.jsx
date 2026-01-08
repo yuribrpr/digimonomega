@@ -10,7 +10,9 @@ import {
   Home as HomeIcon, 
   BookOpen, 
   Package, 
-  Coins 
+  Coins,
+  ShoppingBag,
+  LogOut
 } from 'lucide-react';
 import {
   Tooltip,
@@ -65,7 +67,7 @@ export default function Navbar() {
   const navItems = [
     { icon: MapIcon, label: 'Explorar', path: '/exploration', color: 'text-green-500' },
     { icon: Dna, label: 'Digimons', path: '/meus-digimons', color: 'text-blue-500' },
-    { icon: HomeIcon, label: 'Adoção', path: '/adoption', color: 'text-purple-500' },
+    { icon: ShoppingBag, label: 'Loja de Digimons', path: '/adoption', color: 'text-purple-500' },
     { icon: BookOpen, label: 'Digidex', path: '/digidex', color: 'text-amber-500' },
     { icon: Package, label: 'Inventário', path: '/inventory', color: 'text-indigo-500' },
   ];
@@ -76,8 +78,11 @@ export default function Navbar() {
         
         {/* Logo & Navigation */}
         <div className="flex items-center space-x-6">
-           <Link to="/" className="flex items-center gap-2">
-             <h2 className="text-lg font-bold bg-gradient-to-r from-primary to-primary/50 bg-clip-text text-transparent">Digimon Omega</h2>
+           <Link to="/">
+             <Button variant="ghost" className="font-bold text-md flex gap-2">
+               <HomeIcon className="h-5 w-5" />
+               Início
+             </Button>
            </Link>
            
            {/* Desktop Navigation */}
@@ -152,7 +157,18 @@ export default function Navbar() {
            
            <div className="flex items-center gap-3 pl-2 border-l ml-2">
              <span className="text-sm font-medium hidden sm:inline-block">{user.username}</span>
-             <Button variant="destructive" size="sm" onClick={handleLogout}>Sair</Button>
+             <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={handleLogout} className="text-red-500 hover:text-red-600 hover:bg-red-100/10">
+                            <LogOut className="h-5 w-5" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Sair</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
            </div>
         </div>
       </div>
