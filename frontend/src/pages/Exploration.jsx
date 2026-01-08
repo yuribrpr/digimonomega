@@ -183,7 +183,7 @@ export default function Exploration() {
     const scroll = (direction) => {
         if (scrollRef.current) {
             const { current } = scrollRef;
-            const scrollAmount = 350; // Card width + gap
+            const scrollAmount = 400; // Card width + gap
             if (direction === 'left') {
                 current.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
             } else {
@@ -212,7 +212,7 @@ export default function Exploration() {
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
                 {maps.map(map => (
-                    <div key={map.id} className="min-w-[300px] w-[300px] snap-start">
+                    <div key={map.id} className="min-w-[350px] w-[350px] snap-start">
                         {renderMapCard(map)}
                     </div>
                 ))}
