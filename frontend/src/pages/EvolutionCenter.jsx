@@ -137,7 +137,7 @@ export default function EvolutionCenter() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[400px] md:h-[600px]">
+              <div className="h-[400px] md:h-[600px] overflow-y-auto custom-scrollbar">
                 <div className="p-2 space-y-1">
                   {userDigimons.map(digi => (
                     <button
@@ -164,7 +164,7 @@ export default function EvolutionCenter() {
                     </button>
                   ))}
                 </div>
-              </ScrollArea>
+              </div>
             </CardContent>
           </Card>
         </div>
