@@ -15,6 +15,7 @@ import MeusDigimons from './pages/MeusDigimons';
 import Adoption from './pages/Adoption';
 import Exploration from './pages/Exploration';
 import Inventory from './pages/Inventory';
+import EvolutionCenter from './pages/EvolutionCenter';
 import Navbar from './components/Navbar';
 import ChatWidget from './components/chat/ChatWidget';
 import { ChatProvider } from './context/ChatContext';
@@ -75,6 +76,11 @@ function App() {
         <Route path="/inventory" element={
             <PrivateRoute>
                 <Inventory />
+            </PrivateRoute>
+        } />
+        <Route path="/evolution-center" element={
+            <PrivateRoute>
+                <EvolutionCenter />
             </PrivateRoute>
         } />
         <Route path="/admin/digidex" element={

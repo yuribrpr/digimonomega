@@ -15,7 +15,8 @@ import {
   LogOut,
   Settings,
   Search,
-  User
+  User,
+  ArrowUpCircle
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -99,6 +100,7 @@ export default function Navbar() {
 
   const navItems = [
     { icon: MapIcon, label: 'Explorar', path: '/exploration', color: 'text-green-500' },
+    { icon: ArrowUpCircle, label: 'Centro de Digievolução', path: '/evolution-center', color: 'text-cyan-500' },
     { icon: Dna, label: 'Digimons', path: '/meus-digimons', color: 'text-blue-500' },
     { icon: ShoppingBag, label: 'Loja de Digimons', path: '/adoption', color: 'text-purple-500' },
     { icon: BookOpen, label: 'Digidex', path: '/digidex', color: 'text-amber-500' },

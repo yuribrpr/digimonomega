@@ -136,6 +136,16 @@ export default function Digidex() {
                     <span className="font-medium">{digimon.evolution_line_id || '-'}</span>
                   </div>
                   
+                  {digimon.required_evoluters > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center text-muted-foreground">
+                            <Zap className="h-3 w-3 mr-1 text-yellow-500" />
+                            <span>Evoluters:</span>
+                        </div>
+                        <span className="font-medium">{digimon.required_evoluters}</span>
+                      </div>
+                  )}
+                  
                   {digimon.next_evolution_id && (
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center text-muted-foreground">

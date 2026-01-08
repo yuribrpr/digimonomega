@@ -540,7 +540,8 @@ exports.attack = async (req, res) => {
                     currentXp = 0;
                 }
 
-                // Evolution Check
+                // Evolution Check (DISABLED - Using Manual Evolution System)
+                /*
                 if (leveledUp) {
                     const [dexRows] = await db.execute('SELECT id, name, next_evolution_id, evolution_level, evolution_line_id FROM digidex WHERE id=?', [currentDigiId]);
                     const dexEntry = dexRows && dexRows[0];
@@ -560,6 +561,7 @@ exports.attack = async (req, res) => {
                         }
                     }
                 }
+                */
 
                 if (leveledUp || evolved) {
                     const updates = [];

@@ -115,8 +115,8 @@ exports.createDigimon = async (req, res) => {
         const bLevel = base_level || 1;
 
         const [result] = await db.execute(
-            'INSERT INTO digidex (name, type, base_hp, base_attack, base_defense, evolution_line_id, next_evolution_id, evolution_level, base_level, sprite_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, type, base_hp, base_attack, base_defense, evolution_line_id, nextEvoId, evoLevel, bLevel, sprite_path]
+            'INSERT INTO digidex (name, type, base_hp, base_attack, base_defense, evolution_line_id, next_evolution_id, evolution_level, base_level, sprite_path, required_evoluters) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, type, base_hp, base_attack, base_defense, evolution_line_id, nextEvoId, evoLevel, bLevel, sprite_path, req.body.required_evoluters || 0]
         );
         res.status(201).json({ message: 'Digimon created', id: result.insertId });
     } catch (error) {
@@ -130,15 +130,16 @@ exports.updateDigimon = async (req, res) => {
         const { id } = req.params;
         const { 
             name, type, base_hp, base_attack, base_defense,
-            evolution_line_id, next_evolution_id, evolution_level, base_level
+            evolution_line_id, next_evolution_id, evolution_level, base_level, required_evoluters
         } = req.body;
         
         const nextEvoId = next_evolution_id || null;
         const evoLevel = evolution_level || null;
         const bLevel = base_level || 1;
+        const reqEvoluters = required_evoluters || 0;
 
-        let query = 'UPDATE digidex SET name=?, type=?, base_hp=?, base_attack=?, base_defense=?, evolution_line_id=?, next_evolution_id=?, evolution_level=?, base_level=?';
-        let params = [name, type, base_hp, base_attack, base_defense, evolution_line_id, nextEvoId, evoLevel, bLevel];
+        let query = 'UPDATE digidex SET name=?, type=?, base_hp=?, base_attack=?, base_defense=?, evolution_line_id=?, next_evolution_id=?, evolution_level=?, base_level=?, required_evoluters=?';
+        let params = [name, type, base_hp, base_attack, base_defense, evolution_line_id, nextEvoId, evoLevel, bLevel, reqEvoluters];
 
         if (req.file) {
             query += ', sprite_path=?';
@@ -159,10 +160,187 @@ exports.updateDigimon = async (req, res) => {
 exports.deleteDigimon = async (req, res) => {
     try {
         const { id } = req.params;
-        await db.execute('DELETE FROM digidex WHERE id = ?', [id]);
+        await db.execute('DELETE FROM digidex WHERE id=?', [id]);
         res.json({ message: 'Digimon deleted' });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error deleting digimon' });
+    }
+};
+
+// --- Evolution System ---
+
+exports.getEvolutionLine = async (req, res) => {
+    try {
+        const { userDigimonId } = req.params;
+        
+        // Get user digimon info
+        const mapping = await resolveUserDigimonsTable();
+        if (!mapping) return res.status(500).json({ message: 'Table error' });
+        const { table, userIdCol, digiIdCol } = mapping;
+
+        const [udRows] = await db.execute(`SELECT * FROM ${table} WHERE id = ?`, [userDigimonId]);
+        if (udRows.length === 0) return res.status(404).json({ message: 'Digimon not found' });
+        const userDigimon = udRows[0];
+
+        // Get current species info to find the line
+        const [dexRows] = await db.execute('SELECT * FROM digidex WHERE id = ?', [userDigimon[digiIdCol]]);
+        if (dexRows.length === 0) return res.status(404).json({ message: 'Species not found' });
+        const currentSpecies = dexRows[0];
+
+        // Get all digimons in this line
+        // If evolution_line_id is null, it might be a standalone or base.
+        // We'll search for anything sharing the same evolution_line_id, OR linked via next_evolution_id graph.
+        // Assuming evolution_line_id is consistently used.
+        let lineQuery = 'SELECT * FROM digidex WHERE evolution_line_id = ? ORDER BY base_level ASC';
+        let lineParams = [currentSpecies.evolution_line_id];
+        
+        if (!currentSpecies.evolution_line_id) {
+            // Fallback: try to find connected nodes (simple up/down 1 level check or just return itself)
+            // For now, return just itself if no line ID
+             lineQuery = 'SELECT * FROM digidex WHERE id = ?';
+             lineParams = [currentSpecies.id];
+        }
+
+        const [lineRows] = await db.execute(lineQuery, lineParams);
+        
+        // Parse unlocked evolutions
+        let unlockedIds = [];
+        try {
+            if (userDigimon.unlocked_evolutions) {
+                unlockedIds = typeof userDigimon.unlocked_evolutions === 'string' 
+                    ? JSON.parse(userDigimon.unlocked_evolutions) 
+                    : userDigimon.unlocked_evolutions;
+            } else {
+                // Fallback if null (shouldn't happen with migration, but safe check)
+                unlockedIds = [userDigimon[digiIdCol]]; 
+            }
+        } catch (e) {
+            unlockedIds = [userDigimon[digiIdCol]];
+        }
+
+        res.json({
+            userDigimon,
+            currentSpecies,
+            line: lineRows,
+            unlockedIds
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error fetching evolution line' });
+    }
+};
+
+exports.unlockEvolution = async (req, res) => {
+    try {
+        const { userDigimonId, targetDigidexId } = req.body;
+        const userId = req.user.id; // Assuming auth middleware adds this
+
+        const mapping = await resolveUserDigimonsTable();
+        const { table } = mapping;
+
+        // 1. Get User Digimon
+        const [udRows] = await db.execute(`SELECT * FROM ${table} WHERE id = ? AND user_id = ?`, [userDigimonId, userId]);
+        if (udRows.length === 0) return res.status(404).json({ message: 'Digimon not found' });
+        const userDigimon = udRows[0];
+
+        // 2. Get Target Species
+        const [targetRows] = await db.execute('SELECT * FROM digidex WHERE id = ?', [targetDigidexId]);
+        if (targetRows.length === 0) return res.status(404).json({ message: 'Target species not found' });
+        const targetSpecies = targetRows[0];
+
+        // 3. Check Requirements
+        // a. Check if already unlocked
+        let unlockedIds = [];
+        try {
+            unlockedIds = userDigimon.unlocked_evolutions ? JSON.parse(userDigimon.unlocked_evolutions) : [];
+        } catch (e) {}
+
+        if (unlockedIds.includes(Number(targetDigidexId))) {
+            return res.status(400).json({ message: 'Evolution already unlocked' });
+        }
+
+        // b. Check Level
+        if (userDigimon.level < targetSpecies.evolution_level) {
+            return res.status(400).json({ message: `Level ${targetSpecies.evolution_level} required` });
+        }
+
+        // c. Check Items (Evoluter ID = 12)
+        const requiredEvoluters = targetSpecies.required_evoluters || 0;
+        if (requiredEvoluters > 0) {
+            const [invRows] = await db.execute('SELECT quantity FROM inventory WHERE user_id = ? AND item_id = 12', [userId]);
+            const userEvoluters = invRows.length > 0 ? invRows[0].quantity : 0;
+
+            if (userEvoluters < requiredEvoluters) {
+                return res.status(400).json({ message: `Insufficient Evoluters. Need ${requiredEvoluters}` });
+            }
+
+            // Deduct items
+            await db.execute('UPDATE inventory SET quantity = quantity - ? WHERE user_id = ? AND item_id = 12', [requiredEvoluters, userId]);
+            // Clean up if 0? Usually keep 0 or delete. Keeping is fine.
+        }
+
+        // 4. Unlock
+        unlockedIds.push(Number(targetDigidexId));
+        await db.execute(`UPDATE ${table} SET unlocked_evolutions = ? WHERE id = ?`, [JSON.stringify(unlockedIds), userDigimonId]);
+
+        res.json({ message: 'Evolution unlocked!', unlockedIds });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error unlocking evolution' });
+    }
+};
+
+exports.evolveDigimon = async (req, res) => {
+    try {
+        const { userDigimonId, targetDigidexId } = req.body;
+        const userId = req.user.id;
+
+        const mapping = await resolveUserDigimonsTable();
+        const { table, digiIdCol } = mapping;
+
+        // 1. Get User Digimon
+        const [udRows] = await db.execute(`SELECT * FROM ${table} WHERE id = ? AND user_id = ?`, [userDigimonId, userId]);
+        if (udRows.length === 0) return res.status(404).json({ message: 'Digimon not found' });
+        const userDigimon = udRows[0];
+
+        // 2. Check if unlocked
+        let unlockedIds = [];
+        try {
+            unlockedIds = userDigimon.unlocked_evolutions ? JSON.parse(userDigimon.unlocked_evolutions) : [];
+        } catch (e) {}
+
+        if (!unlockedIds.includes(Number(targetDigidexId))) {
+            return res.status(400).json({ message: 'Evolution not unlocked' });
+        }
+
+        // 3. Evolve (Switch Form)
+        // Note: Stats (HP/ATK/DEF) should probably be recalculated or updated?
+        // Current implementation in adoption/adminGive seems to define current stats.
+        // If we switch form, we should probably update base stats to the new form + bonus.
+        // For simplicity, let's update stats based on new form base + level.
+        
+        const [targetRows] = await db.execute('SELECT * FROM digidex WHERE id = ?', [targetDigidexId]);
+        const targetSpecies = targetRows[0];
+
+        const hp = targetSpecies.base_hp + (userDigimon.level * 10);
+        const atk = targetSpecies.base_attack + (userDigimon.level * 2);
+        const def = targetSpecies.base_defense + (userDigimon.level * 2);
+
+        await db.execute(
+            `UPDATE ${table} SET ${digiIdCol} = ?, max_hp = ?, attack = ?, defense = ? WHERE id = ?`,
+            [targetDigidexId, hp, atk, def, userDigimonId]
+        );
+        
+        // Also heal to full? Or keep percentage? Let's heal to full max for now as a bonus.
+        await db.execute(`UPDATE ${table} SET current_hp = max_hp WHERE id = ?`, [userDigimonId]);
+
+        res.json({ message: 'Digimon evolved!', newSpecies: targetSpecies });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error evolving digimon' });
     }
 };

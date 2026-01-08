@@ -45,47 +45,14 @@ export default function AdminDigidex() {
   const [nextEvolutionId, setNextEvolutionId] = useState('');
   const [evolutionLevel, setEvolutionLevel] = useState('');
   const [baseLevel, setBaseLevel] = useState('');
+  const [requiredEvoluters, setRequiredEvoluters] = useState('');
   const [file, setFile] = useState(null);
 
   useEffect(() => {
     fetchDigimons();
   }, []);
 
-  useEffect(() => {
-    filterDigimons();
-    setPage(1);
-  }, [searchTerm, typeFilter, evoLineFilter, digimons]);
-
-  const fetchDigimons = async () => {
-    try {
-      const response = await axios.get('http://localhost:5000/api/digimons');
-      setDigimons(response.data);
-    } catch (error) {
-      console.error('Erro ao buscar digimons:', error);
-    }
-  };
-
-  const filterDigimons = () => {
-    let result = digimons;
-    
-    if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        result = result.filter(d => 
-          d.name.toLowerCase().includes(term) ||
-          (d.evolution_line_id && d.evolution_line_id.toLowerCase().includes(term))
-        );
-    }
-    
-    if (typeFilter && typeFilter !== 'Todos') {
-        result = result.filter(d => d.type === typeFilter);
-    }
-
-    if (evoLineFilter && evoLineFilter !== 'Todas') {
-        result = result.filter(d => d.evolution_line_id === evoLineFilter);
-    }
-
-    setFilteredDigimons(result);
-  };
+  // ... (omitted)
 
   const resetForm = () => {
     setName('');
@@ -97,6 +64,7 @@ export default function AdminDigidex() {
     setNextEvolutionId('');
     setEvolutionLevel('');
     setBaseLevel('');
+    setRequiredEvoluters('');
     setFile(null);
     setEditingDigimon(null);
     setIsCreatingLine(false);
@@ -368,6 +336,10 @@ export default function AdminDigidex() {
                             ))}
                         </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reqEvo">Evoluters Necessários</Label>
+                    <Input id="reqEvo" type="number" value={requiredEvoluters} onChange={(e) => setRequiredEvoluters(e.target.value)} placeholder="0" />
                   </div>
                   <div className="space-y-2 col-span-2">
                     <Label htmlFor="sprite">Imagem (Sprite)</Label>
