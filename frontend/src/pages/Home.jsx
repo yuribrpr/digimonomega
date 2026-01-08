@@ -320,46 +320,10 @@ export default function Home() {
              </Card>
           </div>
 
-          {/* Right Column: Navigation Grid */}
-          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4 content-start">
-             <NavCard 
-               title="Explorar Mundo" 
-               description="Viaje por mapas, lute contra inimigos e treine seu Digimon."
-               icon={MapIcon}
-               to="/exploration"
-               colorClass="text-green-500"
-             />
-             <NavCard 
-               title="Meus Digimons" 
-               description="Gerencie sua equipe, evolua e veja detalhes."
-               icon={Dna}
-               to="/meus-digimons"
-               colorClass="text-blue-500"
-             />
-             <NavCard 
-               title="Centro de Adoção" 
-               description="Encontre novos ovos e expanda sua coleção."
-               icon={HomeIcon}
-               to="/adoption"
-               colorClass="text-purple-500"
-             />
-             <NavCard 
-               title="Digidex" 
-               description="Enciclopédia completa de dados Digimon."
-               icon={BookOpen}
-               to="/digidex"
-               colorClass="text-amber-500"
-             />
-             <NavCard 
-               title="Inventário" 
-               description="Gerencie seus itens e equipamentos."
-               icon={Package}
-               to="/inventory"
-               colorClass="text-indigo-500"
-             />
-
+          {/* Right Column: Global Ranking */}
+          <div className="lg:col-span-7 flex flex-col gap-4">
              {/* Global Ranking */}
-             <Card className="col-span-1 sm:col-span-2 mt-4 shadow-sm border-muted">
+             <Card className="h-full shadow-sm border-muted">
                 <CardHeader className="py-4 pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
                     <Trophy className="w-4 h-4 text-muted-foreground" />
