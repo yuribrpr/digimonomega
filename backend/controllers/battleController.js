@@ -404,7 +404,7 @@ exports.attack = async (req, res) => {
         const { table, digiIdCol } = mapping;
         const userCols = await getColumns(table);
         const xpCol = pick(userCols, ['xp', 'experience', 'exp']);
-        const bitsCol = pick(userCols, ['bits', 'money', 'gold']);
+        // const bitsCol = pick(userCols, ['bits', 'money', 'gold']); // Bits are stored in users table
         const levelCol = pick(userCols, ['level', 'base_level', 'lvl']);
         const hpCol = pick(userCols, ['max_hp', 'hp', 'vida']);
         const atkCol = pick(userCols, ['attack', 'atk', 'ataque', 'forca']);
@@ -416,14 +416,17 @@ exports.attack = async (req, res) => {
           sets.push(`${xpCol} = COALESCE(${xpCol}, 0) + ?`);
           params.push(xpGain);
         }
-        if (bitsCol) {
-          sets.push(`${bitsCol} = COALESCE(${bitsCol}, 0) + ?`);
-          params.push(bitsGain);
-        }
+        // if (bitsCol) {
+        //   sets.push(`${bitsCol} = COALESCE(${bitsCol}, 0) + ?`);
+        //   params.push(bitsGain);
+        // }
 
         if (sets.length > 0) {
            await db.execute(`UPDATE ${table} SET ${sets.join(', ')} WHERE id=?`, [...params, battle.user_digimon_id]);
         }
+
+        // Update bits in users table
+        await db.execute('UPDATE users SET bits = COALESCE(bits, 0) + ? WHERE id = ?', [bitsGain, battle.user_id]);
 
         // --- LEVEL UP & EVOLUTION LOGIC ---
         if (xpCol && levelCol) {
