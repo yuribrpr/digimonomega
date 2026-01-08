@@ -97,6 +97,18 @@ async function getAnyDigimonIdForUser(userId) {
   return rows && rows[0] ? rows[0].digimon_id : null;
 }
 
+async function ensureBattleColumns() {
+    try {
+        const [rows] = await db.execute('DESCRIBE battles');
+        const fields = rows.map(r => r.Field);
+        if (!fields.includes('enemy_multiplier')) {
+            await db.execute('ALTER TABLE battles ADD COLUMN enemy_multiplier FLOAT DEFAULT 1.0');
+        }
+    } catch (error) {
+        console.error('Error ensuring battle columns:', error);
+    }
+}
+
 exports.getSchema = async (req, res) => {
   try {
     const [describeRows] = await db.execute('DESCRIBE battles');
@@ -127,6 +139,8 @@ exports.startBattle = async (req, res) => {
     if (!userDigimon) return res.status(404).json({ message: 'Digimon não encontrado' });
     
     // Map item requirement validation & consumption
+    let mapDifficulty = 1.0;
+    
     if (map_id) {
       // Ensure columns exist; if not, skip silently
       try {
@@ -134,13 +148,18 @@ exports.startBattle = async (req, res) => {
         const colNames = mapCols.map(c => c.Field);
         const hasReq = colNames.includes('require_item') && colNames.includes('required_item_id') && colNames.includes('consume_on_enter');
         
-        // Fetch map details including is_active if available
+        // Fetch map details including is_active and difficulty if available
         let query = 'SELECT require_item, required_item_id, consume_on_enter';
         if (colNames.includes('is_active')) query += ', is_active';
+        if (colNames.includes('difficulty')) query += ', difficulty';
         query += ' FROM maps WHERE id = ? LIMIT 1';
 
         const [mapRows] = await db.execute(query, [map_id]);
         const mapRow = mapRows && mapRows[0];
+
+        if (mapRow && mapRow.difficulty) {
+            mapDifficulty = parseFloat(mapRow.difficulty) || 1.0;
+        }
 
         // Check if map is active
         if (mapRow && colNames.includes('is_active')) {
@@ -193,6 +212,11 @@ exports.startBattle = async (req, res) => {
     const enemy = enemyRows && enemyRows[0];
     if (!enemy) return res.status(404).json({ message: 'Nenhum inimigo disponível' });
     
+    // Apply difficulty multiplier
+    const enemyHp = Math.floor((Number(enemy.hp) || 0) * mapDifficulty);
+    const enemyAtk = Math.floor((Number(enemy.attack) || 0) * mapDifficulty);
+    const enemyDef = Math.floor((Number(enemy.defense) || 0) * mapDifficulty);
+
     let effHp = Number(userDigimon.base_hp || 0);
     let effAtk = Number(userDigimon.base_attack || 0);
     let effDef = Number(userDigimon.base_defense || 0);
@@ -232,16 +256,19 @@ exports.startBattle = async (req, res) => {
     // Calcular XP necessário para o próximo nível (Fórmula simples: level * 100)
     const nextLevelXp = level * 100;
 
-    const insertCols = ['user_id', 'user_digimon_id', 'enemy_id', 'enemy_current_hp', 'enemy_max_hp', 'user_current_hp', 'user_max_hp', 'status'];
+    await ensureBattleColumns();
+
+    const insertCols = ['user_id', 'user_digimon_id', 'enemy_id', 'enemy_current_hp', 'enemy_max_hp', 'user_current_hp', 'user_max_hp', 'status', 'enemy_multiplier'];
     const params = [
       user_id, 
       userDigimonRow.id, 
       enemy.id, 
-      Number(enemy.hp || 0), 
-      Number(enemy.hp || 0), 
+      enemyHp, 
+      enemyHp, 
       currentHp, // user_current_hp recuperado do user_digimons
       effHp, // user_max_hp calculado
-      'active'
+      'active',
+      mapDifficulty
     ];
     const sql = `INSERT INTO battles (${insertCols.join(', ')}) VALUES (${insertCols.map(() => '?').join(', ')})`;
     const [result] = await db.execute(sql, params);
@@ -262,10 +289,10 @@ exports.startBattle = async (req, res) => {
       enemy: {
         id: enemy.id,
         name: enemy.name,
-        hp: Number(enemy.hp || 0),
-        max_hp: Number(enemy.hp || 0),
-        attack: Number(enemy.attack || 0),
-        defense: Number(enemy.defense || 0),
+        hp: enemyHp,
+        max_hp: enemyHp,
+        attack: enemyAtk,
+        defense: enemyDef,
         difficulty: enemy.difficulty || 'Normal',
         sprite_path: enemy.sprite_path || null
       },
@@ -287,9 +314,11 @@ exports.attack = async (req, res) => {
   try {
     const { id } = req.params;
     // Agora buscamos user_current_hp e user_max_hp da tabela battles
-    const [battleRows] = await db.execute(`SELECT user_id, user_digimon_id, enemy_id, enemy_current_hp, enemy_max_hp, user_current_hp, user_max_hp FROM battles WHERE id=?`, [id]);
+    const [battleRows] = await db.execute(`SELECT user_id, user_digimon_id, enemy_id, enemy_current_hp, enemy_max_hp, user_current_hp, user_max_hp, enemy_multiplier FROM battles WHERE id=?`, [id]);
     const battle = battleRows && battleRows[0];
     if (!battle) return res.status(404).json({ message: 'Batalha não encontrada' });
+    
+    const enemyMultiplier = battle.enemy_multiplier || 1.0;
 
     const mapping = await findPrincipalMappingTable();
     if (!mapping) return res.status(500).json({ message: 'Tabela users_digimons não encontrada' });
@@ -316,8 +345,8 @@ exports.attack = async (req, res) => {
     console.log('Attack ATK calc:', { atkCol, base: Number(userDigimon?.base_attack || 0), stored: atkCol ? Number(map[atkCol] || 0) : null, bonus: bonusAtk, final: userAtk });
     let userDef = (defCol ? Number(map[defCol] || 0) : Number(userDigimon?.base_defense || 0)) + bonusDef;
     
-    const enemyAtk = Number(enemy?.attack || 0);
-    const enemyDef = Number(enemy?.defense || 0);
+    const enemyAtk = Math.floor(Number(enemy?.attack || 0) * enemyMultiplier);
+    const enemyDef = Math.floor(Number(enemy?.defense || 0) * enemyMultiplier);
 
     const rawUserDamage = userAtk - enemyDef / 2;
     let userFactor = Math.random() < 0.8 ? (1.02 + Math.random() * 0.13) : (0.90 + Math.random() * 0.09);
@@ -370,8 +399,8 @@ exports.attack = async (req, res) => {
       });
 
       // Calcular recompensas usando dados do banco se disponíveis
-      const baseXp = enemy.exp_reward ? Number(enemy.exp_reward) : Math.floor((Number(enemy.hp || 10) + Number(enemy.attack || 0)) / 2);
-      const baseBits = enemy.bits_reward ? Number(enemy.bits_reward) : Math.floor(baseXp * 1.5);
+      const baseXp = Math.floor((enemy.exp_reward ? Number(enemy.exp_reward) : Math.floor((Number(enemy.hp || 10) + Number(enemy.attack || 0)) / 2)) * enemyMultiplier);
+      const baseBits = Math.floor((enemy.bits_reward ? Number(enemy.bits_reward) : Math.floor(baseXp * 1.5)) * enemyMultiplier);
       
       const xpGain = Math.floor(baseXp * xpMult);
       const bitsGain = Math.floor(baseBits * bitsMult);
@@ -720,6 +749,20 @@ exports.flee = async (req, res) => {
     const { id } = req.params;
     const { map_id } = req.body; // Receive map_id from request
 
+    let mapDifficulty = 1.0;
+
+    // Get map difficulty first
+    if (map_id) {
+        try {
+            const [mapRows] = await db.execute('SELECT difficulty FROM maps WHERE id = ?', [map_id]);
+            if (mapRows && mapRows.length > 0) {
+                mapDifficulty = parseFloat(mapRows[0].difficulty) || 1.0;
+            }
+        } catch (e) {
+            console.error('Error fetching map difficulty in flee:', e);
+        }
+    }
+
     let enemyQuery = 'SELECT id, name, hp, attack, defense, difficulty, sprite_path FROM enemydex';
     let enemyParams = [];
 
@@ -741,16 +784,21 @@ exports.flee = async (req, res) => {
     const enemy = enemyRows && enemyRows[0];
     if (!enemy) return res.status(404).json({ message: 'Nenhum inimigo disponível' });
 
-    await db.execute(`UPDATE battles SET enemy_id=?, enemy_current_hp=?, enemy_max_hp=? WHERE id=?`, [enemy.id, Number(enemy.hp || 0), Number(enemy.hp || 0), id]);
+    // Apply difficulty
+    const enemyHp = Math.floor((Number(enemy.hp) || 0) * mapDifficulty);
+    const enemyAtk = Math.floor((Number(enemy.attack) || 0) * mapDifficulty);
+    const enemyDef = Math.floor((Number(enemy.defense) || 0) * mapDifficulty);
+
+    await db.execute(`UPDATE battles SET enemy_id=?, enemy_current_hp=?, enemy_max_hp=?, enemy_multiplier=? WHERE id=?`, [enemy.id, enemyHp, enemyHp, mapDifficulty, id]);
 
     res.json({
       id,
       enemy: {
         id: enemy.id,
         name: enemy.name,
-        hp: Number(enemy.hp || 0),
-        attack: Number(enemy.attack || 0),
-        defense: Number(enemy.defense || 0),
+        hp: enemyHp,
+        attack: enemyAtk,
+        defense: enemyDef,
         difficulty: enemy.difficulty || 'Normal',
         sprite_path: enemy.sprite_path || null
       },

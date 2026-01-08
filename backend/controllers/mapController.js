@@ -18,6 +18,9 @@ async function ensureRequirementColumns() {
   if (!names.includes('is_active')) {
     await db.execute('ALTER TABLE maps ADD COLUMN is_active TINYINT(1) DEFAULT 1');
   }
+  if (!names.includes('difficulty')) {
+    await db.execute('ALTER TABLE maps ADD COLUMN difficulty FLOAT DEFAULT 1.0');
+  }
 }
 
 exports.getAllMaps = async (req, res) => {
@@ -43,7 +46,7 @@ exports.getAllMaps = async (req, res) => {
 
 exports.createMap = async (req, res) => {
   try {
-    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active } = req.body;
+    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active, difficulty } = req.body;
     const image_path = req.file ? `assets/maps/${req.file.filename}` : null;
 
     if (!name) return res.status(400).json({ message: 'Nome é obrigatório' });
@@ -67,11 +70,12 @@ exports.createMap = async (req, res) => {
 
     // Set requirement fields (after insert to avoid dynamic columns list)
     await db.execute(
-      'UPDATE maps SET require_item = ?, required_item_id = ?, consume_on_enter = ? WHERE id = ?',
+      'UPDATE maps SET require_item = ?, required_item_id = ?, consume_on_enter = ?, difficulty = ? WHERE id = ?',
       [
         require_item === 'true' || require_item === 1 || require_item === true ? 1 : 0,
         required_item_id ? Number(required_item_id) : null,
         consume_on_enter === 'true' || consume_on_enter === 1 || consume_on_enter === true ? 1 : 0,
+        difficulty ? parseFloat(difficulty) : 1.0,
         mapId
       ]
     );
@@ -102,7 +106,7 @@ exports.createMap = async (req, res) => {
 exports.updateMap = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active } = req.body;
+    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active, difficulty } = req.body;
     
     // Check if map exists
     const [existing] = await db.execute('SELECT * FROM maps WHERE id = ?', [id]);
@@ -131,11 +135,12 @@ exports.updateMap = async (req, res) => {
 
     // Update requirement fields
     await db.execute(
-      'UPDATE maps SET require_item = ?, required_item_id = ?, consume_on_enter = ? WHERE id = ?',
+      'UPDATE maps SET require_item = ?, required_item_id = ?, consume_on_enter = ?, difficulty = ? WHERE id = ?',
       [
         require_item === 'true' || require_item === 1 || require_item === true ? 1 : 0,
         required_item_id ? Number(required_item_id) : null,
         consume_on_enter === 'true' || consume_on_enter === 1 || consume_on_enter === true ? 1 : 0,
+        difficulty ? parseFloat(difficulty) : 1.0,
         id
       ]
     );

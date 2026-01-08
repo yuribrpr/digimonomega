@@ -29,6 +29,7 @@ export default function AdminMaps() {
   const [requiredItemId, setRequiredItemId] = useState('');
   const [consumeOnEnter, setConsumeOnEnter] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [difficulty, setDifficulty] = useState(1.0);
 
   useEffect(() => {
     fetchMaps();
@@ -75,6 +76,7 @@ export default function AdminMaps() {
     setRequiredItemId('');
     setConsumeOnEnter(false);
     setIsActive(true);
+    setDifficulty(1.0);
   };
 
   const handleEdit = (map) => {
@@ -90,6 +92,7 @@ export default function AdminMaps() {
     setRequiredItemId(map.required_item_id ? String(map.required_item_id) : '');
     setConsumeOnEnter(Boolean(map.consume_on_enter));
     setIsActive(map.is_active !== undefined ? Boolean(map.is_active) : true);
+    setDifficulty(map.difficulty ? parseFloat(map.difficulty) : 1.0);
     setIsOpen(true);
   };
 
@@ -116,6 +119,7 @@ export default function AdminMaps() {
     formData.append('required_item_id', requiredItemId || '');
     formData.append('consume_on_enter', consumeOnEnter ? 'true' : 'false');
     formData.append('is_active', isActive ? 'true' : 'false');
+    formData.append('difficulty', difficulty.toString());
 
     try {
         if (editingId) {
@@ -191,9 +195,15 @@ export default function AdminMaps() {
                   </Select>
                 </div>
               </div>
-              <div className="space-y-2">
-                  <Label htmlFor="minLevel">Nível Mínimo</Label>
-                  <Input id="minLevel" type="number" value={minLevel} onChange={(e) => setMinLevel(e.target.value)} required min="1" />
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                      <Label htmlFor="minLevel">Nível Mínimo</Label>
+                      <Input id="minLevel" type="number" value={minLevel} onChange={(e) => setMinLevel(e.target.value)} required min="1" />
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="difficulty">Dificuldade (Mult. Inimigo)</Label>
+                      <Input id="difficulty" type="number" value={difficulty} onChange={(e) => setDifficulty(e.target.value)} required min="0.1" step="0.1" />
+                  </div>
               </div>
               
               <div className="space-y-2">
@@ -318,6 +328,11 @@ export default function AdminMaps() {
                     <Badge variant="secondary" className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm">
                         Lvl {map.min_level}+
                     </Badge>
+                    {map.difficulty && map.difficulty != 1 && (
+                        <Badge variant="destructive" className="bg-red-600/80 hover:bg-red-600/90 text-white backdrop-blur-sm">
+                            x{map.difficulty}
+                        </Badge>
+                    )}
                 </div>
             </div>
             <CardHeader className="p-4 pb-2">
