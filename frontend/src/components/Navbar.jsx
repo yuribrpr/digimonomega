@@ -255,7 +255,7 @@ export default function Navbar({ isPlaying, toggleMusic }) {
                 </div>
              </div>
              <Avatar className="h-9 w-9 cursor-pointer border-2 border-border hover:border-primary transition-colors">
-                <AvatarImage src={`http://localhost:5000/${userStats.profile_image}`} className="object-cover" />
+                <AvatarImage src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${userStats.profile_image}`} className="object-cover" />
                 <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">{user.username.substring(0,2).toUpperCase()}</AvatarFallback>
              </Avatar>
            </div>

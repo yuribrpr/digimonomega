@@ -308,7 +308,7 @@ export default function EvolutionCenter() {
                                                         </div>
                                                         <div className="h-16 w-full rounded-lg flex items-center justify-center p-1 bg-transparent">
                                                             <img 
-                                                                src={`http://localhost:5000/${evo.sprite_path}`} 
+                                                                src={`${API_URL}/${evo.sprite_path}`} 
                                                                 className={`h-full object-contain transition-all duration-500 ${!visualUnlocked ? 'grayscale blur-[1px]' : 'hover:scale-110'}`} 
                                                                 alt={evo.name} 
                                                             />
@@ -328,10 +328,10 @@ export default function EvolutionCenter() {
                                                                                 <TooltipTrigger asChild>
                                                                                     <span className={`flex items-center gap-0.5 cursor-help px-1 py-0 rounded border ${userItemQty >= reqItemQty ? 'bg-green-500/10 border-green-500/20 text-green-700' : 'bg-secondary border-border text-muted-foreground'}`}>
                                                                                         <img 
-                                                                                            src={`http://localhost:5000/${reqItemIcon}`} 
-                                                                                            alt={reqItemName} 
-                                                                                            className="h-2.5 w-2.5 object-contain" 
-                                                                                        />
+                                                            src={`${API_URL}/${reqItemIcon}`} 
+                                                            alt={reqItemName} 
+                                                            className="h-2.5 w-2.5 object-contain" 
+                                                        />
                                                                                         {reqItemQty}
                                                                                     </span>
                                                                                 </TooltipTrigger>
@@ -413,7 +413,7 @@ export default function EvolutionCenter() {
                         <div className="absolute inset-4 border-2 border-purple-500/30 rounded-full animate-[spin_4s_linear_infinite_reverse]" />
                         {/* Sprite */}
                         <img 
-                            src={`http://localhost:5000/${unlockedEvolution.sprite_path}`}
+                            src={`${API_URL}/${unlockedEvolution.sprite_path}`}
                             alt={unlockedEvolution.name}
                             className="relative z-10 w-40 h-40 object-contain animate-in zoom-in-0 duration-700" 
                         />

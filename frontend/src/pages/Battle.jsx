@@ -622,7 +622,7 @@ export default function Battle() {
                     >
                         <div className="flex flex-col items-center p-2 bg-muted/40 rounded hover:bg-muted/60 transition-colors cursor-help">
                             {drop.icon ? (
-                                <img src={`http://localhost:5000/${drop.icon}`} alt={drop.name} className="w-8 h-8 object-contain mb-1" />
+                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${drop.icon}`} alt={drop.name} className="w-8 h-8 object-contain mb-1" />
                             ) : (
                                 <div className="w-8 h-8 bg-slate-200 rounded-full mb-1 flex items-center justify-center text-[8px]">?</div>
                             )}

@@ -343,7 +343,7 @@ export default function AdminEnemydex() {
                             {items.map((item) => (
                               <SelectItem key={item.id} value={String(item.id)}>
                                 <div className="flex items-center gap-2">
-                                  {item.icon && <img src={`http://localhost:5000/${item.icon}`} alt="" className="w-4 h-4 object-contain" />}
+                                  {item.icon && <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${item.icon}`} alt="" className="w-4 h-4 object-contain" />}
                                   {item.name}
                                 </div>
                               </SelectItem>

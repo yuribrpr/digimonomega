@@ -140,8 +140,8 @@ export default function Home() {
                            <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full group-hover:bg-primary/10 transition-all duration-700" />
                            {mainDigimon.sprite_path ? (
                               <img 
-                                src={`http://localhost:5000/${mainDigimon.sprite_path}`} 
-                                alt={mainDigimon.species_name}
+                src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${mainDigimon.sprite_path}`} 
+                alt={mainDigimon.species_name}
                                 className="w-40 h-40 object-contain relative z-10 drop-shadow-2xl transition-all duration-500"
                               />
                            ) : (
