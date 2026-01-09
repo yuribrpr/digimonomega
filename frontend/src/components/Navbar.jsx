@@ -16,7 +16,9 @@ import {
   Settings,
   Search,
   User,
-  ArrowUpCircle
+  ArrowUpCircle,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -26,7 +28,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 
-export default function Navbar() {
+export default function Navbar({ isPlaying, toggleMusic }) {
   const navigate = useNavigate();
   const location = useLocation();
   const user = JSON.parse(localStorage.getItem('user'));
@@ -228,6 +230,11 @@ export default function Navbar() {
               <span className="font-mono text-sm font-bold">{userBits.toLocaleString()}</span>
            </div>
 
+           {toggleMusic && (
+             <Button variant="ghost" size="icon" onClick={toggleMusic}>
+               {isPlaying ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+             </Button>
+           )}
            <Button variant="ghost" size="icon" onClick={() => setIsDarkMode(!isDarkMode)}>
              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
            </Button>

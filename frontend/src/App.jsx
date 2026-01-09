@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -31,10 +32,36 @@ function AdminRoute({ children }) {
 }
 
 function App() {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef(null);
+  // URL substituída por uma de teste confiável (SoundHelix) para evitar erro 403.
+  // Você pode substituir por qualquer link direto (ex: arquivo no GitHub, S3, ou local na pasta public)
+  const BGM_URL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"; 
+
+  const toggleMusic = () => {
+    setIsPlaying(!isPlaying);
+  };
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = 0.3; // Volume aumentado para 30%
+      audioRef.current.loop = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isPlaying) {
+      audioRef.current.play().catch(e => console.error("Audio play failed:", e));
+    } else {
+      audioRef.current.pause();
+    }
+  }, [isPlaying]);
+
   return (
     <ChatProvider>
       <Router>
-        <Navbar />
+        <audio ref={audioRef} src={BGM_URL} preload="auto" />
+        <Navbar isPlaying={isPlaying} toggleMusic={toggleMusic} />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
