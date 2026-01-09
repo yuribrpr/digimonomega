@@ -81,8 +81,9 @@ export default function EvolutionCenter() {
   };
   const fetchUserDigimons = async () => {
     try {
+      if (!user?.id) return;
       const res = await api.get(`/api/users/${user.id}/digimons`);
-      setDigimons(res.data);
+      setUserDigimons(res.data);
       if (res.data.length > 0 && !selectedDigimon) {
         const main = res.data.find(d => d.is_main) || res.data[0];
         setSelectedDigimon(main);

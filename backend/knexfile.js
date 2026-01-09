@@ -20,7 +20,11 @@ module.exports = {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME
+      database: process.env.DB_NAME,
+      port: 4000, // TiDB geralmente usa a porta 4000, confirme se é essa ou 3306
+      ssl: {
+        rejectUnauthorized: false
+      }
     },
     migrations: {
       tableName: 'knex_migrations',
