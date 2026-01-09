@@ -71,7 +71,7 @@ export default function Adoption() {
           >
             <div className="aspect-square bg-muted/30 flex items-center justify-center p-4">
                 <img 
-                  src={''/' + d.sprite_path} 
+                  src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${d.sprite_path}`} 
                   alt={d.name} 
                   className="w-16 h-16 object-contain drop-shadow-sm transition-transform group-hover:scale-110" 
                   style={{imageRendering: 'pixelated'}}

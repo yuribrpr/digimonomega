@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import GlobalTooltip from '@/components/GlobalTooltip';
 import NewsList from '@/components/NewsList';
-import { 
 import api from '../services/api';
+import { 
   Map as MapIcon, 
   Dna, 
   Home as HomeIcon, 

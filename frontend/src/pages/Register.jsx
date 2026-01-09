@@ -15,7 +15,7 @@ const STARTERS = [
     type: 'Vaccine',
     description: 'Alto potencial de ataque.',
     stats: { hp: 100, atk: 12, def: 8 },
-    image: ''/assets/sprites/695db86a2548c.gif',
+    image: (import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/assets/sprites/695db86a2548c.gif',
   },
   {
     id: 5,
@@ -23,7 +23,7 @@ const STARTERS = [
     type: 'Data',
     description: 'Leal e ágil.',
     stats: { hp: 90, atk: 11, def: 9 },
-    image: ''/assets/sprites/695dbb1f46cb2.gif',
+    image: (import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/assets/sprites/695dbb1f46cb2.gif',
   },
   {
     id: 13,
@@ -31,7 +31,7 @@ const STARTERS = [
     type: 'Data',
     description: 'Suporte equilibrado.',
     stats: { hp: 110, atk: 8, def: 11 },
-    image: ''/assets/sprites/695dbfae99fad.gif',
+    image: (import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/assets/sprites/695dbfae99fad.gif',
   }
 ];
 export default function Register() {

@@ -463,7 +463,7 @@ export default function Battle() {
                    <div className="w-40 h-40 flex items-center justify-center">
                     {enemy?.sprite_path ? (
                       <img 
-                        src={''/' + enemy.sprite_path} 
+                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${enemy.sprite_path}`} 
                         alt={enemy?.name} 
                         className={`h-full object-contain ${isBoss ? 'drop-shadow-[0_0_15px_rgba(220,38,38,0.5)]' : ''}`} 
                       />
@@ -660,7 +660,7 @@ export default function Battle() {
             <Button className="w-full" onClick={async () => {
               if (mapDetails && mapDetails.require_item === 1 && mapDetails.consume_on_enter === 1 && Number(mapDetails.required_item_id)) {
                 try {
-                  const res = await api.get(/api/items/user/${user.id}`);
+                  const res = await api.get(`/api/items/user/${user.id}`);
                   const inv = res.data || [];
                   const hasItem = inv.some(x => Number(x.id) === Number(mapDetails.required_item_id) && Number(x.quantity) > 0);
                   if (!hasItem) {
