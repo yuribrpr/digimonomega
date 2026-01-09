@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -7,32 +6,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Swords, Shield, ShoppingBag } from 'lucide-react';
-
+import api from '../services/api';
 export default function Adoption() {
   const [digimons, setDigimons] = useState([]);
   const [selectedDigimon, setSelectedDigimon] = useState(null);
   const [nickname, setNickname] = useState('');
   const [loading, setLoading] = useState(false);
   const user = JSON.parse(localStorage.getItem('user'));
-
   useEffect(() => {
     fetchDigimons();
   }, []);
-
   const fetchDigimons = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/adoption/available');
+      const res = await api.get('/api/adoption/available');
       setDigimons(res.data);
     } catch (error) {
       console.error(error);
     }
   };
-
   const handleAdopt = async () => {
     if (!selectedDigimon) return;
     setLoading(true);
     try {
-      await axios.post('http://localhost:5000/api/adoption/adopt', {
+      await api.post('/api/adoption/adopt', {
         user_id: user.id,
         digimon_id: selectedDigimon.id,
         nickname: nickname
@@ -45,7 +41,6 @@ export default function Adoption() {
     }
     setLoading(false);
   };
-
   const getTypeBadgeVariant = (type) => {
     switch (type?.toLowerCase()) {
       case 'vacina': return 'default'; 
@@ -54,7 +49,6 @@ export default function Adoption() {
       default: return 'outline';
     }
   };
-
   return (
     <div className="container mx-auto p-6 max-w-6xl space-y-6">
       <div className="flex justify-between items-center border-b pb-4">
@@ -68,7 +62,6 @@ export default function Adoption() {
           </p>
         </div>
       </div>
-      
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {digimons.map(d => (
           <Card 
@@ -78,7 +71,7 @@ export default function Adoption() {
           >
             <div className="aspect-square bg-muted/30 flex items-center justify-center p-4">
                 <img 
-                  src={'http://localhost:5000/' + d.sprite_path} 
+                  src={''/' + d.sprite_path} 
                   alt={d.name} 
                   className="w-16 h-16 object-contain drop-shadow-sm transition-transform group-hover:scale-110" 
                   style={{imageRendering: 'pixelated'}}
@@ -87,12 +80,10 @@ export default function Adoption() {
                     {d.type}
                 </Badge>
             </div>
-            
             <CardContent className="p-3">
               <div className="flex justify-between items-start mb-2">
                 <h3 className="font-bold text-sm truncate">{d.name}</h3>
               </div>
-              
               <div className="flex justify-between text-xs text-muted-foreground bg-muted/50 p-1.5 rounded-md">
                 <div className="flex items-center gap-1">
                     <Heart className="h-3 w-3" /> {d.base_hp}
@@ -102,7 +93,6 @@ export default function Adoption() {
                 </div>
               </div>
             </CardContent>
-            
             <CardFooter className="p-3 pt-0">
                 <Button size="sm" variant="secondary" className="w-full text-xs h-8 opacity-0 group-hover:opacity-100 transition-opacity">
                     Adotar
@@ -111,7 +101,6 @@ export default function Adoption() {
           </Card>
         ))}
       </div>
-
       <Dialog open={!!selectedDigimon} onOpenChange={(open) => !open && setSelectedDigimon(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -120,19 +109,17 @@ export default function Adoption() {
               Personalize seu novo parceiro.
             </DialogDescription>
           </DialogHeader>
-          
           <div className="flex flex-col items-center gap-6 py-4">
              {selectedDigimon && (
                 <div className="w-24 h-24 bg-muted/30 rounded-lg flex items-center justify-center border-2 border-muted">
                     <img 
-                        src={'http://localhost:5000/' + selectedDigimon.sprite_path} 
+                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${selectedDigimon.sprite_path}`} 
                         alt={selectedDigimon.name} 
                         className="w-16 h-16 object-contain"
                         style={{imageRendering: 'pixelated'}}
                     />
                 </div>
              )}
-            
             <div className="grid w-full gap-2">
                 <Label htmlFor="nickname">Apelido</Label>
                 <Input 
@@ -143,7 +130,6 @@ export default function Adoption() {
                 />
             </div>
           </div>
-          
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedDigimon(null)}>Cancelar</Button>
             <Button onClick={handleAdopt} disabled={loading}>Confirmar</Button>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
+import api from '../services/api';
   Backpack,
   Zap, 
   Shield, 
@@ -24,23 +24,20 @@ import {
   Plus,
   Minus
 } from 'lucide-react';
-
 export default function Inventory() {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const user = JSON.parse(localStorage.getItem('user'));
-
   useEffect(() => {
     if (user) {
       fetchInventory();
     }
   }, []);
-
   const fetchInventory = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/items/user/${user.id}`);
+      const response = await api.get(`/api/items/user/${user.id}`);
       setInventory(response.data);
     } catch (error) {
       console.error('Erro ao buscar inventário:', error);
@@ -48,7 +45,6 @@ export default function Inventory() {
       setLoading(false);
     }
   };
-
   const getTypeLabel = (type) => {
     switch(type) {
       case 'consumable': return 'Consumíveis';
@@ -58,15 +54,12 @@ export default function Inventory() {
       default: return type.charAt(0).toUpperCase() + type.slice(1);
     }
   };
-
   const itemTypes = ['all', ...new Set(inventory.map(item => item.type))];
-
   const filteredInventory = inventory.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTab = activeTab === 'all' || item.type === activeTab;
     return matchesSearch && matchesTab;
   });
-
   const groupedInventory = activeTab === 'all' 
     ? {
         consumable: filteredInventory.filter(item => item.type === 'consumable'),
@@ -80,7 +73,6 @@ export default function Inventory() {
         }, {})
       }
     : { [activeTab]: filteredInventory };
-
   const sectionOrder = ['consumable', 'object', 'equipable', 'quest'];
   const availableSections = Object.keys(groupedInventory).sort((a, b) => {
     const indexA = sectionOrder.indexOf(a);
@@ -90,7 +82,6 @@ export default function Inventory() {
     if (indexB !== -1) return 1;
     return a.localeCompare(b);
   });
-
   const [useModalOpen, setUseModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [useQuantity, setUseQuantity] = useState(1);
@@ -100,7 +91,6 @@ export default function Inventory() {
   const [discardQuantity, setDiscardQuantity] = useState(1);
   const [discardSuccess, setDiscardSuccess] = useState(null);
   const [isDiscarding, setIsDiscarding] = useState(false);
-
   const handleOpenUseModal = (item) => {
     if (item.type !== 'consumable') return;
     setSelectedItem(item);
@@ -108,25 +98,21 @@ export default function Inventory() {
     setUseSuccess(null);
     setUseModalOpen(true);
   };
-
   const handleCloseModal = () => {
     setUseModalOpen(false);
     setSelectedItem(null);
     setUseSuccess(null);
     setIsUsing(false);
   };
-
   const handleConfirmUse = async () => {
     if (!selectedItem) return;
-    
     setIsUsing(true);
     try {
-        const response = await axios.post('http://localhost:5000/api/items/use', {
+        const response = await api.post('/api/items/use', {
             userId: user.id,
             itemId: selectedItem.id,
             quantity: useQuantity
         });
-        
         if (response.data.success) {
             setUseSuccess(response.data.message);
             fetchInventory(); 
@@ -137,26 +123,23 @@ export default function Inventory() {
         setIsUsing(false);
     }
   };
-  
   const handleOpenDiscardModal = (item) => {
     setSelectedItem(item);
     setDiscardQuantity(1);
     setDiscardSuccess(null);
     setDiscardModalOpen(true);
   };
-  
   const handleCloseDiscardModal = () => {
     setDiscardModalOpen(false);
     setSelectedItem(null);
     setDiscardSuccess(null);
     setIsDiscarding(false);
   };
-  
   const handleConfirmDiscard = async () => {
     if (!selectedItem) return;
     setIsDiscarding(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/items/discard', {
+      const response = await api.post('/api/items/discard', {
         userId: user.id,
         itemId: selectedItem.id,
         quantity: discardQuantity
@@ -171,7 +154,6 @@ export default function Inventory() {
       setIsDiscarding(false);
     }
   };
-
   return (
     <div className="container mx-auto py-8 space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -184,7 +166,6 @@ export default function Inventory() {
               <p className="text-muted-foreground">Gerencie seus itens e equipamentos.</p>
           </div>
         </div>
-
         <div className="relative w-full md:w-64">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -196,7 +177,6 @@ export default function Inventory() {
           />
         </div>
       </div>
-
       <div className="flex flex-wrap items-center gap-2 border-b pb-4 overflow-x-auto">
         {itemTypes.map(type => (
           <Button 
@@ -210,7 +190,6 @@ export default function Inventory() {
           </Button>
         ))}
       </div>
-
       {loading ? (
         <div className="text-center py-20 text-muted-foreground animate-pulse">
             Carregando inventário...
@@ -227,14 +206,12 @@ export default function Inventory() {
           {availableSections.map(type => {
             const items = groupedInventory[type];
             if (items.length === 0) return null;
-            
             return (
               <div key={type} className="space-y-4">
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl font-semibold tracking-tight">{getTypeLabel(type)}</h2>
                   <Badge variant="outline" className="text-xs">{items.length}</Badge>
                 </div>
-                
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {items.map((slot) => (
                     <Card key={slot.inventory_id} className="relative group overflow-hidden border-muted hover:border-primary/50 transition-all">
@@ -249,12 +226,10 @@ export default function Inventory() {
                                   {slot.quantity}
                               </Badge>
                           </div>
-                          
                           <div>
                               <h3 className="font-bold text-sm leading-tight min-h-[2.5em] flex items-center justify-center">{slot.name}</h3>
                               <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2 min-h-[2.5em]">{slot.description}</p>
                           </div>
-
                           {slot.type === 'consumable' && slot.effect_target !== 'none' && (
                               <div className="flex items-center gap-1 text-[10px] font-mono bg-secondary/30 px-2 py-1 rounded w-full justify-center">
                                   {slot.effect_target === 'attack' && <Zap className="w-3 h-3 text-yellow-500" />}
@@ -264,7 +239,6 @@ export default function Inventory() {
                                   <span className="font-bold">+{slot.effect_value}{slot.is_percent ? '%' : ''}</span>
                               </div>
                           )}
-                          
                           <div className="w-full pt-2 mt-auto">
                               <Button 
                                   variant="secondary" 
@@ -293,7 +267,6 @@ export default function Inventory() {
           })}
         </div>
       )}
-
       {/* Modal de Uso de Item */}
       <Dialog open={useModalOpen} onOpenChange={handleCloseModal}>
         <DialogContent className="sm:max-w-md">
@@ -301,7 +274,6 @@ export default function Inventory() {
             <DialogTitle>{useSuccess ? 'Sucesso!' : 'Usar Item'}</DialogTitle>
             {!useSuccess && selectedItem && <DialogDescription>Escolha a quantidade que deseja usar.</DialogDescription>}
           </DialogHeader>
-          
           {useSuccess ? (
             <div className="py-6 text-center space-y-4">
                 <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -316,7 +288,7 @@ export default function Inventory() {
                     <div className="flex items-center gap-4">
                          <div className="bg-secondary/20 rounded-md p-2">
                             {selectedItem.icon ? (
-                                <img src={`http://localhost:5000/${selectedItem.icon}`} alt={selectedItem.name} className="w-12 h-12 object-contain" />
+                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${selectedItem.icon}`} alt={selectedItem.name} className="w-12 h-12 object-contain" />
                             ) : <Backpack className="w-12 h-12 text-muted-foreground" />}
                          </div>
                          <div>
@@ -327,7 +299,6 @@ export default function Inventory() {
                              </div>
                          </div>
                     </div>
-                    
                     <div className="space-y-3">
                         <Label>Quantidade</Label>
                         <div className="flex items-center gap-3">
@@ -364,7 +335,6 @@ export default function Inventory() {
                             <button className="hover:underline" onClick={() => setUseQuantity(selectedItem.quantity)}>Máximo</button>
                         </div>
                     </div>
-                    
                     <DialogFooter className="sm:justify-between gap-2">
                         <Button variant="outline" onClick={handleCloseModal} className="w-full sm:w-auto">Cancelar</Button>
                         <Button onClick={handleConfirmUse} disabled={isUsing} className="w-full sm:w-auto">
@@ -376,14 +346,12 @@ export default function Inventory() {
         )}
         </DialogContent>
       </Dialog>
-      
       <Dialog open={discardModalOpen} onOpenChange={handleCloseDiscardModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{discardSuccess ? 'Sucesso!' : 'Descartar Item'}</DialogTitle>
             {!discardSuccess && selectedItem && <DialogDescription>Escolha a quantidade que deseja descartar.</DialogDescription>}
           </DialogHeader>
-          
           {discardSuccess ? (
             <div className="py-6 text-center space-y-4">
                 <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -409,7 +377,6 @@ export default function Inventory() {
                              </div>
                          </div>
                     </div>
-                    
                     <div className="space-y-3">
                         <Label>Quantidade</Label>
                         <div className="flex items-center gap-3">
@@ -446,7 +413,6 @@ export default function Inventory() {
                             <button className="hover:underline" onClick={() => setDiscardQuantity(selectedItem.quantity)}>Máximo</button>
                         </div>
                     </div>
-                    
                     <DialogFooter className="sm:justify-between gap-2">
                         <Button variant="outline" onClick={handleCloseDiscardModal} className="w-full sm:w-auto">Cancelar</Button>
                         <Button onClick={handleConfirmDiscard} disabled={isDiscarding} className="w-full sm:w-auto">

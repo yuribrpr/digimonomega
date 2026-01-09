@@ -1,27 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Settings, Save, RefreshCw, Zap, Coins, AlertCircle } from 'lucide-react';
-
+import api from '../services/api';
 export default function AdminGameSettings() {
   const [settings, setSettings] = useState([]);
   const [formValues, setFormValues] = useState({});
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState({});
   const [changed, setChanged] = useState({});
-
   // Filter only Global Multipliers
   const filteredSettings = settings.filter(s => 
     ['global_xp_multiplier', 'global_bits_multiplier'].includes(s.setting_key)
   );
-
   useEffect(() => {
     fetchSettings();
   }, []);
-
   useEffect(() => {
     const initialValues = {};
     settings.forEach(s => {
@@ -29,11 +25,10 @@ export default function AdminGameSettings() {
     });
     setFormValues(initialValues);
   }, [settings]);
-
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/settings');
+      const res = await api.get('/api/settings');
       setSettings(res.data);
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -41,10 +36,8 @@ export default function AdminGameSettings() {
       setLoading(false);
     }
   };
-
   const handleInputChange = (key, value) => {
     setFormValues(prev => ({ ...prev, [key]: value }));
-    
     // Check if value actually changed from original
     const original = settings.find(s => s.setting_key === key);
     if (original && original.setting_value !== value) {
@@ -53,17 +46,14 @@ export default function AdminGameSettings() {
         setChanged(prev => ({ ...prev, [key]: false }));
     }
   };
-
   const handleUpdate = async (key) => {
     const value = formValues[key];
     setUpdating(prev => ({ ...prev, [key]: true }));
     try {
-      await axios.put(`http://localhost:5000/api/settings/${key}`, { value });
-      
+      await api.put(`/api/settings/${key}`, { value });
       // Update local settings state to reflect save
       setSettings(prev => prev.map(s => s.setting_key === key ? { ...s, setting_value: value } : s));
       setChanged(prev => ({ ...prev, [key]: false }));
-      
       // Visual feedback could go here (toast)
     } catch (error) {
       console.error('Error updating setting:', error);
@@ -72,13 +62,11 @@ export default function AdminGameSettings() {
       setUpdating(prev => ({ ...prev, [key]: false }));
     }
   };
-
   const getIcon = (key) => {
       if (key.includes('xp')) return <Zap className="w-5 h-5 text-yellow-500" />;
       if (key.includes('bits')) return <Coins className="w-5 h-5 text-yellow-500" />;
       return <Settings className="w-5 h-5 text-slate-400" />;
   };
-
   return (
     <div className="container max-w-4xl mx-auto py-10 px-6 min-h-screen">
       <div className="flex flex-col space-y-2 mb-8">
@@ -93,7 +81,6 @@ export default function AdminGameSettings() {
             </Button>
         </div>
       </div>
-
       <Card className="border-slate-800 bg-slate-900/50 backdrop-blur">
         <CardHeader className="border-b border-slate-800 pb-6">
             <CardTitle className="text-xl text-slate-100">Taxas Globais</CardTitle>
@@ -107,7 +94,6 @@ export default function AdminGameSettings() {
                     <AlertCircle className="mr-2 h-5 w-5" /> Nenhuma configuração global encontrada.
                 </div>
             )}
-            
             {filteredSettings.map((setting) => (
                 <div 
                     key={setting.setting_key} 
@@ -126,7 +112,6 @@ export default function AdminGameSettings() {
                             </p>
                         </div>
                     </div>
-                    
                     <div className="flex items-center gap-3 w-full sm:w-auto pl-14 sm:pl-0">
                          <div className="relative w-full sm:w-32">
                             <Input 

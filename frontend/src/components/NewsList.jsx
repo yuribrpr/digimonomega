@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,23 +8,20 @@ import { Button } from "@/components/ui/button";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from 'react-router-dom';
-
+import api from '../services/api';
 export default function NewsList({ className, limit = 10, showHeader = true, compact = false }) {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedNews, setSelectedNews] = useState(null);
-
   const user = JSON.parse(localStorage.getItem('user'));
   const token = localStorage.getItem('token');
   const isLoggedIn = !!user && !!token;
-
   useEffect(() => {
     fetchNews();
   }, []);
-
   const fetchNews = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/news');
+      const res = await api.get('/api/news');
       setNews(res.data.slice(0, limit));
     } catch (error) {
       console.error('Erro ao buscar notícias:', error);
@@ -33,7 +29,6 @@ export default function NewsList({ className, limit = 10, showHeader = true, com
       setLoading(false);
     }
   };
-
   const handleLike = async (e, newsId, isLike) => {
     e.stopPropagation();
     if (!isLoggedIn) {
@@ -41,17 +36,15 @@ export default function NewsList({ className, limit = 10, showHeader = true, com
         // alert("Faça login para curtir"); 
         return;
     }
-
     try {
-        await axios.post(`http://localhost:5000/api/news/${newsId}/like`, { is_like: isLike }, {
+        // Toggle like no backend
+        await api.post(`/api/news/${newsId}/like`, { is_like: isLike }, {
             headers: { Authorization: `Bearer ${token}` }
         });
-        
         // Fetch fresh data
-        const res = await axios.get('http://localhost:5000/api/news');
+        const res = await api.get('/api/news');
         const newNews = res.data.slice(0, limit);
         setNews(newNews);
-
         // If modal is open with this news item, update it immediately
         if (selectedNews && selectedNews.id === newsId) {
             const updatedItem = newNews.find(n => n.id === newsId);
@@ -63,15 +56,12 @@ export default function NewsList({ className, limit = 10, showHeader = true, com
         console.error("Error liking:", error);
     }
   };
-
   const RenderLikeSection = ({ item, className = "mt-3" }) => {
     const likes = item.interactions?.filter(i => i.is_like === 1) || [];
     const dislikes = item.interactions?.filter(i => i.is_like === 0) || [];
-    
     const userInteraction = item.interactions?.find(i => i.user_id === user?.id);
     const userLiked = userInteraction?.is_like === 1;
     const userDisliked = userInteraction?.is_like === 0;
-
     const LikeList = ({ list, title }) => (
         <div className="space-y-2">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title} ({list.length})</h4>
@@ -99,7 +89,6 @@ export default function NewsList({ className, limit = 10, showHeader = true, com
             )}
         </div>
     );
-
     return (
         <div className={`flex items-center gap-1 ${className}`} onClick={(e) => e.stopPropagation()}>
            <HoverCard>
@@ -119,7 +108,6 @@ export default function NewsList({ className, limit = 10, showHeader = true, com
                 <LikeList list={likes} title="Curtiram" />
              </HoverCardContent>
            </HoverCard>
-
            <HoverCard>
              <HoverCardTrigger asChild>
                 <Button 
@@ -140,7 +128,6 @@ export default function NewsList({ className, limit = 10, showHeader = true, com
         </div>
     );
   };
-
   if (loading) {
     return (
         <div className="p-8 text-center space-y-3 animate-pulse">
@@ -149,9 +136,7 @@ export default function NewsList({ className, limit = 10, showHeader = true, com
         </div>
     );
   }
-
   if (news.length === 0) return null;
-
   return (
     <>
       <Card className={`border-none shadow-none bg-transparent ${className}`}>
@@ -200,18 +185,15 @@ export default function NewsList({ className, limit = 10, showHeader = true, com
                       </span>
                     </div>
                   </div>
-                  
                   <h3 className="font-semibold text-base leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-2">
                     {item.title}
                   </h3>
-                  
                   <div className="relative">
                     <div 
                       className="text-xs text-muted-foreground/80 prose prose-sm dark:prose-invert max-w-none line-clamp-2 leading-relaxed"
                       dangerouslySetInnerHTML={{ __html: item.content.replace(/<img[^>]*>/g, '') }}
                     />
                   </div>
-                  
                   <RenderLikeSection item={item} />
                 </div>
               ))}
@@ -219,7 +201,6 @@ export default function NewsList({ className, limit = 10, showHeader = true, com
           </ScrollArea>
         </CardContent>
       </Card>
-
       <Dialog open={!!selectedNews} onOpenChange={(open) => !open && setSelectedNews(null)}>
         <DialogContent className="max-w-4xl w-[95vw] h-[85vh] p-0 gap-0 flex flex-col overflow-hidden bg-background border-none shadow-2xl sm:rounded-2xl">
           {selectedNews && (
@@ -268,7 +249,6 @@ export default function NewsList({ className, limit = 10, showHeader = true, com
                     <X className="w-4 h-4" />
                  </Button>
               </div>
-
               {/* Conteúdo Scrollável */}
               <ScrollArea className="flex-1 w-full">
                   <div className="p-6 md:p-8 max-w-3xl mx-auto w-full">

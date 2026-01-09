@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Map as MapIcon, Compass, Lock, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
+import api from '../services/api';
 export default function Exploration() {
   const [maps, setMaps] = useState([]);
   const [inventory, setInventory] = useState([]);
@@ -20,48 +19,42 @@ export default function Exploration() {
   // For now, let's assume we can get it or just warn.
   // Actually, let's fetch the user's main digimon level.
   const [userLevel, setUserLevel] = useState(1);
-
   const fetchMaps = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/maps');
+      const response = await api.get('/api/maps');
       setMaps(response.data);
     } catch (error) {
       console.error('Erro ao buscar mapas:', error);
     }
   };
-
   const fetchInventory = async () => {
     try {
       if (!user?.id) return;
-      const res = await axios.get(`http://localhost:5000/api/items/user/${user.id}`);
+      const res = await api.get(`/api/items/user/${user.id}`);
       setInventory(res.data || []);
     } catch (error) {
       console.error('Erro ao buscar inventário:', error);
     }
   };
-
   const fetchItems = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/items');
+      const res = await api.get('/api/items');
       setItems(res.data || []);
     } catch (error) {
       console.error('Erro ao buscar itens:', error);
     }
   };
-
   const getRequiredItem = (map) => {
     const reqId = Number(map?.required_item_id);
     if (!reqId) return null;
     return items.find(i => Number(i.id) === reqId) || null;
   };
-
   const fetchUserLevel = async () => {
     if (!user?.id) return;
     try {
-        const res = await axios.get(`http://localhost:5000/api/users/${user.id}/digimons`);
+        const res = await api.get(`/api/users/${user.id}/digimons`);
         // The backend returns 'principal' (1 or 0), but let's also check 'is_main' just in case
         const main = res.data.find(d => d.principal === 1 || d.is_main === 1 || d.principal === true || d.is_main === true) || res.data[0];
-        
         if (main) {
             // Priority: level (current level) > base_level > 1
             const level = main.level || main.base_level || 1;
@@ -72,14 +65,12 @@ export default function Exploration() {
         console.error('Erro ao buscar nível do usuário:', error);
     }
   };
-
   useEffect(() => {
     fetchMaps();
     fetchUserLevel();
     fetchInventory();
     fetchItems();
   }, []);
-
   const handleEnterMap = (map) => {
     if (userLevel < Number(map.min_level || 0)) {
         alert(`Seu Digimon precisa ser nível ${map.min_level} para entrar aqui!`);
@@ -95,7 +86,6 @@ export default function Exploration() {
     // Navigate to battle with mapId
     navigate(`/battle?mapId=${map.id}`);
   };
-
   const renderMapCard = (map) => {
     const levelLocked = userLevel < Number(map.min_level || 0);
     let itemLocked = false;
@@ -105,7 +95,6 @@ export default function Exploration() {
     }
     const isLocked = levelLocked || itemLocked;
     const reqItem = getRequiredItem(map);
-    
     return (
         <Card key={map.id} className={`group overflow-hidden border-2 transition-all hover:border-primary/50 ${isLocked ? 'opacity-75 grayscale' : ''}`}>
             <div className="aspect-video bg-slate-950 relative overflow-hidden">
@@ -120,22 +109,18 @@ export default function Exploration() {
                         <MapIcon className="w-12 h-12 opacity-20" />
                     </div>
                 )}
-                
                 {/* Overlay Gradient */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-
                 <div className="absolute top-2 right-2">
                     <Badge variant={isLocked ? "destructive" : "secondary"} className="backdrop-blur-sm shadow-sm">
                         {isLocked ? <Lock className="w-3 h-3 mr-1" /> : null}
                         Lvl {map.min_level}+
                     </Badge>
                 </div>
-
                 <div className="absolute bottom-0 left-0 p-4">
                     <h3 className="text-xl font-bold text-white mb-1 drop-shadow-md">{map.name}</h3>
                 </div>
             </div>
-            
             <CardContent className="p-4 text-sm text-muted-foreground min-h-[80px]">
                 <p className="line-clamp-3">{map.description || 'Uma área misteriosa do Digimundo.'}</p>
                 {map.require_item && Number(map.required_item_id) ? (
@@ -145,7 +130,7 @@ export default function Exploration() {
                         <>
                         {reqItem.icon ? (
                             <img 
-                            src={`http://localhost:5000/${reqItem.icon}`} 
+                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${reqItem.icon}`} 
                             alt={reqItem.name} 
                             className="w-5 h-5 rounded-sm object-contain"
                             title={reqItem.description || reqItem.name}
@@ -162,7 +147,6 @@ export default function Exploration() {
                     </div>
                 ) : null}
             </CardContent>
-
             <CardFooter className="p-4 pt-0">
                 <Button 
                     className="w-full" 
@@ -176,10 +160,8 @@ export default function Exploration() {
         </Card>
     );
   };
-
   const ScrollSection = ({ title, maps }) => {
     const scrollRef = React.useRef(null);
-
     const scroll = (direction) => {
         if (scrollRef.current) {
             const { current } = scrollRef;
@@ -191,7 +173,6 @@ export default function Exploration() {
             }
         }
     };
-
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -205,7 +186,6 @@ export default function Exploration() {
                     </Button>
                 </div>
             </div>
-            
             <div 
                 ref={scrollRef} 
                 className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x" 
@@ -220,7 +200,6 @@ export default function Exploration() {
         </div>
     );
   };
-
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -231,7 +210,6 @@ export default function Exploration() {
                 <p className="text-muted-foreground">Viaje pelo Mundo Digital e encontre novos desafios.</p>
             </div>
         </div>
-        
         <div className="flex items-center gap-2">
             <div className="relative w-full md:w-64">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -255,21 +233,16 @@ export default function Exploration() {
             </Select>
         </div>
       </div>
-
       {['Campanha', 'Raid', 'Evento'].map(type => {
         if (filterType !== 'all' && filterType !== type) return null;
-        
         const typeMaps = maps.filter(m => 
             (m.is_active === 1 || m.is_active === true) && // Filter active maps
             (m.type === type || (!m.type && type === 'Campanha')) && 
             m.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
-
         if (typeMaps.length === 0) return null;
-
         return <ScrollSection key={type} title={type} maps={typeMaps} />;
       })}
-
       {/* Show message if no maps found */}
       {maps.length > 0 && ['Campanha', 'Raid', 'Evento'].every(type => {
           if (filterType !== 'all' && filterType !== type) return true;

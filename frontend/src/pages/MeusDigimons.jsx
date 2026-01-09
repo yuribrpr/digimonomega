@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { 
+import api from '../services/api';
   Trash2, 
   Heart, 
   Swords, 
@@ -30,42 +30,35 @@ import {
   Filter,
   Crown
 } from "lucide-react";
-
 export default function MeusDigimons() {
   const user = JSON.parse(localStorage.getItem('user'));
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('Todos');
-
   // Delete State
   const [selectedDigimon, setSelectedDigimon] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
-
   const fetchItems = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/users/${user.id}/digimons`);
+      const res = await api.get(`/api/users/${user.id}/digimons`);
       setItems(res.data || []);
     } catch (error) {
       console.error('Erro ao carregar seus digimons:', error);
     }
     setLoading(false);
   }, [user?.id]);
-
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
-
   useEffect(() => {
     let result = [...items];
-
     // Filter by name
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -74,12 +67,10 @@ export default function MeusDigimons() {
         (d.custom_name && d.custom_name.toLowerCase().includes(term))
       );
     }
-
     // Filter by type
     if (typeFilter && typeFilter !== 'Todos') {
       result = result.filter(d => d.type === typeFilter);
     }
-
     // Sort: Principal first, then Level DESC, then Name ASC
     result.sort((a, b) => {
       if (a.principal !== b.principal) return b.principal - a.principal; // 1 before 0
@@ -88,33 +79,29 @@ export default function MeusDigimons() {
       const nameB = b.species_name || b.name;
       return nameA.localeCompare(nameB);
     });
-
     setFilteredItems(result);
   }, [items, searchTerm, typeFilter]);
-
   const setPrincipal = async (digimonId) => {
     if (!user?.id) return;
     setLoading(true);
     try {
-      await axios.post(`http://localhost:5000/api/users/${user.id}/digimons/principal`, { digimon_id: digimonId });
+      await api.post(`/api/users/${user.id}/digimons/principal`, { digimon_id: digimonId });
       await fetchItems();
     } catch (error) {
       console.error('Erro ao definir principal:', error);
     }
     setLoading(false);
   };
-
   const handleOpenDelete = (digimon) => {
     setSelectedDigimon(digimon);
     setPassword('');
     setIsDeleteDialogOpen(true);
   };
-
   const handleDelete = async () => {
     if (!password) return;
     setDeleteLoading(true);
     try {
-        await axios.delete(`http://localhost:5000/api/users/${user.id}/digimons/${selectedDigimon.user_digimon_id}`, {
+        await api.delete(`/api/users/${user.id}/digimons/${selectedDigimon.user_digimon_id}`, {
             data: { password }
         });
         setIsDeleteDialogOpen(false);
@@ -125,10 +112,8 @@ export default function MeusDigimons() {
     }
     setDeleteLoading(false);
   };
-
   // Extract unique types for filter
   const uniqueTypes = ['Todos', ...new Set(items.map(i => i.type).filter(Boolean))];
-
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <div className="flex flex-col gap-6 mb-8">
@@ -141,7 +126,6 @@ export default function MeusDigimons() {
             Atualizar Lista
           </Button>
         </div>
-
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-lg shadow-sm border">
           <div className="relative flex-1">
@@ -168,7 +152,6 @@ export default function MeusDigimons() {
           </div>
         </div>
       </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredItems.map((it) => (
           <Card 
@@ -182,7 +165,6 @@ export default function MeusDigimons() {
                     </div>
                 </div>
             )}
-
             <CardHeader className="p-0">
                 <div className="absolute top-3 left-3 z-10">
                     <Badge variant="secondary" className="text-xs font-semibold backdrop-blur-md bg-background/80 shadow-sm border-slate-200 dark:border-slate-700">
@@ -190,11 +172,10 @@ export default function MeusDigimons() {
                     </Badge>
                 </div>
             </CardHeader>
-
             <div className="relative w-full h-48 flex items-center justify-center p-6 bg-gradient-to-b from-muted/20 to-muted/50">
                 {it.sprite_path ? (
                   <img
-                    src={'http://localhost:5000/' + it.sprite_path}
+                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${it.sprite_path}`}
                     alt={it.species_name || it.name}
                     className="h-full w-auto object-contain drop-shadow-xl transition-transform duration-300 group-hover:scale-110"
                     onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}
@@ -205,7 +186,6 @@ export default function MeusDigimons() {
                   </div>
                 )}
             </div>
-
             <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
                     <div>
@@ -215,7 +195,6 @@ export default function MeusDigimons() {
                         <p className="text-xs text-muted-foreground font-medium">Nível {it.level || it.base_level}</p>
                     </div>
                 </div>
-
                 <div className="grid grid-cols-3 gap-2 pt-2">
                     <div className="flex flex-col items-center p-1.5 bg-red-50 dark:bg-red-950/20 rounded-md border border-red-100 dark:border-red-900/30">
                         <Heart className="h-3 w-3 text-red-500 mb-0.5" />
@@ -231,7 +210,6 @@ export default function MeusDigimons() {
                     </div>
                 </div>
             </CardContent>
-
             <CardFooter className="p-3 bg-muted/20 flex gap-2 justify-end border-t border-slate-100 dark:border-slate-800">
                 {it.principal !== 1 && (
                     <Button 
@@ -245,13 +223,11 @@ export default function MeusDigimons() {
                         <Star className="h-4 w-4" />
                     </Button>
                 )}
-                
                 {it.principal === 1 && (
                      <div className="flex-1 flex items-center text-xs text-primary font-medium px-2">
                         <Crown className="h-3 w-3 mr-1.5 fill-current" /> Parceiro Principal
                      </div>
                 )}
-
                 <Button 
                     variant="ghost" 
                     size="icon"
@@ -266,7 +242,6 @@ export default function MeusDigimons() {
           </Card>
         ))}
       </div>
-
       {filteredItems.length === 0 && !loading && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="bg-muted/30 p-6 rounded-full mb-4">
@@ -278,7 +253,6 @@ export default function MeusDigimons() {
             </p>
         </div>
       )}
-
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">

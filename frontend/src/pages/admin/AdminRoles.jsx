@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,31 +7,27 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Shield, Plus, Save, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
+import api from '../../services/api';
 export default function AdminRoles() {
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
   // Create Role State
   const [createOpen, setCreateOpen] = useState(false);
   const [newRole, setNewRole] = useState({ name: '', description: '' });
-
   // Edit Permissions State
   const [editOpen, setEditOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState(null);
   const [selectedPermissions, setSelectedPermissions] = useState([]);
-
   useEffect(() => {
     fetchData();
   }, []);
-
   const fetchData = async () => {
     try {
       const [rolesRes, permsRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/roles', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
-        axios.get('http://localhost:5000/api/roles/permissions', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+        api.get('/api/roles', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+        api.get('/api/roles/permissions', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
       ]);
       setRoles(rolesRes.data);
       setPermissions(permsRes.data);
@@ -42,11 +37,10 @@ export default function AdminRoles() {
       setLoading(false);
     }
   };
-
   const handleCreateRole = async () => {
     if (!newRole.name) return;
     try {
-      await axios.post('http://localhost:5000/api/roles', newRole, {
+      await api.post('/api/roles', newRole, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setCreateOpen(false);
@@ -56,7 +50,6 @@ export default function AdminRoles() {
       alert('Erro ao criar role');
     }
   };
-
   const openEditPermissions = (role) => {
     setSelectedRole(role);
     // Extract permission IDs from the role's permissions array
@@ -64,7 +57,6 @@ export default function AdminRoles() {
     setSelectedPermissions(rolePermIds);
     setEditOpen(true);
   };
-
   const togglePermission = (permId) => {
     setSelectedPermissions(prev => 
       prev.includes(permId) 
@@ -72,10 +64,9 @@ export default function AdminRoles() {
         : [...prev, permId]
     );
   };
-
   const handleSavePermissions = async () => {
     try {
-      await axios.put(`http://localhost:5000/api/roles/${selectedRole.id}/permissions`, {
+      await api.put(`/api/roles/${selectedRole.id}/permissions`, {
         permissions: selectedPermissions
       }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -87,7 +78,6 @@ export default function AdminRoles() {
       alert('Erro ao salvar permissões');
     }
   };
-
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -103,7 +93,6 @@ export default function AdminRoles() {
             <Plus className="h-4 w-4 mr-2" /> Nova Role
         </Button>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {roles.map(role => (
           <Card key={role.id} className="relative overflow-hidden">
@@ -137,7 +126,6 @@ export default function AdminRoles() {
           </Card>
         ))}
       </div>
-
       {/* Create Role Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -167,7 +155,6 @@ export default function AdminRoles() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Edit Permissions Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">

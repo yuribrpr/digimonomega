@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { 
   Moon, 
@@ -29,7 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
-
+import api from '../services/api';
 export default function Navbar({ isPlaying, toggleMusic }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -43,12 +42,10 @@ export default function Navbar({ isPlaying, toggleMusic }) {
       exp_m: 1000,
       profile_image: null
   });
-  
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
-
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -56,12 +53,11 @@ export default function Navbar({ isPlaying, toggleMusic }) {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
-
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
       if (searchQuery.length > 0) {
         try {
-          const res = await axios.get(`http://localhost:5000/api/users/search?q=${searchQuery}`);
+          const res = await api.get(`/api/users/search?q=${searchQuery}`);
           setSearchResults(res.data);
           setShowResults(true);
         } catch (error) {
@@ -72,14 +68,12 @@ export default function Navbar({ isPlaying, toggleMusic }) {
         setShowResults(false);
       }
     }, 300);
-
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
-
   const fetchUserStats = async () => {
     if (!user?.id) return;
     try {
-      const res = await axios.get(`http://localhost:5000/api/users/${user.id}`);
+      const res = await api.get(`/api/users/${user.id}`);
       if (res.data) {
         setUserStats({
             bits: res.data.bits || 0,
@@ -93,27 +87,22 @@ export default function Navbar({ isPlaying, toggleMusic }) {
       console.error('Erro ao buscar stats:', error);
     }
   };
-
   useEffect(() => {
     fetchUserStats();
     // Refresh every 30 seconds
     const interval = setInterval(fetchUserStats, 30000);
     return () => clearInterval(interval);
   }, []);
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/login');
   };
-
   // Don't show navbar on login or register pages
   if (location.pathname === '/login' || location.pathname === '/register') {
     return null;
   }
-
   if (!user) return null;
-
   const navItems = [
     { icon: MapIcon, label: 'Explorar', path: '/exploration', color: 'text-green-500' },
     { icon: ArrowUpCircle, label: 'Centro de Digievolução', path: '/evolution-center', color: 'text-cyan-500' },
@@ -122,11 +111,9 @@ export default function Navbar({ isPlaying, toggleMusic }) {
     { icon: BookOpen, label: 'Digidex', path: '/digidex', color: 'text-amber-500' },
     { icon: Backpack, label: 'Inventário', path: '/inventory', color: 'text-indigo-500' },
   ];
-
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mb-6 sticky top-0 z-50">
       <div className="flex h-16 items-center px-4 max-w-7xl mx-auto justify-between">
-        
         {/* Logo & Navigation */}
         <div className="flex items-center space-x-6">
            <Link to="/">
@@ -135,7 +122,6 @@ export default function Navbar({ isPlaying, toggleMusic }) {
                Início
              </Button>
            </Link>
-           
            {/* Desktop Navigation */}
            <div className="hidden md:flex items-center space-x-1">
              <TooltipProvider>
@@ -161,9 +147,7 @@ export default function Navbar({ isPlaying, toggleMusic }) {
                  );
                })}
              </TooltipProvider>
-
              {/* Search Bar - Removed from here */}
-
              {(user.username === 'clovis' || user.role === 'admin' || (user.permissions && user.permissions.length > 0)) && (
                 <div 
                   className="relative ml-2"
@@ -210,10 +194,8 @@ export default function Navbar({ isPlaying, toggleMusic }) {
              )}
            </div>
         </div>
-
         {/* Right Side: Bits, Theme, User */}
         <div className="flex items-center space-x-4">
-           
            {/* Search Bar */}
            <div className="relative hidden md:block w-64">
               <div className="relative">
@@ -227,7 +209,6 @@ export default function Navbar({ isPlaying, toggleMusic }) {
                   onBlur={() => setTimeout(() => setShowResults(false), 200)}
                 />
               </div>
-              
               {showResults && searchResults.length > 0 && (
                 <div className="absolute top-full mt-2 w-full bg-popover border rounded-xl shadow-lg z-50 overflow-hidden">
                   {searchResults.map(result => (
@@ -252,13 +233,11 @@ export default function Navbar({ isPlaying, toggleMusic }) {
                 </div>
               )}
            </div>
-
            {/* Bits Display */}
            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary/20 rounded-full border border-border/50">
               <Coins className="h-4 w-4 text-yellow-500" />
               <span className="font-mono text-sm font-bold">{userStats.bits.toLocaleString()}</span>
            </div>
-
            {toggleMusic && (
              <Button variant="ghost" size="icon" onClick={toggleMusic}>
                {isPlaying ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
@@ -267,7 +246,6 @@ export default function Navbar({ isPlaying, toggleMusic }) {
            <Button variant="ghost" size="icon" onClick={() => setIsDarkMode(!isDarkMode)}>
              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
            </Button>
-           
            <div className="flex items-center gap-3 pl-2" onClick={() => navigate(`/profile/${user.id}`)}>
              <div className="hidden sm:flex flex-col items-end cursor-pointer group">
                 <span className="text-sm font-medium leading-none group-hover:text-primary transition-colors">{user.username}</span>
@@ -281,7 +259,6 @@ export default function Navbar({ isPlaying, toggleMusic }) {
                 <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">{user.username.substring(0,2).toUpperCase()}</AvatarFallback>
              </Avatar>
            </div>
-           
            <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
              <LogOut className="h-5 w-5 text-destructive" />
            </Button>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
+import api from '../services/api';
   Pencil, 
   Trash2, 
   Search, 
@@ -16,75 +16,65 @@ import {
   Backpack,
   Zap
 } from 'lucide-react';
-
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [roles, setRoles] = useState([]);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const navigate = useNavigate();
-
   // Dialog states
   const [editOpen, setEditOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [digimonOpen, setDigimonOpen] = useState(false);
-
   // Form states
   const [editForm, setEditForm] = useState({ username: '', email: '', level: 1, bits: 0, role: 'user' });
   const [itemForm, setItemForm] = useState({ itemId: '', quantity: 1 });
   const [digimonForm, setDigimonForm] = useState({ digidexId: '', level: 1, nickname: '' });
-  
   // Data for selects
   const [items, setItems] = useState([]);
   const [digidex, setDigidex] = useState([]);
   const [userDigimons, setUserDigimons] = useState([]);
-
   useEffect(() => {
     fetchUsers();
     fetchRoles();
     fetchItems();
     fetchDigidex();
   }, []);
-
   const fetchUsers = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/users/admin/all');
+      const res = await api.get('/api/users/admin/all');
       setUsers(res.data);
     } catch (error) {
       console.error(error);
     }
   };
-
   const fetchRoles = async () => {
     try {
-        const res = await axios.get('http://localhost:5000/api/roles', {
+        const res = await api.get('/api/roles', {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setRoles(res.data);
     } catch (e) { console.error(e); }
   };
-
   const fetchItems = async () => {
     try {
-        const res = await axios.get('http://localhost:5000/api/items');
+        const res = await api.get('/api/items');
         setItems(res.data);
     } catch (e) { console.error(e); }
   };
-
   const fetchDigidex = async () => {
     try {
-        const res = await axios.get('http://localhost:5000/api/digimons');
+        const res = await api.get('/api/digimons');
         setDigidex(res.data);
     } catch (e) { console.error(e); }
   };
-
   const fetchUserDigimons = async (userId) => {
       try {
-          const res = await axios.get(`http://localhost:5000/api/users/${userId}/digimons`);
+          const res = await api.get(`/api/users/${userId}/digimons`);
           setUserDigimons(res.data);
       } catch (e) { console.error(e); }
   };
-
   const handleEdit = (user) => {
       setCurrentUser(user);
       setEditForm({ 
@@ -96,26 +86,23 @@ export default function AdminUsers() {
       });
       setEditOpen(true);
   };
-
   const handleUpdateUser = async () => {
       try {
-          await axios.put(`http://localhost:5000/api/users/admin/${currentUser.id}`, editForm);
+          await api.put(`/api/users/admin/${currentUser.id}`, editForm);
           setEditOpen(false);
           fetchUsers();
       } catch (e) { console.error(e); alert('Erro ao atualizar'); }
   };
-
   const handleDeleteUser = async (user) => {
       if (!confirm(`Tem certeza que deseja excluir o usuário ${user.username}? Isso é irreversível.`)) return;
       try {
-          await axios.delete(`http://localhost:5000/api/users/admin/${user.id}`);
+          await api.delete(`/api/users/admin/${user.id}`);
           fetchUsers();
       } catch (e) { console.error(e); alert('Erro ao excluir'); }
   };
-
   const handleGiveItem = async () => {
       try {
-          await axios.post('http://localhost:5000/api/users/admin/give-item', {
+          await api.post('/api/users/admin/give-item', {
               userId: currentUser.id,
               ...itemForm
           });
@@ -123,10 +110,9 @@ export default function AdminUsers() {
           alert('Item enviado!');
       } catch (e) { console.error(e); alert('Erro ao enviar item'); }
   };
-
   const handleGiveDigimon = async () => {
       try {
-          await axios.post('http://localhost:5000/api/users/admin/give-digimon', {
+          await api.post('/api/users/admin/give-digimon', {
               userId: currentUser.id,
               ...digimonForm
           });
@@ -134,26 +120,22 @@ export default function AdminUsers() {
           alert('Digimon enviado!');
       } catch (e) { console.error(e); alert('Erro ao enviar digimon'); }
   };
-
   const handleRemoveDigimon = async (digimonId) => {
       if(!confirm('Remover este digimon do usuário?')) return;
       try {
-          await axios.delete(`http://localhost:5000/api/users/admin/digimon/${digimonId}`);
+          await api.delete(`/api/users/admin/digimon/${digimonId}`);
           fetchUserDigimons(currentUser.id);
       } catch (e) { console.error(e); alert('Erro ao remover digimon'); }
   };
-
   const openDigimonDialog = (user) => {
       setCurrentUser(user);
       fetchUserDigimons(user.id);
       setDigimonOpen(true);
   };
-
   const filteredUsers = users.filter(u => 
     u.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -173,7 +155,6 @@ export default function AdminUsers() {
             </div>
         </div>
       </div>
-
       <div className="grid gap-4">
         {filteredUsers.map(user => (
             <Card key={user.id} className="flex flex-row items-center justify-between p-4">
@@ -207,7 +188,6 @@ export default function AdminUsers() {
             </Card>
         ))}
       </div>
-
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
@@ -248,7 +228,6 @@ export default function AdminUsers() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Give Item Dialog */}
       <Dialog open={inventoryOpen} onOpenChange={setInventoryOpen}>
         <DialogContent>
@@ -275,14 +254,12 @@ export default function AdminUsers() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
-
        {/* Digimon Manager Dialog */}
       <Dialog open={digimonOpen} onOpenChange={setDigimonOpen}>
         <DialogContent className="max-w-3xl">
             <DialogHeader>
                 <DialogTitle>Digimons de {currentUser?.username}</DialogTitle>
             </DialogHeader>
-            
             <div className="grid gap-4 py-4">
                 {/* Give Digimon Form */}
                 <div className="border p-4 rounded-md bg-secondary/20 space-y-4">
@@ -299,13 +276,12 @@ export default function AdminUsers() {
                         <Button onClick={handleGiveDigimon} size="sm"><Zap className="mr-2 h-4 w-4" /> Enviar</Button>
                     </div>
                 </div>
-
                 {/* List Digimons */}
                 <div className="max-h-[300px] overflow-y-auto space-y-2">
                     {userDigimons.map(ud => (
                         <div key={ud.user_digimon_id} className="flex justify-between items-center p-2 border rounded bg-background">
                             <div className="flex items-center gap-2">
-                                <img src={`http://localhost:5000/${ud.sprite_path}`} className="h-8 w-8 object-contain" />
+                                <img src={`${API_URL}/${ud.sprite_path}`} className="h-8 w-8 object-contain" />
                                 <div>
                                     <div className="font-bold text-sm">{ud.nickname || ud.species_name}</div>
                                     <div className="text-xs text-muted-foreground">Lvl {ud.level} • {ud.species_name}</div>

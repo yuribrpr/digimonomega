@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,14 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, Search, Package, Zap, Shield, Heart, Info } from 'lucide-react';
-
+import api from '../services/api';
 export default function AdminItems() {
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState(null);
-  
   // Form State
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -25,11 +24,9 @@ export default function AdminItems() {
   const [effectValue, setEffectValue] = useState('');
   const [isPercent, setIsPercent] = useState(false);
   const [file, setFile] = useState(null);
-
   useEffect(() => {
     fetchItems();
   }, []);
-
   useEffect(() => {
     if (searchTerm) {
       setFilteredItems(items.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase())));
@@ -37,40 +34,35 @@ export default function AdminItems() {
       setFilteredItems(items);
     }
   }, [searchTerm, items]);
-
   const fetchItems = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/items');
+      const response = await api.get('/api/items');
       setItems(response.data);
     } catch (error) {
       console.error('Erro ao buscar itens:', error);
     }
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData();
     formData.append('name', name);
     formData.append('description', description);
     formData.append('type', type);
-    
     if (type === 'consumable') {
         formData.append('effect_target', effectTarget);
         formData.append('effect_value', effectValue);
         formData.append('is_percent', isPercent);
     }
-
     if (file) {
       formData.append('icon', file);
     }
-
     try {
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/items/${editingId}`, formData, {
+        await api.put(`/api/items/${editingId}`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
       } else {
-        await axios.post('http://localhost:5000/api/items', formData, {
+        await api.post('/api/items', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
       }
@@ -81,18 +73,16 @@ export default function AdminItems() {
       console.error('Erro ao salvar item:', error);
     }
   };
-
   const handleDelete = async (id) => {
     if (window.confirm('Tem certeza que deseja excluir este item?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/items/${id}`);
+        await api.delete(`/api/items/${id}`);
         fetchItems();
       } catch (error) {
         console.error('Erro ao excluir item:', error);
       }
     }
   };
-
   const resetForm = () => {
     setName('');
     setDescription('');
@@ -103,7 +93,6 @@ export default function AdminItems() {
     setFile(null);
     setEditingId(null);
   };
-
   const handleEdit = (item) => {
     setEditingId(item.id);
     setName(item.name || '');
@@ -115,7 +104,6 @@ export default function AdminItems() {
     setFile(null);
     setIsOpen(true);
   };
-
   return (
     <div className="container mx-auto py-10 space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -139,17 +127,14 @@ export default function AdminItems() {
                 <Label htmlFor="name">Nome do Item</Label>
                 <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="description">Descrição</Label>
                 <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="icon">Ícone</Label>
                 <Input id="icon" type="file" onChange={(e) => setFile(e.target.files[0])} accept="image/*" />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="type">Tipo</Label>
                 <Select value={type} onValueChange={setType}>
@@ -163,11 +148,9 @@ export default function AdminItems() {
                   </SelectContent>
                 </Select>
               </div>
-
               {type === 'consumable' && (
                 <div className="space-y-4 border p-4 rounded-md bg-secondary/20">
                     <h4 className="font-semibold text-sm">Efeitos do Consumível</h4>
-                    
                     <div className="space-y-2">
                         <Label>Atributo Afetado</Label>
                         <Select value={effectTarget} onValueChange={setEffectTarget}>
@@ -183,7 +166,6 @@ export default function AdminItems() {
                             </SelectContent>
                         </Select>
                     </div>
-
                     <div className="flex gap-4 items-end">
                         <div className="space-y-2 flex-1">
                             <Label>Valor</Label>
@@ -205,7 +187,6 @@ export default function AdminItems() {
                     </div>
                 </div>
               )}
-              
               <DialogFooter>
                 <Button type="submit">{editingId ? 'Salvar' : 'Criar Item'}</Button>
               </DialogFooter>
@@ -213,7 +194,6 @@ export default function AdminItems() {
           </DialogContent>
         </Dialog>
       </div>
-
       <div className="flex items-center space-x-2 bg-secondary/30 p-2 rounded-md border w-full max-w-sm">
         <Search className="h-4 w-4 text-muted-foreground" />
         <Input 
@@ -223,14 +203,13 @@ export default function AdminItems() {
           className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>
-
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {filteredItems.map((item) => (
           <Card key={item.id} className="relative group overflow-hidden">
              <CardContent className="p-4 flex flex-col items-center text-center space-y-3 pt-6">
                 <div className="w-16 h-16 bg-secondary/50 rounded-md flex items-center justify-center mb-2 relative">
                     {item.icon ? (
-                        <img src={`http://localhost:5000/${item.icon}`} alt={item.name} className="w-12 h-12 object-contain" />
+                        <img src={`${API_URL}/${item.icon}`} alt={item.name} className="w-12 h-12 object-contain" />
                     ) : (
                         <Package className="w-8 h-8 text-muted-foreground/50" />
                     )}
@@ -238,12 +217,10 @@ export default function AdminItems() {
                         {item.type === 'consumable' ? 'Consum' : item.type === 'object' ? 'Obj' : 'Equip'}
                     </Badge>
                 </div>
-                
                 <div>
                     <h3 className="font-bold text-sm leading-tight">{item.name}</h3>
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2 min-h-[2.5em]">{item.description || "Sem descrição"}</p>
                 </div>
-
                 {item.type === 'consumable' && item.effect_target !== 'none' && (
                     <div className="flex items-center gap-1 text-xs font-mono bg-secondary/30 px-2 py-1 rounded">
                         {item.effect_target === 'attack' && <Zap className="w-3 h-3 text-yellow-500" />}

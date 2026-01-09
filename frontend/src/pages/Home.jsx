@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import GlobalTooltip from '@/components/GlobalTooltip';
 import NewsList from '@/components/NewsList';
 import { 
+import api from '../services/api';
   Map as MapIcon, 
   Dna, 
   Home as HomeIcon, 
@@ -20,7 +20,6 @@ import {
   Package,
   Trophy
 } from 'lucide-react';
-
 export default function Home() {
   const navigate = useNavigate();
   const [mainDigimon, setMainDigimon] = useState(null);
@@ -35,27 +34,24 @@ export default function Home() {
   });
   const [loading, setLoading] = useState(true);
   const user = JSON.parse(localStorage.getItem('user'));
-
   useEffect(() => {
     if (user) {
       fetchUserData();
       fetchRanking();
     }
   }, []);
-
   const fetchRanking = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/digimons/ranking');
+      const res = await api.get('/api/digimons/ranking');
       setRanking(res.data);
     } catch (err) {
       console.error('Erro ao buscar ranking:', err);
     }
   };
-
   const fetchUserData = async () => {
     try {
       // Fetch user details
-      const userRes = await axios.get(`http://localhost:5000/api/users/${user.id}`);
+      const userRes = await api.get(`/api/users/${user.id}`);
       if (userRes.data) {
         setUserStats({
             bits: userRes.data.bits || 0,
@@ -66,11 +62,9 @@ export default function Home() {
             level: userRes.data.level || 1
         });
       }
-
       // Fetch user digimons
-      const response = await axios.get(`http://localhost:5000/api/users/${user.id}/digimons`);
+      const response = await api.get(`/api/users/${user.id}/digimons`);
       const digimons = response.data;
-      
       if (digimons && digimons.length > 0) {
         const main = digimons.find(d => d.principal === 1 || d.is_main === 1) || digimons[0];
         setMainDigimon(main);
@@ -81,7 +75,6 @@ export default function Home() {
       setLoading(false);
     }
   };
-
   if (!user) {
      return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 text-center">
@@ -94,7 +87,6 @@ export default function Home() {
         </div>
      );
   }
-
   const NavCard = ({ title, description, icon, to, colorClass = "text-primary" }) => (
     <Card 
       className="group hover:shadow-lg transition-all cursor-pointer border-muted hover:border-primary/50"
@@ -111,15 +103,10 @@ export default function Home() {
       </CardContent>
     </Card>
   );
-
   return (
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        
-
-
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
           {/* Left Column: Digivice / Main Digimon - Polished Minimalist Style */}
           <div className="lg:col-span-5 space-y-6">
              <Card className="h-full border shadow-xl overflow-hidden relative">
@@ -134,14 +121,12 @@ export default function Home() {
                     backgroundSize: '20px 20px'
                   }}
                 />
-                
                 <CardHeader className="relative z-10 border-b pb-4">
                   <CardTitle className="flex items-center justify-between">
                     <span className="font-mono tracking-widest text-sm text-muted-foreground">DIGIVICE</span>
                     <Zap className="w-4 h-4 text-muted-foreground" />
                   </CardTitle>
                 </CardHeader>
-                
                 <CardContent className="space-y-8 relative z-10 pt-8">
                   {loading ? (
                     <div className="h-64 flex items-center justify-center text-muted-foreground animate-pulse font-mono text-sm">
@@ -153,7 +138,6 @@ export default function Home() {
                         <div className="relative w-48 h-48 flex items-center justify-center mb-6 group">
                            {/* Glow Effect */}
                            <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full group-hover:bg-primary/10 transition-all duration-700" />
-                           
                            {mainDigimon.sprite_path ? (
                               <img 
                                 src={`http://localhost:5000/${mainDigimon.sprite_path}`} 
@@ -164,7 +148,6 @@ export default function Home() {
                               <span className="text-muted-foreground font-mono text-xs">NO SIGNAL</span>
                            )}
                         </div>
-                        
                         <div className="text-center space-y-1">
                           <h2 className="text-2xl font-bold tracking-tight uppercase">{mainDigimon.name || mainDigimon.species_name}</h2>
                           <div className="flex items-center justify-center gap-2 text-xs font-mono text-muted-foreground uppercase">
@@ -173,7 +156,6 @@ export default function Home() {
                           </div>
                         </div>
                       </div>
-
                       <div className="space-y-5 bg-secondary/30 p-5 rounded-sm border backdrop-blur-sm">
                         <div className="space-y-2">
                           <div className="flex justify-between text-[10px] font-mono tracking-wider text-muted-foreground uppercase">
@@ -215,7 +197,6 @@ export default function Home() {
                             return <Progress value={pct} className="h-1" />;
                           })()}
                         </div>
-                        
                         <div className="space-y-2">
                           <div className="flex justify-between text-[10px] font-mono tracking-wider text-muted-foreground uppercase">
                             <span>Data Volume (XP)</span>
@@ -223,7 +204,6 @@ export default function Home() {
                           </div>
                           <Progress value={((mainDigimon.xp || 0) / (mainDigimon.level * 100)) * 100} className="h-1" />
                         </div>
-
                         <div className="grid grid-cols-2 gap-4 pt-2">
                            <div className="flex items-center gap-3 bg-card p-3 rounded border">
                               <Swords className="w-4 h-4 text-muted-foreground" />
@@ -300,12 +280,10 @@ export default function Home() {
                 </CardContent>
              </Card>
           </div>
-
           {/* Right Column: Global Ranking */}
           <div className="lg:col-span-7 flex flex-col gap-4">
              {/* News Feed */}
              <NewsList limit={3} />
-
              {/* Global Ranking */}
              <Card className="h-full shadow-sm border-muted">
                 <CardHeader className="py-4 pb-2">
@@ -367,15 +345,13 @@ export default function Home() {
                                         `}>
                                             {index + 1}.
                                         </span>
-                                        
                                         <div className="relative w-8 h-8 rounded bg-muted/30 flex items-center justify-center overflow-hidden border border-muted/50">
                                             {digi.sprite_path ? (
-                                                <img src={`http://localhost:5000/${digi.sprite_path}`} alt={digi.species_name} className="w-full h-full object-contain p-0.5" />
+                                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${digi.sprite_path}`} alt={digi.species_name} className="w-full h-full object-contain p-0.5" />
                                             ) : (
                                                 <div className="text-[8px] text-muted-foreground">?</div>
                                             )}
                                         </div>
-
                                         <div className="flex flex-col">
                                             <span className="text-sm font-medium leading-none group-hover:text-primary transition-colors">
                                                 {digi.name || digi.species_name}
@@ -391,7 +367,6 @@ export default function Home() {
                                             </span>
                                         </div>
                                     </div>
-
                                     <div className="font-mono text-xs font-medium">
                                         {digi.total_power}
                                     </div>
@@ -403,7 +378,6 @@ export default function Home() {
                 </CardContent>
              </Card>
           </div>
-
         </div>
       </div>
     </div>

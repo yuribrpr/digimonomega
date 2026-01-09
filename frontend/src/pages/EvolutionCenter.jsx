@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,9 +20,8 @@ import {
     Sparkles,
     Search
 } from 'lucide-react';
-
 import EvolutionAnimation from '@/components/EvolutionAnimation';
-
+import api from '../services/api';
 export default function EvolutionCenter() {
   const [userDigimons, setUserDigimons] = useState([]);
   const [filteredDigimons, setFilteredDigimons] = useState([]);
@@ -35,7 +33,7 @@ export default function EvolutionCenter() {
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [inventory, setInventory] = useState([]);
   const [messageModal, setMessageModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
-  
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   // Animation State
   const [evolutionAnim, setEvolutionAnim] = useState({
     isOpen: false,
@@ -44,9 +42,7 @@ export default function EvolutionCenter() {
     digimonName: '',
     targetName: ''
   });
-
   const user = JSON.parse(localStorage.getItem('user'));
-
   useEffect(() => {
     if (searchTerm) {
         setFilteredDigimons(userDigimons.filter(d => 
@@ -57,42 +53,36 @@ export default function EvolutionCenter() {
         setFilteredDigimons(userDigimons);
     }
   }, [searchTerm, userDigimons]);
-
   useEffect(() => {
     fetchUserDigimons();
     fetchUserInventory();
   }, []);
-
   useEffect(() => {
     if (selectedDigimon) {
       fetchEvolutionLine(selectedDigimon.id);
     }
   }, [selectedDigimon]);
-
   const fetchUserInventory = async () => {
     try {
         if (!user?.id) return;
-        const res = await axios.get(`http://localhost:5000/api/items/user/${user.id}`);
+        const res = await api.get(`/api/items/user/${user.id}`);
         setInventory(res.data);
     } catch (error) {
         console.error('Error fetching inventory:', error);
     }
   };
-
   const getItemQty = (itemId) => {
       // Check both item_id and id to be safe
       const item = inventory.find(i => Number(i.item_id) === Number(itemId) || Number(i.id) === Number(itemId));
       return item ? Number(item.quantity) : 0;
   };
-
   const showMessage = (title, message, type = 'info') => {
       setMessageModal({ isOpen: true, title, message, type });
   };
-
   const fetchUserDigimons = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/users/${user.id}/digimons`);
-      setUserDigimons(res.data);
+      const res = await api.get(`/api/users/${user.id}/digimons`);
+      setDigimons(res.data);
       if (res.data.length > 0 && !selectedDigimon) {
         const main = res.data.find(d => d.is_main) || res.data[0];
         setSelectedDigimon(main);
@@ -101,12 +91,11 @@ export default function EvolutionCenter() {
       console.error('Error fetching digimons:', error);
     }
   };
-
   const fetchEvolutionLine = async (userDigimonId) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`http://localhost:5000/api/digimons/evolution-line/${userDigimonId}`, {
+      const res = await api.get(`/api/digimons/evolution-line/${userDigimonId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setEvolutionData(res.data);
@@ -116,17 +105,15 @@ export default function EvolutionCenter() {
       setLoading(false);
     }
   };
-
   const handleUnlock = async (targetDigidexId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/digimons/unlock-evolution', {
+      await api.post('/api/digimons/unlock-evolution', {
         userDigimonId: selectedDigimon.id,
         targetDigidexId
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
       const unlockedSpecies = evolutionData.line.find(e => e.id === targetDigidexId);
       if (unlockedSpecies) {
           setUnlockedEvolution({ ...unlockedSpecies, isEvolving: false });
@@ -134,32 +121,28 @@ export default function EvolutionCenter() {
       } else {
           showMessage("Sucesso", "Evolução desbloqueada com sucesso!", "success");
       }
-      
       fetchEvolutionLine(selectedDigimon.id);
       fetchUserInventory();
     } catch (error) {
       showMessage("Erro", `Erro ao desbloquear: ${error.response?.data?.message || "Erro desconhecido"}`, "error");
     }
   };
-
   const handleEvolve = async (targetDigidexId) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post('http://localhost:5000/api/digimons/evolve', {
+      const res = await api.post('/api/digimons/evolve', {
         userDigimonId: selectedDigimon.id,
         targetDigidexId
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-
       const newSpecies = evolutionData.line.find(e => e.id === targetDigidexId);
-      
       // Trigger Animation instead of immediate success message
       if (newSpecies) {
           setEvolutionAnim({
               isOpen: true,
-              beforeSprite: `http://localhost:5000/${evolutionData.currentSpecies.sprite_path}`,
-              afterSprite: `http://localhost:5000/${newSpecies.sprite_path}`,
+              beforeSprite: `${API_URL}/${evolutionData.currentSpecies.sprite_path}`,
+              afterSprite: `${API_URL}/${newSpecies.sprite_path}`,
               digimonName: evolutionData.currentSpecies.name,
               targetName: newSpecies.name
           });
@@ -170,12 +153,10 @@ export default function EvolutionCenter() {
           fetchEvolutionLine(selectedDigimon.id);
           fetchUserInventory();
       }
-
     } catch (error) {
         showMessage("Erro", `Erro ao evoluir: ${error.response?.data?.message || "Erro desconhecido"}`, "error");
     }
   };
-
   const handleAnimationComplete = () => {
     setEvolutionAnim(prev => ({ ...prev, isOpen: false }));
     fetchUserDigimons();
@@ -183,7 +164,6 @@ export default function EvolutionCenter() {
     fetchUserInventory();
     showMessage("Digievolução!", `Evolução concluída com sucesso!`, "success");
   };
-
   const getStageName = (level) => {
     switch(String(level)) {
       case '1': return 'Rookie';
@@ -194,11 +174,9 @@ export default function EvolutionCenter() {
       default: return 'Desconhecido';
     }
   };
-
   return (
     <div className="min-h-screen p-6 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
@@ -212,9 +190,7 @@ export default function EvolutionCenter() {
                 </div>
             )}
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
           {/* Left Panel: Digimon List */}
           <div className="lg:col-span-4 space-y-4">
             <Card className="h-[calc(100vh-200px)] border-muted flex flex-col bg-transparent">
@@ -225,7 +201,6 @@ export default function EvolutionCenter() {
                 </CardTitle>
                 <CardDescription>Selecione um Digimon para ver sua linha evolutiva.</CardDescription>
               </CardHeader>
-              
               <div className="p-4 border-b">
                 <div className="relative">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -237,7 +212,6 @@ export default function EvolutionCenter() {
                     />
                 </div>
               </div>
-
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {filteredDigimons.map(digi => (
                   <div
@@ -251,12 +225,11 @@ export default function EvolutionCenter() {
                   >
                     <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-transparent border border-border flex items-center justify-center">
                       {digi.sprite_path ? (
-                          <img src={`http://localhost:5000/${digi.sprite_path}`} alt={digi.nickname} className="h-full w-full object-cover" />
+                          <img src={`${API_URL}/${digi.sprite_path}`} alt={digi.nickname} className="h-full w-full object-cover" />
                       ) : (
                           <Dna className="h-6 w-6 text-muted-foreground/30" />
                       )}
                     </div>
-                    
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm truncate flex items-center gap-2">
                           {digi.nickname || digi.name}
@@ -267,7 +240,6 @@ export default function EvolutionCenter() {
                           <span className="uppercase tracking-wider">{digi.type}</span>
                       </div>
                     </div>
-                    
                     {selectedDigimon?.id === digi.id && (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
                             <ChevronRight className="h-5 w-5 text-primary opacity-50" />
@@ -278,32 +250,26 @@ export default function EvolutionCenter() {
               </div>
             </Card>
           </div>
-
           {/* Right Panel: Evolution Tree */}
           <div className="lg:col-span-8 space-y-6">
             {evolutionData ? (
               <>
-
-
                   {/* Evolution Line Organogram */}
                   <div>
                       <div className="flex items-center gap-2 mb-4">
                           <Zap className="h-4 w-4 text-primary" />
                           <h3 className="text-lg font-semibold">Árvore Evolutiva</h3>
                       </div>
-                      
                       <div className="space-y-4 py-2">
                           {[1, 2, 3, 4, 5].map((level, index) => {
                               const digimonsInLevel = evolutionData.line.filter(e => e.base_level === level);
                               if (digimonsInLevel.length === 0) return null;
-
                               return (
                                 <div key={level} className="flex flex-col items-center">
                                     {/* Level Badge */}
                                     <Badge variant="outline" className="mb-2 px-2 py-0.5 text-[10px] uppercase tracking-widest border-primary/20 bg-primary/5">
                                         {getStageName(level)}
                                     </Badge>
-
                                     {/* Cards Row */}
                                     <div className="flex flex-wrap justify-center gap-3">
                                         {digimonsInLevel.map((evo) => {
@@ -316,11 +282,9 @@ export default function EvolutionCenter() {
                                             const reqItemIcon = evo.required_item_icon || 'assets/items/1767895266042-154080746.png';
                                             const reqItemName = evo.required_item_name || 'Evoluter';
                                             const canUnlock = evolutionData.userDigimon.level >= reqLevel; 
-                                            
                                             // Rookie (Level 1) is visually unlocked
                                             const isRookie = evo.base_level === 1;
                                             const visualUnlocked = isUnlocked || isRookie;
-
                                             return (
                                                 <Card 
                                                     key={evo.id} 
@@ -342,7 +306,6 @@ export default function EvolutionCenter() {
                                                                 )
                                                             )}
                                                         </div>
-
                                                         <div className="h-16 w-full rounded-lg flex items-center justify-center p-1 bg-transparent">
                                                             <img 
                                                                 src={`http://localhost:5000/${evo.sprite_path}`} 
@@ -350,11 +313,9 @@ export default function EvolutionCenter() {
                                                                 alt={evo.name} 
                                                             />
                                                         </div>
-
                                                         <div className="text-center">
                                                             <h4 className="font-bold text-sm truncate leading-tight">{evo.name}</h4>
                                                         </div>
-
                                                         {!isCurrent && !isRookie && (
                                                             <div className="space-y-1.5">
                                                                 <div className="flex justify-center items-center gap-2 text-[10px]">
@@ -381,7 +342,6 @@ export default function EvolutionCenter() {
                                                                         </TooltipProvider>
                                                                     )}
                                                                 </div>
-
                                                                 {isUnlocked ? (
                                                                     <Button onClick={() => handleEvolve(evo.id)} className="w-full h-6 text-[10px]" size="sm" variant="outline">
                                                                         Evoluir
@@ -409,7 +369,6 @@ export default function EvolutionCenter() {
                                             );
                                         })}
                                     </div>
-
                                     {/* Connection Line/Arrow to next level */}
                                     {index < 4 && evolutionData.line.some(e => e.base_level === level + 1) && (
                                         <div className="h-4 w-px bg-border my-1 relative">
@@ -436,7 +395,6 @@ export default function EvolutionCenter() {
           </div>
         </div>
       </div>
-
       <Dialog open={showUnlockModal} onOpenChange={setShowUnlockModal}>
         <DialogContent className="sm:max-w-md bg-gradient-to-b from-background to-secondary/20 border-primary/20">
             <DialogHeader>
@@ -444,19 +402,15 @@ export default function EvolutionCenter() {
                     {unlockedEvolution?.isEvolving ? 'Digievolução Completa!' : 'Evolução Desbloqueada!'}
                 </DialogTitle>
             </DialogHeader>
-            
             {unlockedEvolution && (
                 <div className="flex flex-col items-center py-6 space-y-6">
-                    
                     {/* Animation Container */}
                     <div className="relative w-48 h-48 flex items-center justify-center">
                         {/* Background Burst */}
                         <div className="absolute inset-0 bg-primary/20 blur-[60px] rounded-full animate-pulse" />
-                        
                         {/* Rotating Rings */}
                         <div className="absolute inset-0 border-2 border-primary/30 rounded-full animate-[spin_3s_linear_infinite]" />
                         <div className="absolute inset-4 border-2 border-purple-500/30 rounded-full animate-[spin_4s_linear_infinite_reverse]" />
-                        
                         {/* Sprite */}
                         <img 
                             src={`http://localhost:5000/${unlockedEvolution.sprite_path}`}
@@ -464,7 +418,6 @@ export default function EvolutionCenter() {
                             className="relative z-10 w-40 h-40 object-contain animate-in zoom-in-0 duration-700" 
                         />
                     </div>
-
                     <div className="text-center space-y-2">
                         <Badge variant="outline" className="text-sm px-3 py-1 border-primary/50 text-primary">
                             {getStageName(unlockedEvolution.base_level)}
@@ -472,7 +425,6 @@ export default function EvolutionCenter() {
                         <h3 className="text-3xl font-bold">{unlockedEvolution.name}</h3>
                         <p className="text-muted-foreground uppercase tracking-widest text-xs">{unlockedEvolution.type}</p>
                     </div>
-                    
                     <div className="grid grid-cols-3 gap-4 w-full px-4">
                         <div className="text-center p-2 bg-secondary/30 rounded-lg">
                             <Heart className="h-4 w-4 mx-auto mb-1 text-red-500" />
@@ -487,10 +439,8 @@ export default function EvolutionCenter() {
                             <span className="font-bold">{unlockedEvolution.base_defense}</span>
                         </div>
                     </div>
-
                 </div>
             )}
-            
             <DialogFooter className="sm:justify-center">
                 <Button onClick={() => setShowUnlockModal(false)} className="w-full sm:w-auto min-w-[150px]">
                     Confirmar
@@ -498,7 +448,6 @@ export default function EvolutionCenter() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
-
       <Dialog open={messageModal.isOpen} onOpenChange={(open) => setMessageModal(prev => ({ ...prev, isOpen: open }))}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -514,7 +463,6 @@ export default function EvolutionCenter() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       <EvolutionAnimation 
         isOpen={evolutionAnim.isOpen}
         onClose={handleAnimationComplete}

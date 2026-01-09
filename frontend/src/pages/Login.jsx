@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -7,20 +6,19 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, User, Lock, ArrowRight } from 'lucide-react';
 import NewsList from '@/components/NewsList';
-
+import api from '../services/api';
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
+      const response = await api.post('/api/auth/login', {
         username,
         password
       });
@@ -33,10 +31,8 @@ export default function Login() {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen w-full flex bg-background relative overflow-hidden">
-      
       {/* Left Section: Landing & News */}
       <div className="hidden lg:flex flex-1 flex-col p-10 relative border-r border-border/40">
         <div className="z-10 flex flex-col h-full max-w-2xl mx-auto w-full">
@@ -47,7 +43,6 @@ export default function Login() {
                 </h1>
                 <p className="text-muted-foreground text-lg">Sua jornada digital começa aqui.</p>
             </div>
-
             {/* News Feed */}
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="mb-4 flex items-center justify-between">
@@ -56,25 +51,21 @@ export default function Login() {
                     </h2>
                     <div className="h-[1px] flex-1 bg-border/50 ml-4"></div>
                 </div>
-                
                 {/* News Container */}
                 <div className="flex-1 pr-2">
                     <NewsList limit={5} showHeader={false} compact={true} className="bg-transparent" />
                 </div>
             </div>
-
             {/* Footer Text */}
             <div className="mt-8 text-xs text-muted-foreground">
                 &copy; {new Date().getFullYear()} Digimon Omega. Todos os direitos reservados.
             </div>
         </div>
-
         {/* Background Decorative Elements */}
         <div className="absolute top-0 left-0 w-full h-full bg-grid-white/[0.02] -z-10 pointer-events-none" />
         <div className="absolute -top-40 -left-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
       </div>
-
       {/* Right Section: Auth Form */}
       <div className="flex-1 flex items-center justify-center p-4 lg:p-8 relative">
         <div className="w-full max-w-sm space-y-6 relative z-10">
@@ -83,7 +74,6 @@ export default function Login() {
                 <h1 className="text-3xl font-bold tracking-tighter">DIGIMON OMEGA</h1>
                 <p className="text-sm text-muted-foreground">Acesso ao Sistema</p>
             </div>
-
             <Card className="border-border/40 bg-card/50 backdrop-blur-sm shadow-xl">
                 <CardHeader className="space-y-1">
                 <CardTitle className="text-2xl text-center">Bem-vindo de volta</CardTitle>
@@ -123,13 +113,11 @@ export default function Login() {
                         />
                     </div>
                     </div>
-                    
                     {error && (
                         <div className="p-3 rounded bg-destructive/10 text-destructive text-sm text-center border border-destructive/20 flex items-center justify-center gap-2">
                             <span>{error}</span>
                         </div>
                     )}
-
                     <Button className="w-full" type="submit" disabled={loading}>
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Entrar'}
                     </Button>

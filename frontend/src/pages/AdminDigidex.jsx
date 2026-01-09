@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import api from '../services/api';
 import { 
   Pencil, 
   Trash2, 
@@ -20,7 +20,6 @@ import {
   ArrowRight,
   Filter
 } from 'lucide-react';
-
 export default function AdminDigidex() {
   const [digimons, setDigimons] = useState([]);
   const [items, setItems] = useState([]);
@@ -28,14 +27,12 @@ export default function AdminDigidex() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingDigimon, setEditingDigimon] = useState(null);
   const [isCreatingLine, setIsCreatingLine] = useState(false);
-  
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('Todos');
   const [evoLineFilter, setEvoLineFilter] = useState('Todas');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
-
   // Form State
   const [name, setName] = useState('');
   const [type, setType] = useState('Vacina');
@@ -50,52 +47,42 @@ export default function AdminDigidex() {
   const [requiredItemId, setRequiredItemId] = useState('12'); // Default to Evoluter
   const [requiredItemQty, setRequiredItemQty] = useState('');
   const [file, setFile] = useState(null);
-
   const fetchItems = async () => {
     try {
-        const res = await axios.get('http://localhost:5000/api/items');
+        const res = await api.get('/api/items');
         setItems(res.data);
     } catch (error) {
         console.error('Error fetching items:', error);
     }
   };
-
   const fetchDigimons = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/digimons');
+      const response = await api.get('/api/digimons');
       setDigimons(response.data);
       setFilteredDigimons(response.data);
     } catch (error) {
       console.error('Erro ao buscar digimons:', error);
     }
   };
-
   useEffect(() => {
     fetchDigimons();
     fetchItems();
   }, []);
-
   useEffect(() => {
     let result = digimons;
-
     if (searchTerm) {
       result = result.filter(d => d.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }
-
     if (typeFilter !== 'Todos') {
       result = result.filter(d => d.type === typeFilter);
     }
-
     if (evoLineFilter !== 'Todas') {
       result = result.filter(d => d.evolution_line_id === evoLineFilter);
     }
-
     setFilteredDigimons(result);
     setPage(1); // Reset to first page when filters change
   }, [digimons, searchTerm, typeFilter, evoLineFilter]);
-
   // ... (omitted)
-
   const resetForm = () => {
     setName('');
     setType('Vacina');
@@ -113,12 +100,10 @@ export default function AdminDigidex() {
     setEditingDigimon(null);
     setIsCreatingLine(false);
   };
-
   const handleOpenChange = (open) => {
     setIsOpen(open);
     if (!open) resetForm();
   };
-
   const handleEdit = (digimon) => {
     setEditingDigimon(digimon);
     setName(digimon.name);
@@ -135,7 +120,6 @@ export default function AdminDigidex() {
     setRequiredItemQty(digimon.required_item_quantity || '');
     setIsOpen(true);
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData();
@@ -148,21 +132,17 @@ export default function AdminDigidex() {
     formData.append('required_evoluters', requiredItemQty); // Legacy support
     formData.append('required_item_id', requiredItemId);
     formData.append('required_item_quantity', requiredItemQty);
-    
     // next_evolution_id removed
-
     formData.append('evolution_level', evolutionLevel);
     formData.append('base_level', baseLevel);
-    
     if (file) {
       formData.append('sprite', file);
     }
-
     try {
       if (editingDigimon) {
-        await axios.put(`http://localhost:5000/api/digimons/${editingDigimon.id}`, formData);
+        await api.put(`/api/digimons/${editingDigimon.id}`, formData);
       } else {
-        await axios.post('http://localhost:5000/api/digimons', formData);
+        await api.post('/api/digimons', formData);
       }
       setIsOpen(false);
       fetchDigimons();
@@ -171,38 +151,32 @@ export default function AdminDigidex() {
       console.error('Erro ao salvar digimon:', error);
     }
   };
-
   const handleDelete = async (id) => {
     if (window.confirm('Tem certeza que deseja deletar este Digimon?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/digimons/${id}`);
+        await api.delete(`/api/digimons/${id}`);
         fetchDigimons();
       } catch (error) {
         console.error('Erro ao deletar digimon:', error);
       }
     }
   };
-
   const availableEvolutions = digimons.filter(d => {
     if (evolutionLineId && d.evolution_line_id !== evolutionLineId) return false;
     if (editingDigimon && d.id === editingDigimon.id) return false;
     return true;
   });
-
   const uniqueEvoLines = [...new Set(digimons.map(d => d.evolution_line_id).filter(Boolean))].sort();
-
   const getDigimonName = (id) => {
       const found = digimons.find(d => d.id === id);
       return found ? found.name : 'Desconhecido';
   };
-  
   const getNextEvolutionLevel = (nextId) => {
     const targetId = typeof nextId === 'string' ? parseInt(nextId, 10) : nextId;
     const next = digimons.find(d => d.id === targetId);
     if (!next) return null;
     return next.evolution_level || next.base_level || null;
   };
-
   const getStageName = (level) => {
     switch(String(level)) {
         case '1': return 'Rookie';
@@ -213,37 +187,29 @@ export default function AdminDigidex() {
         default: return level || '?';
     }
   };
-
   const generateStats = (level) => {
     const base = parseInt(level);
     if (!base) return;
-
     // Ranges based on level:
     // 1 (Rookie): HP 1000-1500, Atk 100-150, Def 100-150
     // 2 (Champion): HP 2000-2500, Atk 200-250, Def 200-250
     // etc.
-    
     const minHp = base * 1000;
     const maxHp = minHp + 500;
-    
     const minStat = base * 100;
     const maxStat = minStat + 50;
-    
     const newHp = Math.floor(Math.random() * (maxHp - minHp + 1)) + minHp;
     const newAtk = Math.floor(Math.random() * (maxStat - minStat + 1)) + minStat;
     const newDef = Math.floor(Math.random() * (maxStat - minStat + 1)) + minStat;
-    
     setHp(newHp);
     setAtk(newAtk);
     setDef(newDef);
   };
-
   const handleBaseLevelChange = (val) => {
     setBaseLevel(val);
     generateStats(val);
     // Reset item to default (Evoluter)
     setRequiredItemId('12');
-    
     switch(String(val)) {
       case '1': 
         setEvolutionLevel('1'); 
@@ -268,11 +234,9 @@ export default function AdminDigidex() {
       default: break;
     }
   };
-
   const totalPages = Math.max(1, Math.ceil(filteredDigimons.length / pageSize));
   const startIndex = (page - 1) * pageSize;
   const currentPageItems = filteredDigimons.slice(startIndex, startIndex + pageSize);
-
   return (
     <div className="container mx-auto py-10 space-y-8">
       <div className="flex justify-between items-center">
@@ -395,7 +359,7 @@ export default function AdminDigidex() {
                             {items.map(item => (
                                 <SelectItem key={item.id} value={String(item.id)}>
                                     <div className="flex items-center gap-2">
-                                        {item.icon && <img src={`http://localhost:5000/${item.icon}`} className="h-4 w-4 object-contain" />}
+                                        {item.icon && <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${item.icon}`} className="h-4 w-4 object-contain" />}
                                         {item.name}
                                     </div>
                                 </SelectItem>
@@ -420,7 +384,6 @@ export default function AdminDigidex() {
         </Dialog>
         </div>
       </div>
-
       <div className="flex flex-col md:flex-row gap-4 items-center bg-muted/30 p-4 rounded-lg border">
         <div className="relative w-full md:w-auto">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -431,7 +394,6 @@ export default function AdminDigidex() {
                 className="pl-9 w-full md:w-[250px]"
             />
         </div>
-        
         <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className="w-full md:w-[180px]">
                 <div className="flex items-center gap-2">
@@ -447,7 +409,6 @@ export default function AdminDigidex() {
                 <SelectItem value="Unknown">Unknown</SelectItem>
             </SelectContent>
         </Select>
-
         <Select value={evoLineFilter} onValueChange={setEvoLineFilter}>
             <SelectTrigger className="w-full md:w-[200px]">
                 <div className="flex items-center gap-2">
@@ -463,7 +424,6 @@ export default function AdminDigidex() {
             </SelectContent>
         </Select>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {currentPageItems.map((digimon) => (
           <Card key={digimon.id} className="group hover:border-primary/50 transition-colors">
@@ -482,7 +442,7 @@ export default function AdminDigidex() {
               <div className="w-full h-32 my-2 flex items-center justify-center">
                 {digimon.sprite_path ? (
                   <img 
-                    src={'http://localhost:5000/' + digimon.sprite_path} 
+                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${digimon.sprite_path}`}
                     alt={digimon.name}
                     className="h-full object-contain drop-shadow-md"
                     onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}
@@ -512,7 +472,6 @@ export default function AdminDigidex() {
                     <span className="font-bold">{digimon.base_defense}</span>
                 </div>
               </div>
-              
               <div className="space-y-2 pt-2 border-t">
                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-muted-foreground">
@@ -521,7 +480,6 @@ export default function AdminDigidex() {
                     </div>
                     <span className="font-medium">{digimon.evolution_line_id || '-'}</span>
                  </div>
-                 
                  {digimon.next_evolution_id && (
                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-muted-foreground">
@@ -542,7 +500,6 @@ export default function AdminDigidex() {
           </Card>
         ))}
       </div>
-      
       <div className="flex items-center justify-between mt-4">
         <div className="text-sm text-muted-foreground">
           Página {page} de {totalPages}

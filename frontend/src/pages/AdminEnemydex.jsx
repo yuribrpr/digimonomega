@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pencil, Trash2, Plus, Search, Heart, Swords, Shield, Layers, Filter } from 'lucide-react';
-
+import api from '../services/api';
 export default function AdminEnemydex() {
   const [enemies, setEnemies] = useState([]);
   const [filteredEnemies, setFilteredEnemies] = useState([]);
@@ -16,7 +15,6 @@ export default function AdminEnemydex() {
   const [editingEnemy, setEditingEnemy] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('Todos');
-
   const [name, setName] = useState('');
   const [type, setType] = useState('Vacina');
   const [difficulty, setDifficulty] = useState('Normal');
@@ -28,51 +26,43 @@ export default function AdminEnemydex() {
   const [saving, setSaving] = useState(false);
   const [expReward, setExpReward] = useState('');
   const [bitsReward, setBitsReward] = useState('');
-
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
-
   const [items, setItems] = useState([]);
   const [drops, setDrops] = useState([]);
-
   useEffect(() => {
     fetchEnemies();
     fetchItems();
   }, []);
-
   const fetchItems = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/items');
+      const response = await api.get('/api/items');
       setItems(response.data);
     } catch (error) {
       console.error('Erro ao buscar itens:', error);
     }
   };
-
   const fetchDrops = async (enemyId) => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/enemies/${enemyId}/drops`);
+      const response = await api.get(`/api/enemies/${enemyId}/drops`);
       setDrops(response.data);
     } catch (error) {
       console.error('Erro ao buscar drops:', error);
       setDrops([]);
     }
   };
-
   useEffect(() => {
     filterEnemies();
     setPage(1);
   }, [searchTerm, typeFilter, enemies]);
-
   const fetchEnemies = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/enemies');
+      const response = await api.get('/api/enemies');
       setEnemies(response.data);
     } catch (error) {
       console.error('Erro ao buscar inimigos:', error);
     }
   };
-
   const filterEnemies = () => {
     let result = enemies;
     if (searchTerm) {
@@ -86,7 +76,6 @@ export default function AdminEnemydex() {
     }
     setFilteredEnemies(result);
   };
-
   const resetForm = () => {
     setName('');
     setType('Vacina');
@@ -101,12 +90,10 @@ export default function AdminEnemydex() {
     setBitsReward('');
     setDrops([]);
   };
-
   const handleOpenChange = (open) => {
     setIsOpen(open);
     if (!open) resetForm();
   };
-
   const handleEdit = (enemy) => {
     setEditingEnemy(enemy);
     setName(enemy.name);
@@ -123,19 +110,16 @@ export default function AdminEnemydex() {
     fetchDrops(enemy.id);
     setIsOpen(true);
   };
-
   const computeRewards = (a, d) => {
     const exp = Math.round((Number(a || 0) + Number(d || 0)) / 2);
     const bits = Math.round(exp * 0.5);
     return { exp, bits };
   };
-
   useEffect(() => {
     const { exp, bits } = computeRewards(atk, def);
     setExpReward(exp);
     setBitsReward(bits);
   }, [atk, def]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -149,7 +133,6 @@ export default function AdminEnemydex() {
         const originalDef = editingEnemy.base_defense ?? editingEnemy.defense ?? editingEnemy.def ?? editingEnemy.defesa ?? '';
         const originalExp = editingEnemy.exp_reward ?? '';
         const originalBits = editingEnemy.bits_reward ?? '';
-
         if (name && name !== (editingEnemy.name ?? '')) formData.append('name', name);
         if (type && type !== (editingEnemy.type ?? '')) formData.append('type', type);
         if (difficulty && difficulty !== originalDifficulty) formData.append('difficulty', difficulty);
@@ -159,16 +142,13 @@ export default function AdminEnemydex() {
         if (expReward !== '' && Number(expReward) !== Number(originalExp || 0)) formData.append('exp_reward', expReward);
         if (bitsReward !== '' && Number(bitsReward) !== Number(originalBits || 0)) formData.append('bits_reward', bitsReward);
         if (file) formData.append('sprite', file);
-        
         formData.append('drops', JSON.stringify(drops));
-
         if ([...formData.entries()].length === 0) {
           window.alert('Nenhuma alteração detectada.');
           setSaving(false);
           return;
         }
-        await axios.put(
-          `http://localhost:5000/api/enemies/${editingEnemy.id}`,
+        await api.put(`/api/enemies/${editingEnemy.id}`,
           formData
         );
       } else {
@@ -188,8 +168,7 @@ export default function AdminEnemydex() {
         if (file) {
           formData.append('sprite', file);
         }
-        await axios.post(
-          'http://localhost:5000/api/enemies',
+        await api.post('/api/enemies',
           formData
         );
       }
@@ -204,18 +183,16 @@ export default function AdminEnemydex() {
       setSaving(false);
     }
   };
-
   const handleDelete = async (id) => {
     if (window.confirm('Tem certeza que deseja deletar este Inimigo?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/enemies/${id}`);
+        await api.delete(`/api/enemies/${id}`);
         fetchEnemies();
       } catch (error) {
         console.error('Erro ao deletar inimigo:', error);
       }
     }
   };
-
   const getStageName = (level) => {
     switch (String(level)) {
       case '1': return 'Rookie';
@@ -226,7 +203,6 @@ export default function AdminEnemydex() {
       default: return level || '?';
     }
   };
-
   const generateStats = (level, diffOverride) => {
     const base = parseInt(level);
     if (!base) return;
@@ -243,30 +219,24 @@ export default function AdminEnemydex() {
     setAtk(newAtk * factor);
     setDef(newDef * factor);
   };
-
   const handleBaseLevelChange = (val) => {
     setBaseLevel(val);
     generateStats(val, difficulty);
   };
-
   const addDrop = () => {
     setDrops([...drops, { item_id: '', drop_rate: '' }]);
   };
-
   const removeDrop = (index) => {
     setDrops(drops.filter((_, i) => i !== index));
   };
-
   const updateDrop = (index, field, value) => {
     const newDrops = [...drops];
     newDrops[index][field] = value;
     setDrops(newDrops);
   };
-
   const totalPages = Math.max(1, Math.ceil(filteredEnemies.length / pageSize));
   const startIndex = (page - 1) * pageSize;
   const currentPageItems = filteredEnemies.slice(startIndex, startIndex + pageSize);
-
   return (
     <div className="container mx-auto py-10 space-y-8">
       <div className="flex justify-between items-center">
@@ -357,7 +327,6 @@ export default function AdminEnemydex() {
                   <Label htmlFor="bitsReward">Bits que dá</Label>
                   <Input id="bitsReward" type="number" value={bitsReward} onChange={(e) => setBitsReward(e.target.value)} />
                 </div>
-                
                 <div className="space-y-2 col-span-2 border-t pt-4">
                   <Label className="text-base font-semibold">Drops</Label>
                   <div className="space-y-2">
@@ -398,7 +367,6 @@ export default function AdminEnemydex() {
                     </Button>
                   </div>
                 </div>
-
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
@@ -408,7 +376,6 @@ export default function AdminEnemydex() {
           </Dialog>
         </div>
       </div>
-
       <div className="flex flex-col md:flex-row gap-4 items-center bg-muted/30 p-4 rounded-lg border">
         <div className="relative w-full md:w-auto">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -435,7 +402,6 @@ export default function AdminEnemydex() {
           </SelectContent>
         </Select>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {currentPageItems.map((enemy) => (
           <Card key={enemy.id} className="group hover:border-primary/50 transition-colors">
@@ -459,7 +425,7 @@ export default function AdminEnemydex() {
               <div className="w-full h-32 my-2 flex items-center justify-center">
                 {enemy.sprite_path ? (
                   <img
-                    src={'http://localhost:5000/' + enemy.sprite_path}
+                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${enemy.sprite_path}`}
                     alt={enemy.name}
                     className="h-full object-contain drop-shadow-md"
                     onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}
@@ -503,7 +469,6 @@ export default function AdminEnemydex() {
           </Card>
         ))}
       </div>
-
       <div className="flex items-center justify-between mt-4">
         <div className="text-sm text-muted-foreground">Página {page} de {totalPages}</div>
         <div className="flex items-center gap-2">

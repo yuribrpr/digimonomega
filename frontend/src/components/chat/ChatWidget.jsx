@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import axios from 'axios';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -8,16 +7,15 @@ import { MessageCircle, Send, Users, User, Minimize2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useChat } from '../../context/ChatContext';
-
-const SOCKET_URL = 'http://localhost:5000'; // Adjust if deployed
-
+import api from '../../services/api';
+const SOCKET_URL = import.meta.env.VITE_API_URL;
 const getAvatarUrl = (path) => {
     if (!path) return null;
     if (path.startsWith('http')) return path;
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `http://localhost:5000${cleanPath}`;
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    return `${baseUrl}${cleanPath}`;
 };
-
 export default function ChatWidget() {
     const { 
         isOpen, setIsOpen, 
@@ -25,7 +23,6 @@ export default function ChatWidget() {
         activeDM,
         startDM 
     } = useChat();
-
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [socket, setSocket] = useState(null);
@@ -35,17 +32,14 @@ export default function ChatWidget() {
     const unreadDM = recentChats.reduce((acc, chat) => acc + (chat.unread_count || 0), 0);
     const messagesEndRef = useRef(null);
     const navigate = useNavigate();
-    
     const user = JSON.parse(localStorage.getItem('user'));
     const token = localStorage.getItem('token');
-
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
-
     // Fetch Messages Functions
     const fetchLobbyMessages = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/chat/lobby', {
+            const res = await api.get('/api/chat/lobby', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setMessages(res.data);
@@ -53,10 +47,9 @@ export default function ChatWidget() {
             console.error('Error fetching lobby messages:', err);
         }
     };
-
     const fetchDMMessages = async (targetId) => {
         try {
-            const res = await axios.get(`http://localhost:5000/api/chat/dm/${targetId}`, {
+            const res = await api.get(`/api/chat/dm/${targetId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setMessages(res.data);
@@ -64,10 +57,9 @@ export default function ChatWidget() {
             console.error('Error fetching DM messages:', err);
         }
     };
-
     const fetchRecentChats = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/chat/recent', {
+            const res = await api.get('/api/chat/recent', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setRecentChats(res.data);
@@ -75,7 +67,6 @@ export default function ChatWidget() {
             console.error('Error fetching recent chats:', err);
         }
     };
-
     const markMessagesAsRead = async (targetId) => {
         setRecentChats(prev => prev.map(c => {
             if (c.id == targetId) {
@@ -83,9 +74,8 @@ export default function ChatWidget() {
             }
             return c;
         }));
-        
         try {
-            await axios.post('http://localhost:5000/api/chat/read', { targetId }, {
+            await api.post('/api/chat/read', { targetId }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchRecentChats();
@@ -93,31 +83,24 @@ export default function ChatWidget() {
             console.error("Error marking messages as read:", err);
         }
     };
-
     // Initialize Socket
     useEffect(() => {
         if (!user || !token) return;
-
         const newSocket = io(SOCKET_URL);
         setSocket(newSocket);
-
         newSocket.on('connect', () => {
             newSocket.emit('join_user_room', user.id);
             if (activeTab === 'lobby') {
                 newSocket.emit('join_lobby');
             }
         });
-
         // Initial fetch of recent chats to populate badges
         fetchRecentChats();
-
         newSocket.on('online_users_update', (users) => {
             setOnlineUsers(new Set(users));
         });
-
         return () => newSocket.close();
     }, [user?.id, token]);
-
     // Reset badges when opening tabs
     useEffect(() => {
         if (isOpen) {
@@ -126,11 +109,9 @@ export default function ChatWidget() {
             }
         }
     }, [isOpen, activeTab]);
-
     // Handle Messages & Sound
     useEffect(() => {
         if (!socket) return;
-
         const playNotificationSound = () => {
              try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -146,7 +127,6 @@ export default function ChatWidget() {
                 console.error("Audio error", e);
             }
         };
-
         const handleReceiveMessage = (message) => {
             // Lobby Messages
              if (!message.receiverId) {
@@ -172,18 +152,14 @@ export default function ChatWidget() {
                 }
             }
         };
-
         const handlePrivateMessage = (message) => {
              const isMe = message.senderId === user.id;
              const partnerId = isMe ? message.receiverId : message.senderId;
-             
              // Identify partner info from payload
              const partnerInfo = isMe 
                 ? { id: message.receiverId, username: message.receiverName, avatar: message.receiverAvatar }
                 : { id: message.senderId, username: message.senderName, avatar: message.senderAvatar };
-
              const isViewingChat = isOpen && activeTab === 'dm' && activeDM && activeDM.id === partnerId;
-
              if (!isViewingChat) {
                  if (!isMe) playNotificationSound();
              } else {
@@ -193,12 +169,10 @@ export default function ChatWidget() {
                  // Actually if I'm looking at it, I should mark it read.
                  if (!isMe) markMessagesAsRead(partnerId);
              }
-
             // Always update recent chats for DMs
             setRecentChats(prev => {
                 const existingIndex = prev.findIndex(c => c.id == partnerId);
                 const existingChat = existingIndex > -1 ? prev[existingIndex] : null;
-                
                 // Calculate new unread count
                 let newUnreadCount = existingChat ? (existingChat.unread_count || 0) : 0;
                 if (!isViewingChat && !isMe) {
@@ -206,7 +180,6 @@ export default function ChatWidget() {
                 } else if (isViewingChat) {
                     newUnreadCount = 0; // Ensure it stays 0 if viewing
                 }
-
                 if (existingIndex > -1) {
                     // Move to top
                     const updated = [...prev];
@@ -223,23 +196,18 @@ export default function ChatWidget() {
                 }
             });
         };
-
         socket.off('receive_message');
         socket.off('private_message');
-        
         socket.on('receive_message', handleReceiveMessage);
         socket.on('private_message', handlePrivateMessage);
-
         return () => {
             socket.off('receive_message');
             socket.off('private_message');
         };
     }, [socket, activeTab, activeDM, user?.id, isOpen]);
-
     // Handle Tab Changes and Room Joining
     useEffect(() => {
         if (!socket) return;
-
         if (activeTab === 'lobby') {
             socket.emit('join_lobby');
             fetchLobbyMessages();
@@ -251,7 +219,6 @@ export default function ChatWidget() {
             fetchRecentChats();
         }
     }, [activeTab, activeDM, socket]);
-
     // Search Users
     useEffect(() => {
         const searchUsers = async () => {
@@ -260,7 +227,7 @@ export default function ChatWidget() {
                 return;
             }
             try {
-                const res = await axios.get(`http://localhost:5000/api/users/search?q=${searchQuery}`);
+                const res = await api.get(`/api/users/search?q=${searchQuery}`);
                 setSearchResults(res.data);
             } catch (err) {
                 console.error("Error searching users", err);
@@ -269,21 +236,16 @@ export default function ChatWidget() {
         const timeoutId = setTimeout(searchUsers, 500);
         return () => clearTimeout(timeoutId);
     }, [searchQuery]);
-
     // Auto Scroll
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
-
     useEffect(() => {
         scrollToBottom();
     }, [messages, isOpen, activeTab]);
-
-
     const handleSendMessage = (e) => {
         e.preventDefault();
         if (!newMessage.trim() || !socket) return;
-
         const messageData = {
             senderId: user.id,
             receiverId: activeTab === 'dm' ? activeDM.id : null,
@@ -291,22 +253,17 @@ export default function ChatWidget() {
             senderName: user.username,
             senderAvatar: user.profile_image // Send profile_image instead of avatar
         };
-
         socket.emit('send_message', messageData);
         // Optimistic update not needed as we listen to receive_message event which broadcasts back
         // But for better UX we might want to append it immediately or wait for ack. 
         // For simplicity, we wait for the socket event.
-        
         setNewMessage('');
     };
-
     const goToProfile = (userId) => {
         navigate(`/profile/${userId}`);
         // Optional: Close chat or keep it open? Let's keep it open.
     };
-
     if (!user) return null;
-
     return (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
             {/* Chat Window */}
@@ -351,7 +308,6 @@ export default function ChatWidget() {
                             </Button>
                         </div>
                     </CardHeader>
-                    
                     <CardContent className="flex-1 p-0 overflow-hidden flex flex-col bg-background">
                         {/* Messages Area */}
                         {(activeTab === 'lobby' || activeTab === 'dm') && (
@@ -402,7 +358,6 @@ export default function ChatWidget() {
                                     })}
                                     <div ref={messagesEndRef} />
                                 </div>
-                                
                                 <form onSubmit={handleSendMessage} className="p-2 border-t border-border bg-card flex gap-2">
                                     <Input 
                                         value={newMessage} 
@@ -416,7 +371,6 @@ export default function ChatWidget() {
                                 </form>
                             </>
                         )}
-
                         {/* Contacts / Recent Chats Area */}
                         {activeTab === 'contacts' && (
                             <div className="flex-1 overflow-y-auto p-2 bg-background">
@@ -428,7 +382,6 @@ export default function ChatWidget() {
                                         className="h-8 text-xs mb-2"
                                     />
                                 </div>
-
                                 {searchQuery ? (
                                     <>
                                         <div className="text-xs text-muted-foreground mb-2 font-semibold uppercase">Resultados da Busca</div>
@@ -503,7 +456,6 @@ export default function ChatWidget() {
                                         )}
                                     </>
                                 )}
-                                
                                 <div className="mt-4 pt-4 border-t border-border">
                                     <p className="text-xs text-muted-foreground text-center">
                                         Busque por um usuário acima para iniciar uma nova conversa.
@@ -517,7 +469,6 @@ export default function ChatWidget() {
                     </CardContent>
                 </Card>
             )}
-
             {/* Floating Toggle Button */}
             {!isOpen && (
                 <Button 

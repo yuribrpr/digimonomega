@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -7,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, ArrowRight, ArrowLeft, User, Mail, Lock } from 'lucide-react';
 import { cn } from "@/lib/utils"
-
+import api from '../services/api';
 // Hardcoded starter data for display - Minimal Style
 const STARTERS = [
   {
@@ -16,7 +15,7 @@ const STARTERS = [
     type: 'Vaccine',
     description: 'Alto potencial de ataque.',
     stats: { hp: 100, atk: 12, def: 8 },
-    image: 'http://localhost:5000/assets/sprites/695db86a2548c.gif',
+    image: ''/assets/sprites/695db86a2548c.gif',
   },
   {
     id: 5,
@@ -24,7 +23,7 @@ const STARTERS = [
     type: 'Data',
     description: 'Leal e ágil.',
     stats: { hp: 90, atk: 11, def: 9 },
-    image: 'http://localhost:5000/assets/sprites/695dbb1f46cb2.gif',
+    image: ''/assets/sprites/695dbb1f46cb2.gif',
   },
   {
     id: 13,
@@ -32,16 +31,14 @@ const STARTERS = [
     type: 'Data',
     description: 'Suporte equilibrado.',
     stats: { hp: 110, atk: 8, def: 11 },
-    image: 'http://localhost:5000/assets/sprites/695dbfae99fad.gif',
+    image: ''/assets/sprites/695dbfae99fad.gif',
   }
 ];
-
 export default function Register() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -49,11 +46,9 @@ export default function Register() {
     starterId: null,
     nickname: ''
   });
-
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
   };
-
   const handleNext = (e) => {
     e.preventDefault();
     if (step === 1) {
@@ -69,12 +64,10 @@ export default function Register() {
         setStep(2);
     }
   };
-
   const handleBack = () => {
     setStep(1);
     setError('');
   };
-
   const handleRegister = async (e) => {
     e.preventDefault();
     if (!formData.starterId) {
@@ -85,19 +78,16 @@ export default function Register() {
         setError('Defina um apelido.');
         return;
     }
-
     setLoading(true);
     setError('');
-    
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/register', {
+      const res = await api.post('/api/auth/register', {
         username: formData.username,
         email: formData.email,
         password: formData.password,
         starterId: formData.starterId,
         nickname: formData.nickname
       });
-      
       // Auto-login success
       if (res.data.token && res.data.user) {
           localStorage.setItem('token', res.data.token);
@@ -114,16 +104,13 @@ export default function Register() {
       setLoading(false);
     }
   };
-
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 relative overflow-hidden">
-      
       {/* Minimal Progress Indicator */}
       <div className="z-10 mb-8 flex items-center gap-2">
         <div className={cn("h-1.5 w-8 rounded-full transition-all duration-500", step === 1 ? "bg-primary" : "bg-secondary")}></div>
         <div className={cn("h-1.5 w-8 rounded-full transition-all duration-500", step === 2 ? "bg-primary" : "bg-secondary")}></div>
       </div>
-
       <Card className="z-10 w-full max-w-2xl border-border/40 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-xl animate-in slide-in-from-bottom-4 duration-500">
         <CardHeader className="text-center pb-2">
           <CardTitle className="text-xl">
@@ -133,7 +120,6 @@ export default function Register() {
             {step === 1 ? 'Dados iniciais' : 'Escolha com sabedoria'}
           </CardDescription>
         </CardHeader>
-        
         <CardContent>
           {step === 1 && (
             <form onSubmit={handleNext} className="space-y-4 max-w-sm mx-auto py-4">
@@ -164,7 +150,6 @@ export default function Register() {
               </Button>
             </form>
           )}
-
           {step === 2 && (
             <div className="space-y-8 py-2">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -193,7 +178,6 @@ export default function Register() {
                         </div>
                     ))}
                 </div>
-
                 <div className="max-w-sm mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-100">
                     <div className="space-y-2">
                         <Label htmlFor="nickname" className="text-center block text-xs uppercase tracking-wider text-muted-foreground">Apelido do Parceiro</Label>
@@ -205,7 +189,6 @@ export default function Register() {
                             className="bg-secondary/50 border-border text-center h-10 placeholder:text-muted-foreground/50 focus:bg-background transition-colors" 
                         />
                     </div>
-
                     <div className="flex gap-3 pt-2">
                         <Button variant="ghost" onClick={handleBack} className="flex-1 text-muted-foreground hover:text-foreground">
                             <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
@@ -218,13 +201,11 @@ export default function Register() {
             </div>
           )}
         </CardContent>
-        
         {error && (
             <div className="p-2 mx-6 mb-6 rounded bg-destructive/10 border border-destructive/20 text-destructive text-xs text-center">
                 {error}
             </div>
         )}
-
         <CardFooter className="flex justify-center border-t border-border/40 pt-6">
              {step === 1 && (
                 <p className="text-xs text-muted-foreground">

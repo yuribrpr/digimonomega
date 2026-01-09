@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { Button } from "@/components/ui/button";
@@ -25,41 +24,35 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trash2, Newspaper, Calendar, User, Plus, Search, ChevronLeft, ChevronRight, X, Pin } from 'lucide-react';
-
+import api from '../services/api';
 export default function AdminNews() {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(false);
-  
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-
   // Form State
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState('news');
   const [publisher, setPublisher] = useState('');
   const [isPinned, setIsPinned] = useState(false);
-
   // Filter & Pagination State
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
-
   useEffect(() => {
     fetchNews();
   }, []);
-
   const fetchNews = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/news');
+      const res = await api.get('/api/news');
       setNews(res.data);
     } catch (error) {
       console.error('Erro ao buscar notícias:', error);
     }
   };
-
   const handleOpenModal = (item = null) => {
     if (item) {
       setEditingId(item.id);
@@ -78,7 +71,6 @@ export default function AdminNews() {
     }
     setIsModalOpen(true);
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -90,13 +82,11 @@ export default function AdminNews() {
         publisher,
         is_pinned: isPinned
       };
-
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/news/${editingId}`, payload);
+        await api.put(`/api/news/${editingId}`, payload);
       } else {
-        await axios.post('http://localhost:5000/api/news', payload);
+        await api.post('/api/news', payload);
       }
-      
       fetchNews();
       setIsModalOpen(false);
     } catch (error) {
@@ -105,42 +95,36 @@ export default function AdminNews() {
       setLoading(false);
     }
   };
-
   const handleDelete = async (id) => {
     if (confirm('Tem certeza que deseja excluir esta notícia?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/news/${id}`);
+        await api.delete(`/api/news/${id}`);
         fetchNews();
       } catch (error) {
         console.error('Erro ao deletar notícia:', error);
       }
     }
   };
-
   const stripImages = (html) => {
     if (!html) return '';
     return html.replace(/<img[^>]*>/g, '');
   };
-
   const filteredNews = news.filter(item => {
     const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           stripImages(item.content).toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || item.type === filterType;
     return matchesSearch && matchesType;
   });
-
   const totalPages = Math.ceil(filteredNews.length / itemsPerPage);
   const paginatedNews = filteredNews.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
   const handlePageChange = (page) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
     }
   };
-
   return (
     <div className="container mx-auto p-6 space-y-8 max-w-5xl">
       <style>{`
@@ -180,7 +164,6 @@ export default function AdminNews() {
             color: hsl(var(--muted-foreground)) !important;
         }
       `}</style>
-
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center space-x-3">
             <div className="p-2 bg-primary/10 rounded-lg">
@@ -196,7 +179,6 @@ export default function AdminNews() {
             Nova Notícia
         </Button>
       </div>
-
       <div className="grid grid-cols-1 gap-6">
         {/* Filters */}
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-card p-1 rounded-xl border shadow-sm">
@@ -222,7 +204,6 @@ export default function AdminNews() {
                 </Select>
             </div>
         </div>
-
         {/* List */}
         <div className="space-y-4">
           {paginatedNews.length === 0 ? (
@@ -273,12 +254,10 @@ export default function AdminNews() {
                         </Button>
                     </div>
                   </div>
-                  
                   <div 
                     className="text-sm text-muted-foreground line-clamp-2 prose prose-sm dark:prose-invert max-w-none"
                     dangerouslySetInnerHTML={{ __html: stripImages(item.content) }}
                   />
-                  
                   <div className="mt-4 flex justify-end">
                       <Button variant="link" size="sm" onClick={() => handleOpenModal(item)} className="text-primary p-0 h-auto font-medium">
                           Editar / Detalhes
@@ -289,7 +268,6 @@ export default function AdminNews() {
             ))
           )}
         </div>
-
         {/* Pagination */}
         {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-8">
@@ -317,7 +295,6 @@ export default function AdminNews() {
             </div>
         )}
       </div>
-
       {/* Create/Edit Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-4xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background border-none shadow-2xl sm:rounded-2xl">
@@ -332,7 +309,6 @@ export default function AdminNews() {
                 </div>
                 {/* Close button is handled by DialogPrimitive usually, but adding a custom one if needed or relying on default X */}
             </DialogHeader>
-            
             <ScrollArea className="flex-1 w-full">
                 <div className="p-6 md:p-8 max-w-4xl mx-auto w-full">
                     <form id="news-form" onSubmit={handleSubmit} className="space-y-8">
@@ -348,7 +324,6 @@ export default function AdminNews() {
                                     className="font-medium text-lg h-12"
                                 />
                             </div>
-
                             <div className="space-y-2">
                                 <Label htmlFor="publisher" className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Publicador</Label>
                                 <div className="relative">
@@ -364,7 +339,6 @@ export default function AdminNews() {
                                 </div>
                             </div>
                         </div>
-
                         <div className="space-y-2">
                             <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Tipo</Label>
                             <div className="flex items-center gap-4">
@@ -392,7 +366,6 @@ export default function AdminNews() {
                               </div>
                             </div>
                         </div>
-
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
                                 <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Conteúdo</Label>
@@ -421,7 +394,6 @@ export default function AdminNews() {
                     </form>
                 </div>
             </ScrollArea>
-
             <DialogFooter className="p-6 pt-4 border-t bg-muted/5 shrink-0 gap-2">
                 <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
                 <Button type="submit" form="news-form" disabled={loading} className="min-w-[120px]">

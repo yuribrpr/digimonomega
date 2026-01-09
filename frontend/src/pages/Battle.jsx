@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Activity, Zap, Skull, Swords, Map, Sparkles } from 'lucide-react';
 import GlobalTooltip from '@/components/GlobalTooltip';
-
+import api from '../services/api';
 export default function Battle() {
   const navigate = useNavigate();
   const [battle, setBattle] = useState(null);
@@ -29,7 +28,6 @@ export default function Battle() {
   const [fleeCooldownUntil, setFleeCooldownUntil] = useState(0);
   const [fleeCooldownMs, setFleeCooldownMs] = useState(0);
   const [showNoItemsModal, setShowNoItemsModal] = useState(false);
-  
   // Animation states: 'idle', 'player-attack', 'enemy-hit', 'enemy-attack', 'player-hit'
   const [animState, setAnimState] = useState('idle');
   const [showImpact, setShowImpact] = useState(null); // 'player' or 'enemy'
@@ -73,26 +71,22 @@ export default function Battle() {
       osc2.stop(t0 + 0.18);
     }
   };
-
   const logContainerRef = useRef(null);
   const user = JSON.parse(localStorage.getItem('user'));
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const mapId = searchParams.get('mapId');
-
   useEffect(() => {
     if (mapId) {
-        axios.get(`http://localhost:5000/api/maps/${mapId}`)
+        api.get(`/api/maps/${mapId}`)
             .then(res => setMapDetails(res.data))
             .catch(err => console.error('Erro ao carregar mapa:', err));
     }
   }, [mapId]);
-
   // Stop auto-battle if battle ends or component unmounts
   useEffect(() => {
     return () => setIsAutoBattling(false);
   }, []);
-
   const startBattle = async (isEntry = false) => {
     if (!user?.id) return;
     setLoading(true);
@@ -101,7 +95,7 @@ export default function Battle() {
       const payload = { user_id: user.id };
       if (mapId) payload.map_id = mapId;
       if (isEntry) payload.entry = true;
-      const res = await axios.post('http://localhost:5000/api/battles', payload);
+      const res = await api.post('/api/battles', payload);
       setBattle(res.data);
       setLogs([]);
       setShowWinModal(false);
@@ -119,11 +113,9 @@ export default function Battle() {
     }
     setLoading(false);
   };
-
   useEffect(() => {
     startBattle(true);
   }, []);
-
   useEffect(() => {
     if (!healCooldownUntil) {
       setHealCooldownMs(0);
@@ -141,7 +133,6 @@ export default function Battle() {
     const timer = setInterval(tick, 50);
     return () => clearInterval(timer);
   }, [healCooldownUntil]);
-
   useEffect(() => {
     if (!fleeCooldownUntil) {
       setFleeCooldownMs(0);
@@ -159,36 +150,29 @@ export default function Battle() {
     const timer = setInterval(tick, 50);
     return () => clearInterval(timer);
   }, [fleeCooldownUntil]);
-
   // Auto-scroll to top when logs change (because of flex-col-reverse)
   useEffect(() => {
     if (logContainerRef.current) {
         logContainerRef.current.scrollTop = 0;
     }
   }, [logs]);
-
   const formatLog = (logArray) => {
     if (!logArray || logArray.length === 0) return null;
-    
     // Check if it's a standard attack log (2 lines usually)
     const userDmgLine = logArray.find(l => l.includes('Você causou'));
     const enemyDmgLine = logArray.find(l => l.includes('Você tomou'));
-    
     if (userDmgLine && enemyDmgLine) {
         const userDmg = userDmgLine.match(/\d+/)?.[0] || '0';
         const enemyDmg = enemyDmgLine.match(/\d+/)?.[0] || '0';
-        
         return (
             <span>
                 Você: <span className="font-bold">{userDmg} dano</span> | Inimigo: <span className="font-bold">{enemyDmg} dano</span>
             </span>
         );
     }
-    
     // Fallback for heal/flee or other single messages
     return <span>{logArray.join(' | ')}</span>;
   };
-
   const addDamageIndicator = (value, target, crit = false) => {
     const id = Date.now() + Math.random();
     setDamageIndicators(prev => [...prev, { id, value, target, crit }]);
@@ -196,7 +180,6 @@ export default function Battle() {
         setDamageIndicators(prev => prev.filter(i => i.id !== id));
     }, 1000);
   };
-
   const triggerSequence = async (newData) => {
     // Parse damage from logs
     const logArray = newData.log || [];
@@ -204,18 +187,14 @@ export default function Battle() {
     const enemyDmgLine = logArray.find(l => l.includes('Você tomou'));
     const userDmg = userDmgLine ? parseInt(userDmgLine.match(/\d+/)?.[0] || '0') : 0;
     const enemyDmg = enemyDmgLine ? parseInt(enemyDmgLine.match(/\d+/)?.[0] || '0') : 0;
-
     // Fast but visible animation for auto-battle
     const attackDuration = isAutoBattling ? 100 : 300; 
     const hitDuration = isAutoBattling ? 100 : 400;
     const pauseDuration = isAutoBattling ? 50 : 200;
-
     const delay = (ms) => new Promise(r => setTimeout(r, ms));
-
     // 1. Player Attack Animation
     setAnimState('player-attack');
     await delay(attackDuration);
-
     // 2. Enemy Hit Effect
     setAnimState('enemy-hit');
     setShowImpact('enemy');
@@ -225,17 +204,14 @@ export default function Battle() {
     await delay(hitDuration);
     setShowImpact(null);
     setLastCrit(false);
-
     // 3. Update Data (HP drops now)
     const prevUser = battle?.user;
     setBattle(prev => ({ ...prev, ...newData }));
-    
     // Format and add log
     const formattedLog = formatLog(newData.log);
     if (formattedLog) {
         setLogs(prev => [formattedLog, ...prev]);
     }
-
     if (newData.win) {
         if (prevUser && newData.user) {
           const prevLevel = Number(prevUser.level || 0);
@@ -254,32 +230,27 @@ export default function Battle() {
         setIsAutoBattling(false); // Stop auto-battle
         return;
     }
-
     if (newData.user.hp <= 0) {
         setIsAutoBattling(false); // Stop on defeat
     }
-
     // 4. Enemy Attack Animation
     await delay(pauseDuration);
     setAnimState('enemy-attack');
     await delay(attackDuration);
-
     // 5. Player Hit Effect
     setAnimState('player-hit');
     setShowImpact('player');
     if (enemyDmg > 0) addDamageIndicator(enemyDmg, 'player');
     await delay(hitDuration);
     setShowImpact(null);
-
     // Reset
     setAnimState('idle');
   };
-
   const executeAttack = async () => {
     if (!battle || loading) return;
     setLoading(true);
     try {
-      const res = await axios.post(`http://localhost:5000/api/battles/${battle.id}/attack`);
+      const res = await api.post(`/api/battles/${battle.id}/attack`);
       await triggerSequence(res.data);
     } catch (error) {
       console.error('Erro ao atacar:', error);
@@ -287,7 +258,6 @@ export default function Battle() {
     }
     setLoading(false);
   };
-
   // Auto-battle loop
   useEffect(() => {
     let timer;
@@ -298,12 +268,11 @@ export default function Battle() {
     }
     return () => clearTimeout(timer);
   }, [isAutoBattling, battle, loading]);
-
   const onHeal = async () => {
     if (!battle || healCooldownMs > 0) return;
     setLoading(true);
     try {
-      const res = await axios.post(`http://localhost:5000/api/battles/${battle.id}/heal`);
+      const res = await api.post(`/api/battles/${battle.id}/heal`);
       setBattle(prev => ({ 
         ...prev, 
         user: { ...prev.user, hp: res.data.user.hp, max_hp: res.data.user.max_hp } 
@@ -315,14 +284,13 @@ export default function Battle() {
     }
     setLoading(false);
   };
-
   const onFlee = async () => {
     if (!battle || fleeCooldownMs > 0) return;
     setLoading(true);
     try {
       const payload = {};
       if (mapId) payload.map_id = mapId;
-      const res = await axios.post(`http://localhost:5000/api/battles/${battle.id}/flee`, payload);
+      const res = await api.post(`/api/battles/${battle.id}/flee`, payload);
       setBattle(prev => ({ ...prev, enemy: res.data.enemy }));
       setLogs(prev => [formatLog(res.data.log), ...prev]);
       setFleeCooldownUntil(Date.now() + 1500);
@@ -331,34 +299,28 @@ export default function Battle() {
     }
     setLoading(false);
   };
-
   const myDigimon = battle?.user;
   const enemy = battle?.enemy;
   const isBoss = enemy?.difficulty === 'Boss';
-
   const calcPercent = (current, max) => {
     if (!max || max <= 0) return 100;
     const p = (current / max) * 100;
     return Math.min(Math.max(p, 0), 100);
   };
-
   const hpPercent = calcPercent(myDigimon?.hp, myDigimon?.max_hp);
   const enemyHpPercent = calcPercent(enemy?.hp, enemy?.max_hp);
   const xpPercent = calcPercent(myDigimon?.xp, myDigimon?.max_xp);
-
   // Helper styles for animations
   const getPlayerStyle = () => {
     if (animState === 'player-attack') return "translate-x-64 scale-110 z-20 transition-transform duration-300 ease-in";
     if (animState === 'player-hit') return "animate-shake text-red-500 brightness-150 saturate-0";
     return "transition-all duration-300";
   };
-
   const getEnemyStyle = () => {
     if (animState === 'enemy-attack') return "-translate-x-64 scale-110 z-20 transition-transform duration-300 ease-in";
     if (animState === 'enemy-hit') return "animate-shake text-red-500 brightness-150 saturate-0";
     return "transition-all duration-300";
   };
-  
   return (
     <div className="container mx-auto py-8 max-w-4xl space-y-6">
       {/* Custom Keyframes for Shake Effect */}
@@ -395,7 +357,6 @@ export default function Battle() {
             animation: float-up 0.8s ease-out forwards;
         }
       `}</style>
-
       <Card className="border shadow-none rounded-xl overflow-hidden bg-white dark:bg-slate-950">
         <CardHeader className="border-b bg-white dark:bg-slate-950 py-4">
           <div className="flex justify-between items-center">
@@ -405,26 +366,22 @@ export default function Battle() {
             </CardTitle>
           </div>
         </CardHeader>
-        
         <CardContent className="p-0">
           {/* Battle Arena - Tech Grid */}
           <div className="relative h-[400px] bg-slate-950 w-full overflow-hidden flex justify-between items-center px-12 md:px-24">
-            
             {/* Map Background */}
             {mapDetails?.image_path && (
                 <div 
                     className="absolute inset-0 bg-cover bg-center z-0"
                     style={{ 
-                        backgroundImage: `url(http://localhost:5000/${mapDetails.image_path.replace(/\\/g, '/')})`
+                        backgroundImage: `url(${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${mapDetails.image_path.replace(/\\/g, '/')})`
                     }}
                 ></div>
             )}
-
             {/* Dark Gradient Overlay with Blur for Text Readability */}
             <div className="absolute inset-0 z-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent backdrop-blur-[1px]"
                  style={{ height: '100%' }}
             ></div>
-
             {/* Grid Background - Visible in dark areas */}
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#334155_1px,transparent_1px),linear-gradient(to_bottom,#334155_1px,transparent_1px)] bg-[size:40px_40px] z-0 opacity-50"
                  style={{
@@ -432,24 +389,21 @@ export default function Battle() {
                     WebkitMaskImage: 'linear-gradient(to top, black 50%, transparent 85%)'
                  }}
             ></div>
-
             {/* Player Side */}
             <div className={`relative z-10 flex flex-col items-center gap-6 ${getPlayerStyle()}`}>
                <div className="relative">
                   {/* Selection circle */}
                   <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-24 h-6 bg-blue-500/20 rounded-[100%] blur-md transition-opacity duration-300"></div>
-                  
                   {/* Impact Effect Overlay */}
                   {showImpact === 'player' && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center animate-impact pointer-events-none">
                         <Skull className="w-24 h-24 text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]" />
                     </div>
                   )}
-
                   <div className="w-40 h-40 flex items-center justify-center">
                     {myDigimon?.sprite_path ? (
                       <img 
-                        src={'http://localhost:5000/' + myDigimon.sprite_path} 
+                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${myDigimon.sprite_path}`} 
                         alt={myDigimon?.name} 
                         className="h-full object-contain scale-x-[-1]" 
                       />
@@ -457,7 +411,6 @@ export default function Battle() {
                       <div className="w-24 h-24 bg-slate-800 rounded-full flex items-center justify-center text-slate-600">?</div>
                     )}
                   </div>
-                  
                   {/* Damage Indicators */}
                   {damageIndicators.filter(i => i.target === 'player').map(i => (
                     <div key={i.id} className="absolute top-0 left-1/2 text-4xl font-bold text-red-500 animate-float-up z-50 pointer-events-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] font-mono">
@@ -465,14 +418,12 @@ export default function Battle() {
                     </div>
                   ))}
                </div>
-               
                {/* Player Stats - Minimal */}
                <div className="w-48 space-y-2 transition-opacity duration-300">
                   <div className="flex justify-between items-end">
                     <span className="font-medium text-slate-200">{myDigimon?.name}</span>
                     <span className="text-xs text-slate-500 font-mono">Lvl {myDigimon?.level}</span>
                   </div>
-                  
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px] text-slate-400 uppercase tracking-wider">
                       <span>HP</span>
@@ -480,14 +431,12 @@ export default function Battle() {
                     </div>
                     <Progress value={hpPercent} className="h-1.5 bg-slate-800" indicatorClassName={`bg-white transition-all duration-500 ${hpPercent < 30 ? 'bg-red-500' : ''}`} />
                   </div>
-
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px] text-slate-400 uppercase tracking-wider">
                       <span>XP</span>
                     </div>
                     <Progress value={xpPercent} className="h-1 bg-slate-800" indicatorClassName="bg-slate-500" />
                   </div>
-
                   {/* Detailed Stats */}
                   <div className="pt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500 font-mono">
                      <span>ATK <span className="text-slate-300">{myDigimon?.attack}</span></span>
@@ -495,15 +444,12 @@ export default function Battle() {
                   </div>
                </div>
             </div>
-
             {/* VS Divider - Fades out during combat action */}
             <div className={`h-32 w-px bg-gradient-to-b from-transparent via-slate-800 to-transparent transition-opacity duration-300 ${animState !== 'idle' ? 'opacity-0' : 'opacity-100'}`}></div>
-
             {/* Enemy Side */}
             <div className={`relative z-10 flex flex-col items-center gap-6 ${getEnemyStyle()}`}>
                <div className="relative">
                    <div className={`absolute -bottom-4 left-1/2 -translate-x-1/2 w-24 h-6 ${isBoss ? 'bg-red-600/40 shadow-[0_0_20px_rgba(220,38,38,0.5)]' : 'bg-red-500/20'} rounded-[100%] blur-md transition-opacity duration-300`}></div>
-                   
                   {/* Impact Effect Overlay */}
                   {showImpact === 'enemy' && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center animate-impact pointer-events-none">
@@ -514,11 +460,10 @@ export default function Battle() {
                         )}
                     </div>
                    )}
-
                    <div className="w-40 h-40 flex items-center justify-center">
                     {enemy?.sprite_path ? (
                       <img 
-                        src={'http://localhost:5000/' + enemy.sprite_path} 
+                        src={''/' + enemy.sprite_path} 
                         alt={enemy?.name} 
                         className={`h-full object-contain ${isBoss ? 'drop-shadow-[0_0_15px_rgba(220,38,38,0.5)]' : ''}`} 
                       />
@@ -526,7 +471,6 @@ export default function Battle() {
                       <div className="w-24 h-24 bg-slate-800 rounded-full flex items-center justify-center text-slate-600">?</div>
                     )}
                    </div>
-
                    {/* Damage Indicators */}
                   {damageIndicators.filter(i => i.target === 'enemy').map(i => (
                     <div 
@@ -541,14 +485,12 @@ export default function Battle() {
                     </div>
                    ))}
                </div>
-
                {/* Enemy Stats - Minimal */}
                <div className="w-48 space-y-2 transition-opacity duration-300">
                   <div className="flex justify-between items-end">
                     <span className="font-medium text-slate-200">{enemy?.name}</span>
                     <Badge variant="outline" className={`text-[10px] h-5 px-1.5 font-normal ${isBoss ? 'border-red-500/50 text-red-400 bg-red-950/30' : 'border-slate-700 text-slate-400'}`}>{enemy?.difficulty}</Badge>
                   </div>
-                  
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px] text-slate-400 uppercase tracking-wider">
                       <span>HP</span>
@@ -556,7 +498,6 @@ export default function Battle() {
                     </div>
                     <Progress value={enemyHpPercent} className="h-1.5 bg-slate-800" indicatorClassName={`bg-slate-400 transition-all duration-500 ${enemyHpPercent < 30 ? 'bg-red-500' : ''}`} />
                   </div>
-
                   {/* Detailed Stats */}
                   <div className="pt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500 font-mono">
                      <span>ATK <span className="text-slate-300">{enemy?.attack}</span></span>
@@ -564,9 +505,7 @@ export default function Battle() {
                   </div>
                </div>
             </div>
-
           </div>
-
           {/* Control Bar */}
           <div className="p-6 bg-white dark:bg-slate-950 border-t flex items-center justify-center gap-4">
              <Button 
@@ -593,7 +532,6 @@ export default function Battle() {
              >
                 <Swords className="mr-2 h-4 w-4" /> {isAutoBattling ? 'Lutando...' : 'Atacar'}
              </Button>
-             
              <Button 
                 size="lg" 
                 variant="secondary"
@@ -603,7 +541,6 @@ export default function Battle() {
              >
                 <Activity className="mr-2 h-4 w-4" /> {healCooldownMs > 0 ? `Curar (${(healCooldownMs/1000).toFixed(2)}s)` : 'Curar'}
              </Button>
-
              <Button 
                 size="lg" 
                 variant="destructive"
@@ -616,7 +553,6 @@ export default function Battle() {
              >
                 {fleeCooldownMs > 0 ? `Fugir (${(fleeCooldownMs/1000).toFixed(2)}s)` : 'Fugir'}
              </Button>
-
              <Button 
                 size="lg" 
                 variant="outline"
@@ -626,7 +562,6 @@ export default function Battle() {
                 <Map className="mr-2 h-4 w-4" /> Explorar
              </Button>
           </div>
-
           {/* Battle Log */}
           <div ref={logContainerRef} className="bg-slate-50 dark:bg-slate-900 border-t p-4 h-40 overflow-y-auto font-mono text-sm flex flex-col">
              <div className="flex items-center gap-2 mb-3 text-slate-400 text-xs uppercase tracking-wider font-semibold pb-2 border-b border-slate-800 sticky top-0 bg-slate-50 dark:bg-slate-900 z-10">
@@ -647,7 +582,6 @@ export default function Battle() {
           </div>
         </CardContent>
       </Card>
-
       <Dialog open={showWinModal} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-sm [&>button]:hidden" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
@@ -665,7 +599,6 @@ export default function Battle() {
               <span className="text-slate-500">Bits obtidos</span>
               <span className="font-medium">+{rewards?.bits} Bits</span>
             </div>
-            
             {rewards?.drops && rewards.drops.length > 0 && (
               <div className="space-y-2 border-b pb-2">
                 <div className="flex justify-between items-center text-sm">
@@ -700,7 +633,6 @@ export default function Battle() {
                 </div>
               </div>
             )}
-
             {levelUpInfo?.leveledUp && (
               <div className="space-y-2 border-b pb-2">
                 <div className="flex justify-between items-center text-sm">
@@ -728,7 +660,7 @@ export default function Battle() {
             <Button className="w-full" onClick={async () => {
               if (mapDetails && mapDetails.require_item === 1 && mapDetails.consume_on_enter === 1 && Number(mapDetails.required_item_id)) {
                 try {
-                  const res = await axios.get(`http://localhost:5000/api/items/user/${user.id}`);
+                  const res = await api.get(/api/items/user/${user.id}`);
                   const inv = res.data || [];
                   const hasItem = inv.some(x => Number(x.id) === Number(mapDetails.required_item_id) && Number(x.quantity) > 0);
                   if (!hasItem) {
@@ -746,7 +678,6 @@ export default function Battle() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       <Dialog open={showNoItemsModal} onOpenChange={setShowNoItemsModal}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,14 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2, Plus, Search, Map as MapIcon, Users } from 'lucide-react';
-
+import api from '../services/api';
 export default function AdminMaps() {
   const [maps, setMaps] = useState([]);
   const [enemies, setEnemies] = useState([]);
   const [items, setItems] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-
   const [name, setName] = useState('');
   const [type, setType] = useState('Campanha');
   const [minLevel, setMinLevel] = useState('1');
@@ -30,40 +28,35 @@ export default function AdminMaps() {
   const [consumeOnEnter, setConsumeOnEnter] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [difficulty, setDifficulty] = useState(1.0);
-
   useEffect(() => {
     fetchMaps();
     fetchEnemies();
     fetchItems();
   }, []);
-
   const fetchMaps = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/maps');
+      const response = await api.get('/api/maps');
       setMaps(response.data);
     } catch (error) {
       console.error('Erro ao buscar mapas:', error);
     }
   };
-
   const fetchEnemies = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/enemies');
+      const response = await api.get('/api/enemies');
       setEnemies(response.data);
     } catch (error) {
       console.error('Erro ao buscar inimigos:', error);
     }
   };
-
   const fetchItems = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/items');
+      const response = await api.get('/api/items');
       setItems(response.data || []);
     } catch (error) {
       console.error('Erro ao buscar itens:', error);
     }
   };
-
   const resetForm = () => {
     setName('');
     setType('Campanha');
@@ -78,7 +71,6 @@ export default function AdminMaps() {
     setIsActive(true);
     setDifficulty(1.0);
   };
-
   const handleEdit = (map) => {
     setEditingId(map.id);
     setName(map.name);
@@ -95,23 +87,19 @@ export default function AdminMaps() {
     setDifficulty(map.difficulty ? parseFloat(map.difficulty) : 1.0);
     setIsOpen(true);
   };
-
   const handleOpenChange = (open) => {
     setIsOpen(open);
     if (!open) resetForm();
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     const formData = new FormData();
-    
     formData.append('name', name);
     formData.append('type', type);
     formData.append('min_level', minLevel);
     formData.append('description', description);
     if (file) formData.append('image', file);
-    
     // Append enemies as JSON string or individual fields? 
     // Backend expects: JSON.parse(enemies) or array
     formData.append('enemies', JSON.stringify(selectedEnemies));
@@ -120,12 +108,11 @@ export default function AdminMaps() {
     formData.append('consume_on_enter', consumeOnEnter ? 'true' : 'false');
     formData.append('is_active', isActive ? 'true' : 'false');
     formData.append('difficulty', difficulty.toString());
-
     try {
         if (editingId) {
-            await axios.put(`http://localhost:5000/api/maps/${editingId}`, formData);
+            await api.put(`/api/maps/${editingId}`, formData);
         } else {
-            await axios.post('http://localhost:5000/api/maps', formData);
+            await api.post('/api/maps', formData);
         }
         setIsOpen(false);
         fetchMaps();
@@ -137,26 +124,22 @@ export default function AdminMaps() {
         setSaving(false);
     }
   };
-
   const handleDelete = async (id) => {
     if (window.confirm('Tem certeza que deseja deletar este Mapa?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/maps/${id}`);
+        await api.delete(`/api/maps/${id}`);
         fetchMaps();
       } catch (error) {
         console.error('Erro ao deletar mapa:', error);
       }
     }
   };
-
   const toggleEnemy = (id) => {
     setSelectedEnemies(prev => 
         prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
     );
   };
-
   const filteredMaps = maps.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
-
   return (
     <div className="container mx-auto py-10 space-y-8">
       <div className="flex justify-between items-center">
@@ -205,7 +188,6 @@ export default function AdminMaps() {
                       <Input id="difficulty" type="number" value={difficulty} onChange={(e) => setDifficulty(e.target.value)} required min="0.1" step="0.1" />
                   </div>
               </div>
-              
               <div className="space-y-2">
                 <Label htmlFor="description">Descrição</Label>
                 <textarea 
@@ -215,17 +197,14 @@ export default function AdminMaps() {
                   className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="image">Thumbnail</Label>
                 <Input id="image" type="file" onChange={(e) => setFile(e.target.files[0])} accept="image/*" />
               </div>
-
               <div className="flex items-center space-x-2">
                 <Checkbox id="isActive" checked={isActive} onCheckedChange={setIsActive} />
                 <Label htmlFor="isActive">Mapa Ativo (Visível no Explorar)</Label>
               </div>
-
               <div className="space-y-2">
                 <Label>Requisito de Item</Label>
                 <div className="flex items-center gap-3">
@@ -273,7 +252,6 @@ export default function AdminMaps() {
                   </div>
                 </div>
               </div>
-
               <div className="space-y-2">
                 <Label>Inimigos Disponíveis (Selecione)</Label>
                 <div className="border rounded-md p-4 h-60 overflow-y-auto grid grid-cols-2 gap-2">
@@ -283,7 +261,7 @@ export default function AdminMaps() {
                                 {selectedEnemies.includes(enemy.id) && <div className="w-2 h-2 bg-white rounded-full" />}
                             </div>
                             <div className="flex items-center gap-2 text-sm">
-                                {enemy.sprite_path && <img src={`http://localhost:5000/${enemy.sprite_path}`} className="w-8 h-8 object-contain" alt="" />}
+                                {enemy.sprite_path && <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${enemy.sprite_path}`} className="w-8 h-8 object-contain" alt="" />}
                                 <span className="truncate">{enemy.name} (Lvl {enemy.base_level || '?'})</span>
                             </div>
                         </div>
@@ -291,7 +269,6 @@ export default function AdminMaps() {
                 </div>
                 <p className="text-xs text-muted-foreground">{selectedEnemies.length} inimigos selecionados.</p>
               </div>
-
               <DialogFooter>
                 <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : (editingId ? 'Atualizar Mapa' : 'Criar Mapa')}</Button>
               </DialogFooter>
@@ -299,7 +276,6 @@ export default function AdminMaps() {
           </DialogContent>
         </Dialog>
       </div>
-
       <div className="relative w-full md:w-auto max-w-sm">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
@@ -309,13 +285,12 @@ export default function AdminMaps() {
           className="pl-9"
         />
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredMaps.map((map) => (
           <Card key={map.id} className="group overflow-hidden">
             <div className="aspect-video bg-slate-900 relative">
                 {map.image_path ? (
-                    <img src={`http://localhost:5000/${map.image_path}`} alt={map.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${map.image_path}`} alt={map.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-500">
                         <MapIcon className="w-12 h-12 opacity-20" />
