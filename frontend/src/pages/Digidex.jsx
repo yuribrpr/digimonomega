@@ -145,16 +145,6 @@ export default function Digidex() {
                         <span className="font-medium">{digimon.required_evoluters}</span>
                       </div>
                   )}
-                  
-                  {digimon.next_evolution_id && (
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center text-muted-foreground">
-                        <ArrowRight className="h-3 w-3 mr-1" />
-                        <span>Próx. (Lv. {digimon.evolution_level}):</span>
-                      </div>
-                      <span className="font-medium">{getDigimonName(digimon.next_evolution_id)}</span>
-                    </div>
-                  )}
                 </div>
 
               </CardContent>

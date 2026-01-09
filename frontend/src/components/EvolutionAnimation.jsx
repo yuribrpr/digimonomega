@@ -53,6 +53,12 @@ const EvolutionAnimation = ({ isOpen, onClose, beforeSprite, afterSprite, digimo
         {/* Background Effects */}
         <div className="absolute inset-0 bg-gradient-radial from-white/10 to-transparent animate-pulse" />
         
+        {/* Flash Overlay - Full Screen */}
+        <div className={`fixed inset-0 bg-white transition-opacity duration-300 pointer-events-none z-[70]
+            ${phase === 'flash-start' ? 'opacity-80' : 'opacity-0'}
+            ${phase === 'final-flash' ? 'opacity-100 duration-100' : ''}
+        `} />
+        
         {/* Sprites Container */}
         <div className="relative w-64 h-64 flex items-center justify-center">
             
@@ -92,11 +98,6 @@ const EvolutionAnimation = ({ isOpen, onClose, beforeSprite, afterSprite, digimo
                 `}
             />
             
-            {/* Flash Overlay */}
-            <div className={`absolute inset-0 bg-white transition-opacity duration-300 pointer-events-none
-                ${phase === 'flash-start' ? 'opacity-80' : 'opacity-0'}
-                ${phase === 'final-flash' ? 'opacity-100 duration-100' : ''}
-            `} />
         </div>
 
         {/* Text */}

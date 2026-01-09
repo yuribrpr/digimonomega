@@ -43,7 +43,7 @@ export default function AdminDigidex() {
   const [atk, setAtk] = useState('');
   const [def, setDef] = useState('');
   const [evolutionLineId, setEvolutionLineId] = useState('');
-  const [nextEvolutionId, setNextEvolutionId] = useState('');
+  // nextEvolutionId removed as per request
   const [evolutionLevel, setEvolutionLevel] = useState('');
   const [baseLevel, setBaseLevel] = useState('');
   const [requiredEvoluters, setRequiredEvoluters] = useState('');
@@ -103,7 +103,7 @@ export default function AdminDigidex() {
     setAtk('');
     setDef('');
     setEvolutionLineId('');
-    setNextEvolutionId('');
+    // setNextEvolutionId(''); removed
     setEvolutionLevel('');
     setBaseLevel('');
     setRequiredEvoluters('');
@@ -127,7 +127,7 @@ export default function AdminDigidex() {
     setAtk(digimon.base_attack);
     setDef(digimon.base_defense);
     setEvolutionLineId(digimon.evolution_line_id || '');
-    setNextEvolutionId(digimon.next_evolution_id ? String(digimon.next_evolution_id) : '');
+    // setNextEvolutionId(digimon.next_evolution_id ? String(digimon.next_evolution_id) : ''); removed
     setEvolutionLevel(digimon.evolution_level || '');
     setBaseLevel(digimon.base_level || '');
     setRequiredEvoluters(digimon.required_evoluters || '');
@@ -149,11 +149,7 @@ export default function AdminDigidex() {
     formData.append('required_item_id', requiredItemId);
     formData.append('required_item_quantity', requiredItemQty);
     
-    if (nextEvolutionId === 'no-evolution') {
-        formData.append('next_evolution_id', '');
-    } else {
-        formData.append('next_evolution_id', nextEvolutionId);
-    }
+    // next_evolution_id removed
 
     formData.append('evolution_level', evolutionLevel);
     formData.append('base_level', baseLevel);
@@ -245,12 +241,30 @@ export default function AdminDigidex() {
   const handleBaseLevelChange = (val) => {
     setBaseLevel(val);
     generateStats(val);
+    // Reset item to default (Evoluter)
+    setRequiredItemId('12');
+    
     switch(String(val)) {
-      case '1': setEvolutionLevel('1'); break;
-      case '2': setEvolutionLevel('15'); break;
-      case '3': setEvolutionLevel('30'); break;
-      case '4': setEvolutionLevel('45'); break;
-      case '5': setEvolutionLevel('60'); break;
+      case '1': 
+        setEvolutionLevel('1'); 
+        setRequiredItemQty(''); // Rookie = none
+        break;
+      case '2': 
+        setEvolutionLevel('15'); 
+        setRequiredItemQty('5'); // Champion = 5
+        break;
+      case '3': 
+        setEvolutionLevel('30'); 
+        setRequiredItemQty('15'); // Ultimate = 15
+        break;
+      case '4': 
+        setEvolutionLevel('45'); 
+        setRequiredItemQty('30'); // Mega = 30
+        break;
+      case '5': 
+        setEvolutionLevel('60'); 
+        setRequiredItemQty('50'); // Burst Mode = 50
+        break;
       default: break;
     }
   };
@@ -372,22 +386,6 @@ export default function AdminDigidex() {
                     )}
                   </div>
                    <div className="space-y-2">
-                    <Label htmlFor="nextEvo">Próxima Evolução</Label>
-                    <Select value={nextEvolutionId} onValueChange={setNextEvolutionId} disabled={!evolutionLineId && availableEvolutions.length > 50}>
-                        <SelectTrigger>
-                            <SelectValue placeholder={evolutionLineId ? "Selecione a evolução" : "Defina a linha evolutiva primeiro"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="no-evolution">Nenhuma</SelectItem>
-                            {availableEvolutions.map(evo => (
-                                <SelectItem key={evo.id} value={String(evo.id)}>
-                                    {evo.name} (Lv. {evo.evolution_level || '?'})
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
                     <Label htmlFor="reqItemId">Item de Evolução</Label>
                     <Select value={requiredItemId} onValueChange={setRequiredItemId}>
                         <SelectTrigger>

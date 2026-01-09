@@ -105,7 +105,8 @@ exports.createDigimon = async (req, res) => {
     try {
         const { 
             name, type, base_hp, base_attack, base_defense,
-            evolution_line_id, next_evolution_id, evolution_level, base_level 
+            evolution_line_id, next_evolution_id, evolution_level, base_level,
+            required_item_id, required_item_quantity
         } = req.body;
         
         const sprite_path = req.file ? `assets/sprites/${req.file.filename}` : null;
@@ -113,10 +114,12 @@ exports.createDigimon = async (req, res) => {
         const nextEvoId = next_evolution_id || null;
         const evoLevel = evolution_level || null;
         const bLevel = base_level || 1;
+        const reqItemId = required_item_id || 12; // Default to Evoluter
+        const reqItemQty = required_item_quantity || 0;
 
         const [result] = await db.execute(
-            'INSERT INTO digidex (name, type, base_hp, base_attack, base_defense, evolution_line_id, next_evolution_id, evolution_level, base_level, sprite_path, required_evoluters) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, type, base_hp, base_attack, base_defense, evolution_line_id, nextEvoId, evoLevel, bLevel, sprite_path, req.body.required_evoluters || 0]
+            'INSERT INTO digidex (name, type, base_hp, base_attack, base_defense, evolution_line_id, next_evolution_id, evolution_level, base_level, sprite_path, required_evoluters, required_item_id, required_item_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, type, base_hp, base_attack, base_defense, evolution_line_id, nextEvoId, evoLevel, bLevel, sprite_path, reqItemQty, reqItemId, reqItemQty]
         );
         res.status(201).json({ message: 'Digimon created', id: result.insertId });
     } catch (error) {
