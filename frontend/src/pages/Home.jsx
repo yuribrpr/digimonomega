@@ -116,49 +116,7 @@ export default function Home() {
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         
-        {/* Header / User Panel */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card border rounded-lg p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border-2 border-border">
-              {userStats.profile_image ? (
-                  <img src={`http://localhost:5000/${userStats.profile_image}`} alt="Avatar" className="h-full w-full object-cover" />
-              ) : (
-                  <User className="h-8 w-8 text-primary" />
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight">{user.username}</h1>
-                <Badge variant="outline" className={`${
-                  userStats.rank === 3 ? "text-yellow-500 border-yellow-500" : 
-                  userStats.rank === 2 ? "text-red-500 border-red-500" : 
-                  "text-blue-500 border-blue-500"
-                }`}>
-                  {userStats.rank === 3 ? "Owner" : userStats.rank === 2 ? "Admin" : "Tamer"}
-                </Badge>
-              </div>
-              <div className="mt-1 space-y-1 min-w-[150px]">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Lvl {userStats.level}</span>
-                      <span>{userStats.exp}/{userStats.exp_m}</span>
-                  </div>
-                  <Progress value={Math.min(100, (userStats.exp / userStats.exp_m) * 100)} className="h-1.5" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-6 bg-secondary/20 px-6 py-3 rounded-full">
-            <div className="flex items-center gap-2">
-              <Coins className="h-5 w-5 text-yellow-500" />
-              <div className="flex flex-col">
-                 <span className="text-xs text-muted-foreground font-bold uppercase">Bits</span>
-                 <span className="font-mono font-bold text-lg leading-none">
-                   {userStats.bits.toLocaleString()}
-                 </span>
-              </div>
-            </div>
-          </div>
-        </div>
+
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           

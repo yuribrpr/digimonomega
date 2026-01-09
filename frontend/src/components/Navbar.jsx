@@ -27,6 +27,8 @@ import {
   TooltipTrigger, 
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 
 export default function Navbar({ isPlaying, toggleMusic }) {
   const navigate = useNavigate();
@@ -34,7 +36,13 @@ export default function Navbar({ isPlaying, toggleMusic }) {
   const user = JSON.parse(localStorage.getItem('user'));
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [userBits, setUserBits] = useState(0);
+  const [userStats, setUserStats] = useState({
+      bits: 0,
+      level: 1,
+      exp: 0,
+      exp_m: 1000,
+      profile_image: null
+  });
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,22 +76,28 @@ export default function Navbar({ isPlaying, toggleMusic }) {
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
 
-  const fetchUserBits = async () => {
+  const fetchUserStats = async () => {
     if (!user?.id) return;
     try {
       const res = await axios.get(`http://localhost:5000/api/users/${user.id}`);
       if (res.data) {
-        setUserBits(res.data.bits || 0);
+        setUserStats({
+            bits: res.data.bits || 0,
+            level: res.data.level || 1,
+            exp: res.data.exp || 0,
+            exp_m: res.data.exp_m || 1000,
+            profile_image: res.data.profile_image
+        });
       }
     } catch (error) {
-      console.error('Erro ao buscar bits:', error);
+      console.error('Erro ao buscar stats:', error);
     }
   };
 
   useEffect(() => {
-    fetchUserBits();
-    // Refresh bits every 30 seconds to keep it somewhat updated
-    const interval = setInterval(fetchUserBits, 30000);
+    fetchUserStats();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchUserStats, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -150,7 +164,7 @@ export default function Navbar({ isPlaying, toggleMusic }) {
 
              {/* Search Bar - Removed from here */}
 
-             {(user.username === 'clovis' || user.role === 'admin') && (
+             {(user.username === 'clovis' || user.role === 'admin' || (user.permissions && user.permissions.length > 0)) && (
                 <div 
                   className="relative ml-2"
                   onMouseEnter={() => setAdminOpen(true)}
@@ -170,13 +184,27 @@ export default function Navbar({ isPlaying, toggleMusic }) {
                    onMouseEnter={() => setAdminOpen(true)}
                    onMouseLeave={() => setAdminOpen(false)}
                  >
-                   <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/users')}>Usuários</Button>
-                   <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/news')}>Notícias</Button>
-                   <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/digidex')}>Digidex</Button>
-                   <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/enemydex')}>Enemydex</Button>
-                   <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/items')}>Itens</Button>
-                   <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/maps')}>Mapas</Button>
-                   <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/settings')}>Configurações</Button>
+                   {(user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_users')) && (
+                     <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/users')}>Usuários</Button>
+                   )}
+                   {(user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_news')) && (
+                     <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/news')}>Notícias</Button>
+                   )}
+                   {(user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_digidex')) && (
+                     <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/digidex')}>Digidex</Button>
+                   )}
+                   {(user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_enemydex')) && (
+                     <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/enemydex')}>Enemydex</Button>
+                   )}
+                   {(user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_items')) && (
+                     <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/items')}>Itens</Button>
+                   )}
+                   {(user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_maps')) && (
+                     <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/maps')}>Mapas</Button>
+                   )}
+                   {(user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_settings')) && (
+                     <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/settings')}>Configurações</Button>
+                   )}
                  </div>
                </div>
              )}
@@ -228,7 +256,7 @@ export default function Navbar({ isPlaying, toggleMusic }) {
            {/* Bits Display */}
            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary/20 rounded-full border border-border/50">
               <Coins className="h-4 w-4 text-yellow-500" />
-              <span className="font-mono text-sm font-bold">{userBits.toLocaleString()}</span>
+              <span className="font-mono text-sm font-bold">{userStats.bits.toLocaleString()}</span>
            </div>
 
            {toggleMusic && (
@@ -240,10 +268,19 @@ export default function Navbar({ isPlaying, toggleMusic }) {
              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
            </Button>
            
-           <Button variant="ghost" className="text-sm font-medium text-muted-foreground hidden sm:inline-flex gap-2" onClick={() => navigate(`/profile/${user.id}`)}>
-             <User className="h-4 w-4" />
-             {user.username}
-           </Button>
+           <div className="flex items-center gap-3 pl-2" onClick={() => navigate(`/profile/${user.id}`)}>
+             <div className="hidden sm:flex flex-col items-end cursor-pointer group">
+                <span className="text-sm font-medium leading-none group-hover:text-primary transition-colors">{user.username}</span>
+                <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[10px] text-muted-foreground font-mono font-bold">Lv.{userStats.level}</span>
+                    <Progress value={(userStats.exp / userStats.exp_m) * 100} className="w-20 h-1.5" />
+                </div>
+             </div>
+             <Avatar className="h-9 w-9 cursor-pointer border-2 border-border hover:border-primary transition-colors">
+                <AvatarImage src={`http://localhost:5000/${userStats.profile_image}`} className="object-cover" />
+                <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">{user.username.substring(0,2).toUpperCase()}</AvatarFallback>
+             </Avatar>
+           </div>
            
            <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
              <LogOut className="h-5 w-5 text-destructive" />

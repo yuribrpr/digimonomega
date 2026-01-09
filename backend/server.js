@@ -12,6 +12,7 @@ const gameSettingsRoutes = require('./routes/gameSettingsRoutes');
 const itemRoutes = require('./routes/itemRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const newsRoutes = require('./routes/newsRoutes');
+const rolesRoutes = require('./routes/rolesRoutes');
 
 const http = require('http');
 const socketHandler = require('./socketHandler');
@@ -45,6 +46,7 @@ app.use('/api/settings', gameSettingsRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/roles', rolesRoutes);
 
 app.get('/', (req, res) => {
     res.send('Digimon API is running');

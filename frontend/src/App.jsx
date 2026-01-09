@@ -11,6 +11,7 @@ import AdminItems from './pages/AdminItems';
 import AdminNews from './pages/AdminNews';
 import Profile from './pages/Profile';
 import AdminUsers from './pages/AdminUsers';
+import AdminRoles from './pages/admin/AdminRoles';
 import Digidex from './pages/Digidex';
 import Battle from './pages/Battle';
 import MeusDigimons from './pages/MeusDigimons';
@@ -29,11 +30,12 @@ function PrivateRoute({ children }) {
 
 function AdminRoute({ children }) {
     const user = JSON.parse(localStorage.getItem('user'));
-    return user && (user.username === 'clovis' || user.role === 'admin') ? children : <Navigate to="/" />;
+    const hasPermissions = user?.permissions && user.permissions.length > 0;
+    return user && (user.username === 'clovis' || user.role === 'admin' || hasPermissions) ? children : <Navigate to="/" />;
 }
 
 function App() {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   const audioRef = useRef(null);
   // URL substituída por uma de teste confiável (SoundHelix) para evitar erro 403.
   // Você pode substituir por qualquer link direto (ex: arquivo no GitHub, S3, ou local na pasta public)
@@ -157,6 +159,13 @@ function App() {
             <PrivateRoute>
                 <AdminRoute>
                     <AdminUsers />
+                </AdminRoute>
+            </PrivateRoute>
+        } />
+        <Route path="/admin/roles" element={
+            <PrivateRoute>
+                <AdminRoute>
+                    <AdminRoles />
                 </AdminRoute>
             </PrivateRoute>
         } />

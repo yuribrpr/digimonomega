@@ -37,6 +37,7 @@ router.get('/admin/all', userController.getAllUsers);
 router.post('/admin/give-item', userController.adminGiveItem);
 router.post('/admin/give-digimon', userController.adminGiveDigimon);
 router.delete('/admin/digimon/:id', userController.adminRemoveDigimon);
+router.put('/admin/:id/role', authMiddleware, userController.updateUserRole);
 router.put('/admin/:id', userController.updateUserAdmin);
 router.delete('/admin/:id', userController.deleteUserAdmin);
 

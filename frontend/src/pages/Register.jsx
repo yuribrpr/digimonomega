@@ -90,14 +90,24 @@ export default function Register() {
     setError('');
     
     try {
-      await axios.post('http://localhost:5000/api/auth/register', {
+      const res = await axios.post('http://localhost:5000/api/auth/register', {
         username: formData.username,
         email: formData.email,
         password: formData.password,
         starterId: formData.starterId,
         nickname: formData.nickname
       });
-      navigate('/login');
+      
+      // Auto-login success
+      if (res.data.token && res.data.user) {
+          localStorage.setItem('token', res.data.token);
+          localStorage.setItem('user', JSON.stringify(res.data.user));
+          // Redirect to Map 1 (Battle/Exploration)
+          navigate('/battle?mapId=1');
+      } else {
+          // Fallback if no token returned (shouldn't happen with new backend)
+          navigate('/login');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Falha no cadastro');
     } finally {

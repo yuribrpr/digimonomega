@@ -80,7 +80,28 @@ exports.register = async (req, res) => {
         console.error('Error giving starter items:', itemError);
     }
 
-    res.status(201).json({ message: 'User registered successfully' });
+    // Auto-login logic
+    const token = jwt.sign({ id: userId, username: username }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    
+    // Fetch fresh user data
+    const [freshUser] = await db.execute('SELECT id, username, email, bits, role, profile_image, exp, exp_m, level FROM users WHERE id = ?', [userId]);
+    const userObj = freshUser[0] || { 
+        id: userId, 
+        username, 
+        email, 
+        bits: 0, 
+        role: 'user', 
+        profile_image: null,
+        exp: 0,
+        exp_m: 1000,
+        level: 1
+    };
+
+    res.status(201).json({ 
+        message: 'User registered successfully',
+        token,
+        user: userObj
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -116,8 +137,24 @@ exports.login = async (req, res) => {
 
     console.log('Login successful for:', username);
 
+    // Fetch permissions
+    let permissions = [];
+    try {
+        const [permRows] = await db.execute(`
+            SELECT p.permission_key
+            FROM permissions p
+            JOIN role_permissions rp ON p.id = rp.permission_id
+            JOIN roles r ON rp.role_id = r.id
+            WHERE r.name = ?
+        `, [user.role || 'user']);
+        
+        permissions = permRows.map(row => row.permission_key);
+    } catch (permError) {
+        console.error('Error fetching permissions:', permError);
+    }
+
     // Generate JWT
-    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role, permissions }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
     res.json({
         message: 'Login successful',
@@ -128,7 +165,8 @@ exports.login = async (req, res) => {
             email: user.email,
             bits: user.bits || 0,
             role: user.role || 'user',
-            profile_image: user.profile_image
+            profile_image: user.profile_image,
+            permissions
         }
     });
   } catch (error) {

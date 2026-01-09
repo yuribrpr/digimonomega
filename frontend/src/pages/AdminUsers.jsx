@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +20,8 @@ import {
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [roles, setRoles] = useState([]);
+  const navigate = useNavigate();
 
   // Dialog states
   const [editOpen, setEditOpen] = useState(false);
@@ -38,6 +41,7 @@ export default function AdminUsers() {
 
   useEffect(() => {
     fetchUsers();
+    fetchRoles();
     fetchItems();
     fetchDigidex();
   }, []);
@@ -49,6 +53,15 @@ export default function AdminUsers() {
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const fetchRoles = async () => {
+    try {
+        const res = await axios.get('http://localhost:5000/api/roles', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        setRoles(res.data);
+    } catch (e) { console.error(e); }
   };
 
   const fetchItems = async () => {
@@ -145,14 +158,19 @@ export default function AdminUsers() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Gerenciar Usuários</h1>
-        <div className="relative w-64">
-             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-             <Input 
-                placeholder="Buscar usuário..." 
-                className="pl-8" 
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-             />
+        <div className="flex items-center gap-4">
+            <Button onClick={() => navigate('/admin/roles')} variant="outline">
+                Gerenciar Permissões
+            </Button>
+            <div className="relative w-64">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="Buscar usuário..." 
+                    className="pl-8" 
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                />
+            </div>
         </div>
       </div>
 
@@ -218,8 +236,9 @@ export default function AdminUsers() {
                     <Select value={editForm.role} onValueChange={v => setEditForm({...editForm, role: v})}>
                         <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="user">User</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
+                            {roles.map(role => (
+                                <SelectItem key={role.id} value={role.name}>{role.name}</SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                 </div>

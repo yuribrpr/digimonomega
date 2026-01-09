@@ -196,6 +196,24 @@ exports.uploadAvatar = async (req, res) => {
     }
 };
 
+exports.updateUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+    
+    // Optional: Verify if role exists in roles table
+    const [roles] = await db.execute('SELECT name FROM roles WHERE name = ?', [role]);
+    if (roles.length === 0) {
+        return res.status(400).json({ message: 'Role inválida' });
+    }
+
+    await db.execute('UPDATE users SET role = ? WHERE id = ?', [role, id]);
+    res.json({ message: 'Role do usuário atualizada com sucesso' });
+  } catch (error) {
+    res.status(500).json({ message: 'Erro ao atualizar role', error: error.message });
+  }
+};
+
 exports.searchUsers = async (req, res) => {
   try {
     const { q } = req.query;
