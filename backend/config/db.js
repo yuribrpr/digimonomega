@@ -8,6 +8,12 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  // Adicione a porta (TiDB costuma usar 4000, MySQL padrão 3306)
+  port: process.env.DB_PORT || 3306, 
+  // AQUI ESTÁ A CORREÇÃO MÁGICA 👇
+  ssl: {
+    rejectUnauthorized: false
+  },
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -24,6 +30,7 @@ pool.getConnection((err, connection) => {
         if (err.code === 'ECONNREFUSED') {
             console.error('Database connection was refused.');
         }
+        console.error('Erro detalhado de conexão:', err); // Adicionei para ajudar no debug
     }
     if (connection) connection.release();
     return;
