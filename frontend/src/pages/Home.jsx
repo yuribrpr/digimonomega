@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import GlobalTooltip from '@/components/GlobalTooltip';
+import NewsList from '@/components/NewsList';
 import { 
   Map as MapIcon, 
   Dna, 
@@ -270,7 +271,7 @@ export default function Home() {
                               <Swords className="w-4 h-4 text-muted-foreground" />
                                <div>
                                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-mono">Ataque</p>
-                                 <p className="font-mono text-sm">
+                                 <div className="font-mono text-sm">
                                   {(() => {
                                     const keys = ['extra_attack','attack_bonus','bonus_attack','extra_atk','atk_bonus','atk_extra','attack_extra'];
                                     const extra = keys.reduce((s,k)=> s + Number(mainDigimon?.[k] || 0), 0);
@@ -294,7 +295,7 @@ export default function Home() {
                                       </GlobalTooltip>
                                     );
                                   })()}
-                                 </p>
+                                 </div>
                                </div>
                             </div>
                             <div className="flex items-center gap-3 bg-card p-3 rounded border">
@@ -344,6 +345,9 @@ export default function Home() {
 
           {/* Right Column: Global Ranking */}
           <div className="lg:col-span-7 flex flex-col gap-4">
+             {/* News Feed */}
+             <NewsList limit={3} />
+
              {/* Global Ranking */}
              <Card className="h-full shadow-sm border-muted">
                 <CardHeader className="py-4 pb-2">

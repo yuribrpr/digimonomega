@@ -11,6 +11,7 @@ const mapRoutes = require('./routes/mapRoutes');
 const gameSettingsRoutes = require('./routes/gameSettingsRoutes');
 const itemRoutes = require('./routes/itemRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const newsRoutes = require('./routes/newsRoutes');
 
 const http = require('http');
 const socketHandler = require('./socketHandler');
@@ -26,7 +27,8 @@ socketHandler(server);
 const path = require('path');
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 console.log('Serving static files from:', path.join(__dirname, 'public/assets'));
 app.use('/assets', express.static(path.join(__dirname, 'public/assets')));
@@ -42,6 +44,7 @@ app.use('/api/maps', mapRoutes);
 app.use('/api/settings', gameSettingsRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/news', newsRoutes);
 
 app.get('/', (req, res) => {
     res.send('Digimon API is running');

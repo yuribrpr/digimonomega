@@ -8,6 +8,7 @@ import AdminEnemydex from './pages/AdminEnemydex';
 import AdminMaps from './pages/AdminMaps';
 import AdminGameSettings from './pages/AdminGameSettings';
 import AdminItems from './pages/AdminItems';
+import AdminNews from './pages/AdminNews';
 import Profile from './pages/Profile';
 import AdminUsers from './pages/AdminUsers';
 import Digidex from './pages/Digidex';
@@ -142,6 +143,13 @@ function App() {
             <PrivateRoute>
                 <AdminRoute>
                     <AdminItems />
+                </AdminRoute>
+            </PrivateRoute>
+        } />
+        <Route path="/admin/news" element={
+            <PrivateRoute>
+                <AdminRoute>
+                    <AdminNews />
                 </AdminRoute>
             </PrivateRoute>
         } />

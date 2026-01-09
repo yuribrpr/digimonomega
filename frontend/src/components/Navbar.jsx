@@ -171,6 +171,7 @@ export default function Navbar({ isPlaying, toggleMusic }) {
                    onMouseLeave={() => setAdminOpen(false)}
                  >
                    <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/users')}>Usuários</Button>
+                   <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/news')}>Notícias</Button>
                    <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/digidex')}>Digidex</Button>
                    <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/enemydex')}>Enemydex</Button>
                    <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/items')}>Itens</Button>
