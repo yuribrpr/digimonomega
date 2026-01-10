@@ -18,6 +18,7 @@ import MeusDigimons from './pages/MeusDigimons';
 import Adoption from './pages/Adoption';
 import Exploration from './pages/Exploration';
 import Inventory from './pages/Inventory';
+import Menu from './pages/Menu';
 import EvolutionCenter from './pages/EvolutionCenter';
 import Navbar from './components/Navbar';
 import ChatWidget from './components/chat/ChatWidget';
@@ -54,7 +55,18 @@ function App() {
 
   useEffect(() => {
     if (isPlaying) {
-      audioRef.current.play().catch(e => console.error("Audio play failed:", e));
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(e => {
+            // Auto-play was prevented
+            if (e.name === 'NotAllowedError' || e.name === 'AutoplayError') {
+                console.log("Autoplay blocked by browser policy. Music paused.");
+                setIsPlaying(false);
+            } else {
+                console.error("Audio play failed:", e);
+            }
+        });
+      }
     } else {
       audioRef.current.pause();
     }
@@ -106,6 +118,11 @@ function App() {
         <Route path="/inventory" element={
             <PrivateRoute>
                 <Inventory />
+            </PrivateRoute>
+        } />
+        <Route path="/menu" element={
+            <PrivateRoute>
+                <Menu />
             </PrivateRoute>
         } />
         <Route path="/evolution-center" element={

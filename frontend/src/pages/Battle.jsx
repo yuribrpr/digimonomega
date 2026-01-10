@@ -368,7 +368,7 @@ export default function Battle() {
         </CardHeader>
         <CardContent className="p-0">
           {/* Battle Arena - Tech Grid */}
-          <div className="relative h-[400px] bg-slate-950 w-full overflow-hidden flex justify-between items-center px-12 md:px-24">
+          <div className="relative h-[300px] md:h-[400px] bg-slate-950 w-full overflow-hidden flex justify-between items-center px-2 md:px-24">
             {/* Map Background */}
             {mapDetails?.image_path && (
                 <div 
@@ -507,10 +507,10 @@ export default function Battle() {
             </div>
           </div>
           {/* Control Bar */}
-          <div className="p-6 bg-white dark:bg-slate-950 border-t flex items-center justify-center gap-4">
+          <div className="p-4 md:p-6 bg-white dark:bg-slate-950 border-t grid grid-cols-2 gap-3 md:flex md:items-center md:justify-center md:gap-4">
              <Button 
                 size="lg" 
-                className="w-32"
+                className="w-full md:w-32"
                 onClick={() => {
                   (async () => {
                     if (battle?.win || (battle?.user?.hp ?? 0) <= 0) return;
@@ -535,7 +535,7 @@ export default function Battle() {
              <Button 
                 size="lg" 
                 variant="secondary"
-                className="w-32"
+                className="w-full md:w-32"
                 onClick={onHeal}
                 disabled={healCooldownMs > 0}
              >
@@ -544,7 +544,7 @@ export default function Battle() {
              <Button 
                 size="lg" 
                 variant="destructive"
-                className="w-32"
+                className="w-full md:w-32"
                 onClick={() => {
                     setIsAutoBattling(false);
                     onFlee();
@@ -556,7 +556,7 @@ export default function Battle() {
              <Button 
                 size="lg" 
                 variant="outline"
-                className="w-32"
+                className="w-full md:w-32"
                 onClick={() => navigate('/exploration')} 
              >
                 <Map className="mr-2 h-4 w-4" /> Explorar
