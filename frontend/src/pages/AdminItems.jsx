@@ -209,7 +209,12 @@ export default function AdminItems() {
              <CardContent className="p-4 flex flex-col items-center text-center space-y-3 pt-6">
                 <div className="w-16 h-16 bg-secondary/50 rounded-md flex items-center justify-center mb-2 relative">
                     {item.icon ? (
-                        <img src={`${API_URL}/${item.icon}`} alt={item.name} className="w-12 h-12 object-contain" />
+                        <img 
+                          src={`${API_URL}/${item.icon}`} 
+                          alt={item.name} 
+                          className="w-12 h-12 object-contain"
+                          onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}
+                        />
                     ) : (
                         <Package className="w-8 h-8 text-muted-foreground/50" />
                     )}

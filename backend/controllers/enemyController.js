@@ -74,10 +74,14 @@ exports.createEnemy = async (req, res) => {
         if (Array.isArray(drops) && drops.length > 0) {
             for (const drop of drops) {
                 if (drop.item_id && drop.drop_rate) {
-                    await db.execute(
-                        'INSERT INTO enemy_drops (enemy_id, item_id, drop_rate) VALUES (?, ?, ?)',
-                        [result.insertId, drop.item_id, drop.drop_rate]
-                    );
+                    try {
+                        await db.execute(
+                            'INSERT INTO enemy_drops (enemy_id, item_id, drop_rate) VALUES (?, ?, ?)',
+                            [result.insertId, drop.item_id, drop.drop_rate]
+                        );
+                    } catch (dropError) {
+                        console.error(`Failed to add drop for new enemy ${result.insertId}:`, dropError.message);
+                    }
                 }
             }
         }
@@ -166,14 +170,25 @@ exports.updateEnemy = async (req, res) => {
         
         if (Array.isArray(drops)) {
             // Delete existing
-            await db.execute('DELETE FROM enemy_drops WHERE enemy_id = ?', [id]);
+            try {
+                await db.execute('DELETE FROM enemy_drops WHERE enemy_id = ?', [id]);
+            } catch (delError) {
+                console.error(`Failed to delete existing drops for enemy ${id}:`, delError.message);
+                // If delete fails due to FK (unlikely for delete from drops, but possible), we might abort or continue
+            }
+
             // Insert new
             for (const drop of drops) {
                  if (drop.item_id && drop.drop_rate) {
-                    await db.execute(
-                        'INSERT INTO enemy_drops (enemy_id, item_id, drop_rate) VALUES (?, ?, ?)',
-                        [id, drop.item_id, drop.drop_rate]
-                    );
+                    try {
+                        await db.execute(
+                            'INSERT INTO enemy_drops (enemy_id, item_id, drop_rate) VALUES (?, ?, ?)',
+                            [id, drop.item_id, drop.drop_rate]
+                        );
+                    } catch (dropError) {
+                         // Ignore foreign key error for drops
+                         console.error(`Failed to add drop for enemy ${id} item ${drop.item_id}:`, dropError.message);
+                    }
                 }
             }
         }
