@@ -376,7 +376,13 @@ export default function AdminDigidex() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="reqItemQty">Quantidade do Item</Label>
-                    <Input id="reqItemQty" type="number" value={requiredItemQty} onChange={(e) => setRequiredItemQty(e.target.value)} placeholder="0" />
+                    <Input
+                      id="reqItemQty"
+                      type="number"
+                      value={requiredItemQty}
+                      onChange={(e) => setRequiredItemQty(e.target.value)}
+                      placeholder="1"
+                    />
                   </div>
                   <div className="space-y-2 col-span-2">
                     <Label htmlFor="sprite">Imagem (Sprite)</Label>
