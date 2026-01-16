@@ -1,7 +1,9 @@
 const db = require('../config/db');
+const dbName = process.env.DB_NAME;
+const enemyTable = dbName ? `${dbName}.enemydex` : 'enemydex';
 
 async function getColumns() {
-  const [rows] = await db.execute('DESCRIBE digimon_omega.enemydex');
+  const [rows] = await db.execute(`DESCRIBE ${enemyTable}`);
   return rows;
 }
 
@@ -14,7 +16,7 @@ function chooseColumn(columns, candidates) {
 
 exports.getAllEnemies = async (req, res) => {
   try {
-    const [enemies] = await db.execute('SELECT * FROM digimon_omega.enemydex');
+    const [enemies] = await db.execute(`SELECT * FROM ${enemyTable}`);
     res.json(enemies);
   } catch (error) {
     console.error(error);
@@ -24,8 +26,8 @@ exports.getAllEnemies = async (req, res) => {
 
 exports.getSchema = async (req, res) => {
   try {
-    const [describeRows] = await db.execute('DESCRIBE digimon_omega.enemydex');
-    const [createRows] = await db.execute('SHOW CREATE TABLE digimon_omega.enemydex');
+    const [describeRows] = await db.execute(`DESCRIBE ${enemyTable}`);
+    const [createRows] = await db.execute(`SHOW CREATE TABLE ${enemyTable}`);
     const create = createRows && createRows[0] && (createRows[0]['Create Table'] || createRows[0].CreateTable || '');
     res.json({ describe: describeRows, create });
   } catch (error) {
@@ -51,7 +53,7 @@ exports.createEnemy = async (req, res) => {
     const bitsReward = bits_reward ? parseInt(bits_reward, 10) : Math.round(expReward * 0.5);
     const diffText = (String(difficulty) === '1' || String(difficulty).toLowerCase() === 'boss') ? 'Boss' : 'Normal';
 
-    const sql = `INSERT INTO digimon_omega.enemydex (name, type, hp, attack, defense, exp_reward, difficulty, sprite_path, bits_reward)
+    const sql = `INSERT INTO ${enemyTable} (name, type, hp, attack, defense, exp_reward, difficulty, sprite_path, bits_reward)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     const [result] = await db.execute(sql, [
       name, type, bHp, bAtk, bDef, expReward, diffText, sprite_path, bitsReward
@@ -108,7 +110,7 @@ exports.updateEnemy = async (req, res) => {
       ? ((String(difficulty) === '1' || String(difficulty).toLowerCase() === 'boss') ? 'Boss' : 'Normal')
       : undefined;
 
-    const [rows] = await db.execute('SELECT attack, defense FROM digimon_omega.enemydex WHERE id=?', [id]);
+    const [rows] = await db.execute(`SELECT attack, defense FROM ${enemyTable} WHERE id=?`, [id]);
     const current = rows && rows[0] ? rows[0] : { attack: null, defense: null };
 
     const sets = [];
@@ -150,7 +152,7 @@ exports.updateEnemy = async (req, res) => {
     }
 
     if (sets.length > 0) {
-      const query = `UPDATE digimon_omega.enemydex SET ${sets.join(', ')} WHERE id=?`;
+      const query = `UPDATE ${enemyTable} SET ${sets.join(', ')} WHERE id=?`;
       params.push(id);
       await db.execute(query, params);
     }
@@ -204,7 +206,7 @@ exports.deleteEnemy = async (req, res) => {
         return res.status(400).json({ message: 'Não é possível excluir: Este inimigo está alocado em mapas.' });
     }
 
-    const [result] = await db.execute('DELETE FROM enemydex WHERE id = ?', [id]);
+    const [result] = await db.execute(`DELETE FROM ${enemyTable} WHERE id = ?`, [id]);
     
     if (result.affectedRows === 0) {
         return res.status(404).json({ message: 'Inimigo não encontrado.' });
