@@ -39,7 +39,7 @@ export default function Login() {
             {/* Header */}
             <div className="mb-12">
                 <h1 className="text-4xl font-bold tracking-tighter mb-2 bg-gradient-to-br from-foreground to-muted-foreground bg-clip-text text-transparent">
-                  DIGIMON OMEGA
+                  Digimon Fan Game
                 </h1>
                 <p className="text-muted-foreground text-lg">Sua jornada digital começa aqui.</p>
             </div>
