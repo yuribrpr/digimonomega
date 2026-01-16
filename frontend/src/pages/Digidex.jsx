@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Heart, Shield, Swords, Dna, ArrowRight, Zap } from 'lucide-react';
+import { Search, Heart, Shield, Swords, Dna, ArrowRight, Zap, Sparkles } from 'lucide-react';
 import api from '../services/api';
 export default function Digidex() {
   const navigate = useNavigate();
@@ -103,18 +103,22 @@ export default function Digidex() {
                 </div>
               </CardHeader>
               <CardContent className="text-sm space-y-4">
-                <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="grid grid-cols-4 gap-2 text-center">
                     <div className="flex flex-col items-center p-2 bg-secondary/10 rounded">
                         <Heart className="h-4 w-4 mb-1 text-muted-foreground" />
-                        <span className="font-bold">{digimon.base_hp}</span>
+                        <span className="font-bold text-xs">{digimon.base_hp}</span>
                     </div>
                     <div className="flex flex-col items-center p-2 bg-secondary/10 rounded">
                         <Swords className="h-4 w-4 mb-1 text-muted-foreground" />
-                        <span className="font-bold">{digimon.base_attack}</span>
+                        <span className="font-bold text-xs">{digimon.base_attack}</span>
                     </div>
                     <div className="flex flex-col items-center p-2 bg-secondary/10 rounded">
                         <Shield className="h-4 w-4 mb-1 text-muted-foreground" />
-                        <span className="font-bold">{digimon.base_defense}</span>
+                        <span className="font-bold text-xs">{digimon.base_defense}</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 bg-secondary/10 rounded">
+                        <Zap className="h-4 w-4 mb-1 text-muted-foreground" />
+                        <span className="font-bold text-xs">{digimon.base_attack_speed || 2.0}s</span>
                     </div>
                 </div>
                 <div className="space-y-2 pt-2 border-t">
@@ -128,7 +132,7 @@ export default function Digidex() {
                   {digimon.required_evoluters > 0 && (
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex items-center text-muted-foreground">
-                            <Zap className="h-3 w-3 mr-1 text-yellow-500" />
+                            <Sparkles className="h-3 w-3 mr-1 text-yellow-500" />
                             <span>Evoluters:</span>
                         </div>
                         <span className="font-medium">{digimon.required_evoluters}</span>

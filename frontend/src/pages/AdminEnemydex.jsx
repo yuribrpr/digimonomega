@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, Trash2, Plus, Search, Heart, Swords, Shield, Layers, Filter } from 'lucide-react';
+import { Pencil, Trash2, Plus, Search, Heart, Swords, Shield, Layers, Filter, Zap } from 'lucide-react';
 import api from '../services/api';
 export default function AdminEnemydex() {
   const [enemies, setEnemies] = useState([]);
@@ -21,6 +21,7 @@ export default function AdminEnemydex() {
   const [hp, setHp] = useState('');
   const [atk, setAtk] = useState('');
   const [def, setDef] = useState('');
+  const [atkSpeed, setAtkSpeed] = useState('');
   const [baseLevel, setBaseLevel] = useState('');
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -83,6 +84,7 @@ export default function AdminEnemydex() {
     setHp('');
     setAtk('');
     setDef('');
+    setAtkSpeed('2.0');
     setBaseLevel('');
     setFile(null);
     setEditingEnemy(null);
@@ -104,6 +106,7 @@ export default function AdminEnemydex() {
     setHp(enemy.base_hp ?? enemy.hp ?? enemy.vida ?? '');
     setAtk(enemy.base_attack ?? enemy.attack ?? enemy.atk ?? enemy.ataque ?? '');
     setDef(enemy.base_defense ?? enemy.defense ?? enemy.def ?? enemy.defesa ?? '');
+    setAtkSpeed(enemy.attack_speed || '2.0');
     setBaseLevel(enemy.base_level ?? enemy.level ?? enemy.nivel ?? '');
     setExpReward(enemy.exp_reward ?? '');
     setBitsReward(enemy.bits_reward ?? '');
@@ -139,6 +142,7 @@ export default function AdminEnemydex() {
         if (hp !== '' && Number(hp) !== Number(originalHp || 0)) formData.append('base_hp', hp);
         if (atk !== '' && Number(atk) !== Number(originalAtk || 0)) formData.append('base_attack', atk);
         if (def !== '' && Number(def) !== Number(originalDef || 0)) formData.append('base_defense', def);
+        formData.append('attack_speed', atkSpeed || '2.0');
         if (expReward !== '' && Number(expReward) !== Number(originalExp || 0)) formData.append('exp_reward', expReward);
         if (bitsReward !== '' && Number(bitsReward) !== Number(originalBits || 0)) formData.append('bits_reward', bitsReward);
         if (file) formData.append('sprite', file);
@@ -163,6 +167,7 @@ export default function AdminEnemydex() {
         formData.append('base_hp', hp);
         formData.append('base_attack', atk);
         formData.append('base_defense', def);
+        formData.append('attack_speed', atkSpeed || '2.0');
         formData.append('exp_reward', expReward);
         formData.append('bits_reward', bitsReward);
         if (file) {
@@ -315,6 +320,10 @@ export default function AdminEnemydex() {
                     <Label htmlFor="def">Defesa Base</Label>
                     <Input id="def" type="number" value={def} onChange={(e) => setDef(e.target.value)} required />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="atkSpeed">Vel. Ataque (seg)</Label>
+                    <Input id="atkSpeed" type="number" step="0.1" value={atkSpeed} onChange={(e) => setAtkSpeed(e.target.value)} required />
+                  </div>
                 <div className="space-y-2 col-span-2">
                   <Label htmlFor="sprite">Imagem (Sprite)</Label>
                   <Input id="sprite" type="file" onChange={(e) => setFile(e.target.files[0])} />
@@ -442,18 +451,22 @@ export default function AdminEnemydex() {
               </div>
             </CardHeader>
             <CardContent className="p-4 pt-2 text-sm space-y-3">
-              <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="grid grid-cols-4 gap-2 text-center">
                 <div className="flex flex-col items-center p-2 bg-muted/50 rounded-md">
                   <Heart className="h-4 w-4 mb-1 text-muted-foreground" />
-                  <span className="font-bold">{enemy.base_hp ?? enemy.hp ?? enemy.vida ?? '-'}</span>
+                  <span className="font-bold text-xs">{enemy.base_hp ?? enemy.hp ?? enemy.vida ?? '-'}</span>
                 </div>
                 <div className="flex flex-col items-center p-2 bg-muted/50 rounded-md">
                   <Swords className="h-4 w-4 mb-1 text-muted-foreground" />
-                  <span className="font-bold">{enemy.base_attack ?? enemy.attack ?? enemy.atk ?? enemy.ataque ?? '-'}</span>
+                  <span className="font-bold text-xs">{enemy.base_attack ?? enemy.attack ?? enemy.atk ?? enemy.ataque ?? '-'}</span>
                 </div>
                 <div className="flex flex-col items-center p-2 bg-muted/50 rounded-md">
                   <Shield className="h-4 w-4 mb-1 text-muted-foreground" />
-                  <span className="font-bold">{enemy.base_defense ?? enemy.defense ?? enemy.def ?? enemy.defesa ?? '-'}</span>
+                  <span className="font-bold text-xs">{enemy.base_defense ?? enemy.defense ?? enemy.def ?? enemy.defesa ?? '-'}</span>
+                </div>
+                <div className="flex flex-col items-center p-2 bg-muted/50 rounded-md">
+                  <Zap className="h-4 w-4 mb-1 text-muted-foreground" />
+                  <span className="font-bold text-xs">{enemy.attack_speed || 2.0}s</span>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 text-center">

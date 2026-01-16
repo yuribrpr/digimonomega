@@ -15,6 +15,7 @@ async function ensureDigidexColumns() {
         if (!names.includes('required_evoluters')) alterQueries.push("ADD COLUMN required_evoluters INT DEFAULT 0");
         if (!names.includes('required_item_id')) alterQueries.push("ADD COLUMN required_item_id INT DEFAULT 12");
         if (!names.includes('required_item_quantity')) alterQueries.push("ADD COLUMN required_item_quantity INT DEFAULT 0");
+        if (!names.includes('base_attack_speed')) alterQueries.push("ADD COLUMN base_attack_speed FLOAT DEFAULT 2.0");
 
         for (const query of alterQueries) {
             await db.execute(`ALTER TABLE digidex ${query}`);
@@ -75,6 +76,7 @@ exports.getRanking = async (req, res) => {
                 u.username as owner_name,
                 d.name as species_name,
                 d.sprite_path,
+                d.base_attack_speed,
                 (${powerCalc}) as total_power
             FROM ${table} ud
             JOIN ${usersTable} u ON ud.${userIdCol} = u.id
@@ -84,7 +86,13 @@ exports.getRanking = async (req, res) => {
         `;
         
         const [rows] = await db.execute(sql);
-        res.json(rows);
+        // Override attack_speed with base_attack_speed for display consistency if needed
+        const result = rows.map(r => ({
+            ...r,
+            attack_speed: r.base_attack_speed || r.attack_speed || 2.0
+        }));
+
+        res.json(result);
     } catch (error) {
         console.error('Error fetching ranking:', error);
         res.status(500).json({ message: 'Error fetching ranking' });
@@ -107,7 +115,7 @@ exports.createDigimon = async (req, res) => {
         const { 
             name, type, base_hp, base_attack, base_defense,
             evolution_line_id, next_evolution_id, evolution_level, base_level,
-            required_item_id, required_item_quantity
+            required_item_id, required_item_quantity, base_attack_speed
         } = req.body;
         
         const sprite_path = req.file ? `assets/sprites/${req.file.filename}` : null;
@@ -117,10 +125,11 @@ exports.createDigimon = async (req, res) => {
         const bLevel = base_level || 1;
         const reqItemId = required_item_id || 12; // Default to Evoluter
         const reqItemQty = required_item_quantity || 0;
+        const bAtkSpeed = base_attack_speed || 2.0;
 
         const [result] = await db.execute(
-            'INSERT INTO digidex (name, type, base_hp, base_attack, base_defense, evolution_line_id, next_evolution_id, evolution_level, base_level, sprite_path, required_evoluters, required_item_id, required_item_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, type, base_hp, base_attack, base_defense, evolution_line_id, nextEvoId, evoLevel, bLevel, sprite_path, reqItemQty, reqItemId, reqItemQty]
+            'INSERT INTO digidex (name, type, base_hp, base_attack, base_defense, base_attack_speed, evolution_line_id, next_evolution_id, evolution_level, base_level, sprite_path, required_evoluters, required_item_id, required_item_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, type, base_hp, base_attack, base_defense, bAtkSpeed, evolution_line_id, nextEvoId, evoLevel, bLevel, sprite_path, reqItemQty, reqItemId, reqItemQty]
         );
         res.status(201).json({ message: 'Digimon created', id: result.insertId });
     } catch (error) {
@@ -136,7 +145,7 @@ exports.updateDigimon = async (req, res) => {
         const { 
             name, type, base_hp, base_attack, base_defense,
             evolution_line_id, next_evolution_id, evolution_level, base_level, required_evoluters,
-            required_item_id, required_item_quantity
+            required_item_id, required_item_quantity, base_attack_speed
         } = req.body;
 
         const [rows] = await db.execute('SELECT * FROM digidex WHERE id = ?', [id]);
@@ -156,6 +165,7 @@ exports.updateDigimon = async (req, res) => {
         const newBaseHp = numOr(base_hp, existing.base_hp);
         const newBaseAttack = numOr(base_attack, existing.base_attack);
         const newBaseDefense = numOr(base_defense, existing.base_defense);
+        const newBaseAtkSpeed = numOr(base_attack_speed, existing.base_attack_speed || 2.0);
 
         const newEvolutionLineId = typeof evolution_line_id !== 'undefined' && evolution_line_id !== '' ? evolution_line_id : existing.evolution_line_id;
         const nextEvoId = typeof next_evolution_id !== 'undefined' && next_evolution_id !== '' ? next_evolution_id : existing.next_evolution_id;
@@ -171,8 +181,8 @@ exports.updateDigimon = async (req, res) => {
             ? required_item_id
             : (existing.required_item_id || 12);
 
-        let query = 'UPDATE digidex SET name=?, type=?, base_hp=?, base_attack=?, base_defense=?, evolution_line_id=?, next_evolution_id=?, evolution_level=?, base_level=?, required_evoluters=?, required_item_id=?, required_item_quantity=?';
-        let params = [newName, newType, newBaseHp, newBaseAttack, newBaseDefense, newEvolutionLineId, nextEvoId, evoLevel, bLevel, reqItemQty, reqItemId, reqItemQty];
+        let query = 'UPDATE digidex SET name=?, type=?, base_hp=?, base_attack=?, base_defense=?, base_attack_speed=?, evolution_line_id=?, next_evolution_id=?, evolution_level=?, base_level=?, required_evoluters=?, required_item_id=?, required_item_quantity=?';
+        let params = [newName, newType, newBaseHp, newBaseAttack, newBaseDefense, newBaseAtkSpeed, newEvolutionLineId, nextEvoId, evoLevel, bLevel, reqItemQty, reqItemId, reqItemQty];
 
         if (req.file) {
             query += ', sprite_path=?';
@@ -212,14 +222,24 @@ exports.getEvolutionLine = async (req, res) => {
         if (!mapping) return res.status(500).json({ message: 'Table error' });
         const { table, userIdCol, digiIdCol } = mapping;
 
+        // Fetch user digimon AND current species info in one go or sequentially
         const [udRows] = await db.execute(`SELECT * FROM ${table} WHERE id = ?`, [userDigimonId]);
         if (udRows.length === 0) return res.status(404).json({ message: 'Digimon not found' });
         const userDigimon = udRows[0];
 
         // Get current species info to find the line
+        // Also fetching base_attack_speed to return to frontend if needed
         const [dexRows] = await db.execute('SELECT * FROM digidex WHERE id = ?', [userDigimon[digiIdCol]]);
         if (dexRows.length === 0) return res.status(404).json({ message: 'Species not found' });
         const currentSpecies = dexRows[0];
+        
+        // Override stored stats with base stats from Digidex if they are missing or if we want live data?
+        // Actually, the user panel displays what's in the DB.
+        // But the user reported: "no painel do digimon (onde mostra os atributos) tá aprecendo 2s".
+        // This implies the frontend is displaying `userDigimon.attack_speed` which might be stale (2.0) in the `user_digimons` table.
+        // We should probably return the `base_attack_speed` from `currentSpecies` as the source of truth for display if we want to reflect admin changes.
+        // Let's inject it into the returned userDigimon object for the frontend to use.
+        userDigimon.attack_speed = currentSpecies.base_attack_speed || 2.0;
 
         // Get all digimons in this line
         // If evolution_line_id is null, it might be a standalone or base.
@@ -379,14 +399,16 @@ exports.evolveDigimon = async (req, res) => {
         const diffHp = targetSpecies.base_hp - currentSpecies.base_hp;
         const diffAtk = targetSpecies.base_attack - currentSpecies.base_attack;
         const diffDef = targetSpecies.base_defense - currentSpecies.base_defense;
+        const diffSpeed = (targetSpecies.base_attack_speed || 2.0) - (currentSpecies.base_attack_speed || 2.0);
 
         const newMaxHp = userDigimon.max_hp + diffHp;
         const newAtk = userDigimon.attack + diffAtk;
         const newDef = userDigimon.defense + diffDef;
+        const newSpeed = (userDigimon.attack_speed || 2.0) + diffSpeed;
 
         await db.execute(
-            `UPDATE ${table} SET ${digiIdCol} = ?, max_hp = ?, attack = ?, defense = ? WHERE id = ?`,
-            [targetDigidexId, newMaxHp, newAtk, newDef, userDigimonId]
+            `UPDATE ${table} SET ${digiIdCol} = ?, max_hp = ?, attack = ?, defense = ?, attack_speed = ? WHERE id = ?`,
+            [targetDigidexId, newMaxHp, newAtk, newDef, newSpeed, userDigimonId]
         );
         
         // Heal to full on evolution

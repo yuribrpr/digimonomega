@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { User, Calendar, Shield, Zap, Heart, Star, Upload, MessageCircle } from 'lucide-react';
+import { User, Calendar, Shield, Zap, Heart, Star, Upload, MessageCircle, Swords } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import api from '../services/api';
 export default function Profile() {
@@ -169,12 +169,16 @@ export default function Profile() {
                                     <span>{digi.current_hp}/{digi.max_hp}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground flex items-center gap-1"><Zap className="h-3 w-3" /> ATK</span>
+                                    <span className="text-muted-foreground flex items-center gap-1"><Swords className="h-3 w-3" /> ATK</span>
                                     <span>{digi.attack}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground flex items-center gap-1"><Shield className="h-3 w-3" /> DEF</span>
                                     <span>{digi.defense}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground flex items-center gap-1"><Zap className="h-3 w-3" /> SPD</span>
+                                    <span>{digi.attack_speed || 2.0}s</span>
                                 </div>
                             </div>
                         </CardContent>

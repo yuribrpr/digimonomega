@@ -18,7 +18,8 @@ import {
   Dna, 
   Layers, 
   ArrowRight,
-  Filter
+  Filter,
+  Zap
 } from 'lucide-react';
 export default function AdminDigidex() {
   const [digimons, setDigimons] = useState([]);
@@ -39,6 +40,7 @@ export default function AdminDigidex() {
   const [hp, setHp] = useState('');
   const [atk, setAtk] = useState('');
   const [def, setDef] = useState('');
+  const [atkSpeed, setAtkSpeed] = useState('');
   const [evolutionLineId, setEvolutionLineId] = useState('');
   // nextEvolutionId removed as per request
   const [evolutionLevel, setEvolutionLevel] = useState('');
@@ -89,6 +91,7 @@ export default function AdminDigidex() {
     setHp('');
     setAtk('');
     setDef('');
+    setAtkSpeed('2.0');
     setEvolutionLineId('');
     // setNextEvolutionId(''); removed
     setEvolutionLevel('');
@@ -111,6 +114,7 @@ export default function AdminDigidex() {
     setHp(digimon.base_hp);
     setAtk(digimon.base_attack);
     setDef(digimon.base_defense);
+    setAtkSpeed(digimon.base_attack_speed || '2.0');
     setEvolutionLineId(digimon.evolution_line_id || '');
     // setNextEvolutionId(digimon.next_evolution_id ? String(digimon.next_evolution_id) : ''); removed
     setEvolutionLevel(digimon.evolution_level || '');
@@ -135,6 +139,7 @@ export default function AdminDigidex() {
     formData.append('base_hp', hp);
     formData.append('base_attack', atk);
     formData.append('base_defense', def);
+    formData.append('base_attack_speed', atkSpeed || '2.0');
     formData.append('evolution_line_id', evolutionLineId);
     formData.append('required_evoluters', qtyValue); // Legacy support
     formData.append('required_item_id', requiredItemId);
@@ -211,6 +216,7 @@ export default function AdminDigidex() {
     setHp(newHp);
     setAtk(newAtk);
     setDef(newDef);
+    setAtkSpeed('2.0');
   };
   const handleBaseLevelChange = (val) => {
     setBaseLevel(val);
@@ -309,6 +315,10 @@ export default function AdminDigidex() {
                   <div className="space-y-2">
                     <Label htmlFor="def">Defesa Base</Label>
                     <Input id="def" type="number" value={def} onChange={(e) => setDef(e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="atkSpeed">Vel. Ataque (seg)</Label>
+                    <Input id="atkSpeed" type="number" step="0.1" value={atkSpeed} onChange={(e) => setAtkSpeed(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="evoLevel">Nível de Evolução</Label>
@@ -471,18 +481,22 @@ export default function AdminDigidex() {
               </div>
             </CardHeader>
             <CardContent className="p-4 pt-2 text-sm space-y-3">
-              <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="grid grid-cols-4 gap-2 text-center">
                 <div className="flex flex-col items-center p-2 bg-muted/50 rounded-md">
                     <Heart className="h-4 w-4 mb-1 text-muted-foreground" />
-                    <span className="font-bold">{digimon.base_hp}</span>
+                    <span className="font-bold text-xs">{digimon.base_hp}</span>
                 </div>
                 <div className="flex flex-col items-center p-2 bg-muted/50 rounded-md">
                     <Swords className="h-4 w-4 mb-1 text-muted-foreground" />
-                    <span className="font-bold">{digimon.base_attack}</span>
+                    <span className="font-bold text-xs">{digimon.base_attack}</span>
                 </div>
                 <div className="flex flex-col items-center p-2 bg-muted/50 rounded-md">
                     <Shield className="h-4 w-4 mb-1 text-muted-foreground" />
-                    <span className="font-bold">{digimon.base_defense}</span>
+                    <span className="font-bold text-xs">{digimon.base_defense}</span>
+                </div>
+                <div className="flex flex-col items-center p-2 bg-muted/50 rounded-md">
+                    <Zap className="h-4 w-4 mb-1 text-muted-foreground" />
+                    <span className="font-bold text-xs">{digimon.base_attack_speed || 2.0}s</span>
                 </div>
               </div>
               <div className="space-y-2 pt-2 border-t">

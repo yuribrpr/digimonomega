@@ -430,18 +430,22 @@ export default function EvolutionCenter() {
                         <h3 className="text-3xl font-bold">{unlockedEvolution.name}</h3>
                         <p className="text-muted-foreground uppercase tracking-widest text-xs">{unlockedEvolution.type}</p>
                     </div>
-                    <div className="grid grid-cols-3 gap-4 w-full px-4">
+                    <div className="grid grid-cols-4 gap-4 w-full px-4">
                         <div className="text-center p-2 bg-secondary/30 rounded-lg">
                             <Heart className="h-4 w-4 mx-auto mb-1 text-red-500" />
-                            <span className="font-bold">{unlockedEvolution.base_hp}</span>
+                            <span className="font-bold text-xs">{unlockedEvolution.base_hp}</span>
                         </div>
                         <div className="text-center p-2 bg-secondary/30 rounded-lg">
                             <Swords className="h-4 w-4 mx-auto mb-1 text-blue-500" />
-                            <span className="font-bold">{unlockedEvolution.base_attack}</span>
+                            <span className="font-bold text-xs">{unlockedEvolution.base_attack}</span>
                         </div>
                         <div className="text-center p-2 bg-secondary/30 rounded-lg">
                             <Shield className="h-4 w-4 mx-auto mb-1 text-green-500" />
-                            <span className="font-bold">{unlockedEvolution.base_defense}</span>
+                            <span className="font-bold text-xs">{unlockedEvolution.base_defense}</span>
+                        </div>
+                        <div className="text-center p-2 bg-secondary/30 rounded-lg">
+                            <Zap className="h-4 w-4 mx-auto mb-1 text-yellow-500" />
+                            <span className="font-bold text-xs">{unlockedEvolution.base_attack_speed || 2.0}s</span>
                         </div>
                     </div>
                 </div>

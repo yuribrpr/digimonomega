@@ -12,9 +12,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Activity, Zap, Skull, Swords, Map, Sparkles } from 'lucide-react';
+import {
+  Activity,
+  Zap,
+  Skull,
+  Swords,
+  Map,
+  Sparkles,
+  Shield,
+  Heart,
+  Trophy,
+  Play,
+  Pause,
+  ChevronRight,
+  XCircle,
+  AlertCircle
+} from 'lucide-react';
 import GlobalTooltip from '@/components/GlobalTooltip';
 import api from '../services/api';
+
 export default function Battle() {
   const navigate = useNavigate();
   const [battle, setBattle] = useState(null);
@@ -31,7 +47,14 @@ export default function Battle() {
   // Animation states: 'idle', 'player-attack', 'enemy-hit', 'enemy-attack', 'player-hit'
   const [animState, setAnimState] = useState('idle');
   const [showImpact, setShowImpact] = useState(null); // 'player' or 'enemy'
-  const [isAutoBattling, setIsAutoBattling] = useState(false);
+  
+  // New States for Cooldown System
+  const [playerCooldown, setPlayerCooldown] = useState(0); // Current cooldown in ms
+  const [playerMaxCooldown, setPlayerMaxCooldown] = useState(2000); // Max cooldown based on speed
+  const [canAttack, setCanAttack] = useState(false); // If player can click attack
+  const [enemyCooldown, setEnemyCooldown] = useState(0);
+  const [enemyMaxCooldown, setEnemyMaxCooldown] = useState(2000);
+
   const [damageIndicators, setDamageIndicators] = useState([]);
   const [mapDetails, setMapDetails] = useState(null);
   const [lastCrit, setLastCrit] = useState(false);
@@ -72,10 +95,26 @@ export default function Battle() {
     }
   };
   const logContainerRef = useRef(null);
-  const user = JSON.parse(localStorage.getItem('user'));
+  // Replicating basic auth check if needed, or just using localStorage
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const mapId = searchParams.get('mapId');
+
+  const formatLog = (logEntry) => {
+    if (typeof logEntry === 'string') return logEntry;
+    // Se for objeto ou array, tenta extrair mensagem
+    return String(logEntry); 
+  };
+
+  const addDamageIndicator = (value, target, crit = false, text = null) => {
+      const id = Date.now() + Math.random();
+      setDamageIndicators(prev => [...prev, { id, value, target, crit, text }]);
+      setTimeout(() => {
+          setDamageIndicators(prev => prev.filter(i => i.id !== id));
+      }, 1000);
+  };
+
   useEffect(() => {
     if (mapId) {
         api.get(`/api/maps/${mapId}`)
@@ -83,20 +122,18 @@ export default function Battle() {
             .catch(err => console.error('Erro ao carregar mapa:', err));
     }
   }, [mapId]);
-  // Stop auto-battle if battle ends or component unmounts
-  useEffect(() => {
-    return () => setIsAutoBattling(false);
-  }, []);
+  // Stop auto-battle if battle ends or component unmounts (cleanup)
+  // Removed auto-battle effect
   const startBattle = async (isEntry = false) => {
     if (!user?.id) return;
     setLoading(true);
-    setIsAutoBattling(false);
     try {
       const payload = { user_id: user.id };
       if (mapId) payload.map_id = mapId;
       if (isEntry) payload.entry = true;
       const res = await api.post('/api/battles', payload);
-      setBattle(res.data);
+      const b = res.data;
+      setBattle(b);
       setLogs([]);
       setShowWinModal(false);
       setRewards(null);
@@ -106,6 +143,22 @@ export default function Battle() {
       setFleeCooldownUntil(0);
       setFleeCooldownMs(0);
       setAnimState('idle');
+      
+      // Initialize Cooldowns
+      // Prefer using the value returned by backend in `b.user` which should be effSpd
+      const pSpeed = Number(b.user.attack_speed) || 2.0;
+      const eSpeed = Number(b.enemy.attack_speed) || 2.0;
+      const pCd = pSpeed * 1000;
+      const eCd = eSpeed * 1000;
+
+      console.log('Battle Init Speed:', { pSpeed, eSpeed });
+
+      setPlayerMaxCooldown(pCd);
+      setEnemyMaxCooldown(eCd);
+      setPlayerCooldown(0); // Start ready (cooldown 0)
+      setEnemyCooldown(0); // Enemy starts ready (cooldown 0)
+      setCanAttack(true); // Enable button immediately
+
       setLoading(false);
       return res.data;
     } catch (error) {
@@ -116,174 +169,169 @@ export default function Battle() {
   useEffect(() => {
     startBattle(true);
   }, []);
+  // Main Loop for Cooldowns
   useEffect(() => {
-    if (!healCooldownUntil) {
-      setHealCooldownMs(0);
-      return;
-    }
-    const tick = () => {
-      const remaining = Math.max(0, healCooldownUntil - Date.now());
-      setHealCooldownMs(remaining);
-      if (remaining === 0) {
-        clearInterval(timer);
-        setHealCooldownUntil(0);
-      }
-    };
-    tick();
-    const timer = setInterval(tick, 50);
-    return () => clearInterval(timer);
-  }, [healCooldownUntil]);
-  useEffect(() => {
-    if (!fleeCooldownUntil) {
-      setFleeCooldownMs(0);
-      return;
-    }
-    const tick = () => {
-      const remaining = Math.max(0, fleeCooldownUntil - Date.now());
-      setFleeCooldownMs(remaining);
-      if (remaining === 0) {
-        clearInterval(timer);
-        setFleeCooldownUntil(0);
-      }
-    };
-    tick();
-    const timer = setInterval(tick, 50);
-    return () => clearInterval(timer);
-  }, [fleeCooldownUntil]);
-  // Auto-scroll to top when logs change (because of flex-col-reverse)
-  useEffect(() => {
-    if (logContainerRef.current) {
-        logContainerRef.current.scrollTop = 0;
-    }
-  }, [logs]);
+    if (!battle || battle.win || battle.user.hp <= 0) return;
 
-  // Resume AudioContext on interaction to fix Autoplay Policy
-  useEffect(() => {
-    const resumeAudio = () => {
-      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume().catch(err => console.error('Audio resume failed', err));
-      }
-    };
-    window.addEventListener('click', resumeAudio);
-    window.addEventListener('keydown', resumeAudio);
-    return () => {
-      window.removeEventListener('click', resumeAudio);
-      window.removeEventListener('keydown', resumeAudio);
-    };
-  }, []);
+    const interval = 50; // Update every 50ms
+    const timer = setInterval(() => {
+        // Player Cooldown
+        setPlayerCooldown(prev => {
+            const next = Math.max(0, prev - interval);
+            if (next === 0 && !canAttack && animState === 'idle') {
+                setCanAttack(true);
+            }
+            return next;
+        });
 
-  const formatLog = (logArray) => {
-    if (!logArray || logArray.length === 0) return null;
-    // Check if it's a standard attack log (2 lines usually)
-    const userDmgLine = logArray.find(l => l.includes('Você causou'));
-    const enemyDmgLine = logArray.find(l => l.includes('Você tomou'));
-    if (userDmgLine && enemyDmgLine) {
-        const userDmg = userDmgLine.match(/\d+/)?.[0] || '0';
-        const enemyDmg = enemyDmgLine.match(/\d+/)?.[0] || '0';
-        return (
-            <span>
-                Você: <span className="font-bold">{userDmg} dano</span> | Inimigo: <span className="font-bold">{enemyDmg} dano</span>
-            </span>
-        );
-    }
-    // Fallback for heal/flee or other single messages
-    return <span>{logArray.join(' | ')}</span>;
+        // Enemy Cooldown & Attack Logic
+        setEnemyCooldown(prev => {
+            const next = Math.max(0, prev - interval);
+            // If enemy ready and player not attacking (to avoid overlapping anims mess)
+            // Added check: !canAttack is false means player CAN attack. 
+            // If player CAN attack, we shouldn't block enemy unless player IS attacking.
+            // But if player clicks right now, we want priority.
+            // So we strictly check animState.
+            if (next === 0 && animState === 'idle' && battle.user.hp > 0 && !battle.win) {
+                // Double check if player is currently acting to enforce priority
+                if (!isPlayerAttacking && animState === 'idle') {
+                    executeEnemyAttackReal();
+                    return enemyMaxCooldown; // Reset enemy CD
+                } else {
+                     // Player is attacking, so we trigger Blocked logic here too if cooldown is ready
+                     addDamageIndicator(0, 'enemy', false, 'Blocked!');
+                     // Reset cooldown partially? Or full reset? 
+                     // User said "cancel attack". So full reset.
+                     return enemyMaxCooldown; 
+                }
+            }
+            return next;
+        });
+
+    }, interval);
+
+    return () => clearInterval(timer);
+  }, [battle, animState, canAttack, playerMaxCooldown, enemyMaxCooldown]);
+
+  // Execute Enemy Attack (Client-side trigger for server calculation)
+  const executeEnemyAttackReal = async () => {
+      // Priority Check: If player is currently attacking (animState is 'player-attack' or 'enemy-hit'), 
+      // do NOT execute enemy attack yet. Wait for next cycle.
+      if (animState === 'player-attack' || animState === 'enemy-hit' || isPlayerAttacking) {
+          // Only show Blocked if we haven't shown it recently to avoid spam
+          addDamageIndicator(0, 'enemy', false, 'Blocked!');
+          return;
+      }
+
+      try {
+          const res = await api.post(`/api/battles/${battle.id}/attack?actor=enemy`);
+          await triggerSequence(res.data, 'enemy');
+      } catch (e) {
+          console.error("Enemy attack failed", e);
+      }
   };
-  const addDamageIndicator = (value, target, crit = false) => {
-    const id = Date.now() + Math.random();
-    setDamageIndicators(prev => [...prev, { id, value, target, crit }]);
-    setTimeout(() => {
-        setDamageIndicators(prev => prev.filter(i => i.id !== id));
-    }, 1000);
-  };
-  const triggerSequence = async (newData) => {
-    // Parse damage from logs
+
+  const triggerSequence = async (newData, actor = 'both') => {
     const logArray = newData.log || [];
     const userDmgLine = logArray.find(l => l.includes('Você causou'));
     const enemyDmgLine = logArray.find(l => l.includes('Você tomou'));
     const userDmg = userDmgLine ? parseInt(userDmgLine.match(/\d+/)?.[0] || '0') : 0;
     const enemyDmg = enemyDmgLine ? parseInt(enemyDmgLine.match(/\d+/)?.[0] || '0') : 0;
-    // Fast but visible animation for auto-battle
-    const attackDuration = isAutoBattling ? 100 : 300; 
-    const hitDuration = isAutoBattling ? 100 : 400;
-    const pauseDuration = isAutoBattling ? 50 : 200;
+    
+    const attackDuration = 300; 
+    const hitDuration = 400;
     const delay = (ms) => new Promise(r => setTimeout(r, ms));
-    // 1. Player Attack Animation
-    setAnimState('player-attack');
-    await delay(attackDuration);
-    // 2. Enemy Hit Effect
-    setAnimState('enemy-hit');
-    setShowImpact('enemy');
-    setLastCrit(!!newData.crit);
-    playAttackSound(!!newData.crit);
-    if (userDmg > 0) addDamageIndicator(userDmg, 'enemy', !!newData.crit);
-    await delay(hitDuration);
-    setShowImpact(null);
-    setLastCrit(false);
-    // 3. Update Data (HP drops now)
-    const prevUser = battle?.user;
-    setBattle(prev => ({ ...prev, ...newData }));
-    // Format and add log
-    const formattedLog = formatLog(newData.log);
-    if (formattedLog) {
-        setLogs(prev => [formattedLog, ...prev]);
-    }
-    if (newData.win) {
-        if (prevUser && newData.user) {
-          const prevLevel = Number(prevUser.level || 0);
-          const newLevel = Number(newData.user.level || prevLevel);
-          const leveledUp = newLevel > prevLevel;
-          const hpGain = Number(newData.user.max_hp || 0) - Number(prevUser.max_hp || 0);
-          const atkGain = Number(newData.user.attack || 0) - Number(prevUser.attack || 0);
-          const defGain = Number(newData.user.defense || 0) - Number(prevUser.defense || 0);
-          setLevelUpInfo({ leveledUp, prevLevel, newLevel, hpGain, atkGain, defGain });
-        } else {
-          setLevelUpInfo(null);
-        }
-        setRewards(newData.rewards);
-        setShowWinModal(true);
+
+    if (actor === 'player' || actor === 'both') {
+        // Player Attack Animation
+        setAnimState('player-attack');
+        await delay(attackDuration);
+        
+        setAnimState('enemy-hit');
+        setShowImpact('enemy');
+        setLastCrit(!!newData.crit);
+        playAttackSound(!!newData.crit);
+        if (userDmg > 0) addDamageIndicator(userDmg, 'enemy', !!newData.crit);
+        await delay(hitDuration);
+        
+        setShowImpact(null);
+        setLastCrit(false);
         setAnimState('idle');
-        setIsAutoBattling(false); // Stop auto-battle
-        return;
+    }
+
+    // Update Data immediately
+    setBattle(prev => ({ ...prev, ...newData }));
+    
+    // Ensure cooldowns are updated if speed changed (unlikely mid-battle but safe)
+    if (newData.user && newData.user.attack_speed) {
+        const newSpeed = Number(newData.user.attack_speed);
+        if (newSpeed > 0) setPlayerMaxCooldown(newSpeed * 1000);
+    }
+    
+    const formattedLog = formatLog(newData.log);
+    if (formattedLog) setLogs(prev => [formattedLog, ...prev]);
+
+    // Check Win/Defeat
+    if (newData.win) {
+         if (battle?.user && newData.user) {
+             const prevLevel = Number(battle.user.level || 0);
+             const newLevel = Number(newData.user.level || prevLevel);
+             const leveledUp = newLevel > prevLevel;
+             const hpGain = Number(newData.user.max_hp || 0) - Number(battle.user.max_hp || 0);
+             const atkGain = Number(newData.user.attack || 0) - Number(battle.user.attack || 0);
+             const defGain = Number(newData.user.defense || 0) - Number(battle.user.defense || 0);
+             setLevelUpInfo({ leveledUp, prevLevel, newLevel, hpGain, atkGain, defGain });
+         }
+         setRewards(newData.rewards);
+         setShowWinModal(true);
+         setAnimState('idle');
+         return;
     }
     if (newData.user.hp <= 0) {
-        setIsAutoBattling(false); // Stop on defeat
+        // Defeat
     }
-    // 4. Enemy Attack Animation
-    await delay(pauseDuration);
-    setAnimState('enemy-attack');
-    await delay(attackDuration);
-    // 5. Player Hit Effect
-    setAnimState('player-hit');
-    setShowImpact('player');
-    if (enemyDmg > 0) addDamageIndicator(enemyDmg, 'player');
-    await delay(hitDuration);
-    setShowImpact(null);
-    // Reset
-    setAnimState('idle');
+
+    if ((actor === 'enemy' || actor === 'both') && !newData.win && newData.user.hp > 0) {
+        // Enemy Attack Animation
+        if (actor === 'both') await delay(200);
+
+        setAnimState('enemy-attack');
+        await delay(attackDuration);
+
+        setAnimState('player-hit');
+        setShowImpact('player');
+        if (enemyDmg > 0) addDamageIndicator(enemyDmg, 'player');
+        await delay(hitDuration);
+        
+        setShowImpact(null);
+        setAnimState('idle');
+    }
   };
+
   const executeAttack = async () => {
-    if (!battle || loading) return;
-    setLoading(true);
+    if (!battle || loading || !canAttack) return;
+    setCanAttack(false); // Disable button immediately
+    setPlayerCooldown(playerMaxCooldown); // Reset Cooldown
+    
+    // Priority: If enemy is about to attack or attacking, we override/interrupt if possible visually, 
+    // but logic-wise we just proceed. However, to avoid visual clutter, if enemy is mid-animation, 
+    // we might want to wait? No, user said "priorize o ataque do usuario".
+    // So if user clicks, we run immediately.
+    
+    // If enemy cooldown is also 0 (or very close), we should force enemy reset and show blocked
+    if (enemyCooldown <= 100) { // 100ms grace window
+        setEnemyCooldown(enemyMaxCooldown);
+        addDamageIndicator(0, 'enemy', false, 'Blocked!');
+    }
+
     try {
-      const res = await api.post(`/api/battles/${battle.id}/attack`);
-      await triggerSequence(res.data);
+      // Modifying call to send actor=player
+      const res = await api.post(`/api/battles/${battle.id}/attack?actor=player`);
+      await triggerSequence(res.data, 'player');
     } catch (error) {
       console.error('Erro ao atacar:', error);
-      setIsAutoBattling(false);
     }
-    setLoading(false);
   };
-  // Auto-battle loop
-  useEffect(() => {
-    let timer;
-    if (isAutoBattling && battle && !battle.win && battle.user.hp > 0 && !loading) {
-        timer = setTimeout(() => {
-            executeAttack();
-        }, 300);
-    }
-    return () => clearTimeout(timer);
-  }, [isAutoBattling, battle, loading]);
   const onHeal = async () => {
     if (!battle || healCooldownMs > 0) return;
     setLoading(true);
@@ -482,8 +530,18 @@ export default function Battle() {
                   </div>
                   {/* Detailed Stats */}
                   <div className="pt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500 font-mono">
-                     <span>ATK <span className="text-slate-300">{myDigimon?.attack}</span></span>
-                     <span>DEF <span className="text-slate-300">{myDigimon?.defense}</span></span>
+                     <div className="flex items-center gap-1">
+                        <Swords className="h-3 w-3 text-blue-400" />
+                        <span className="text-slate-300">{battle?.user?.attack}</span>
+                     </div>
+                     <div className="flex items-center gap-1">
+                        <Shield className="h-3 w-3 text-green-400" />
+                        <span className="text-slate-300">{battle?.user?.defense}</span>
+                     </div>
+                     <div className="flex items-center gap-1">
+                        <Zap className="h-3 w-3 text-yellow-400" />
+                        <span className="text-slate-300">{battle?.user?.attack_speed ? Number(battle.user.attack_speed).toFixed(1) : '2.0'}s</span>
+                     </div>
                   </div>
                </div>
             </div>
@@ -519,19 +577,22 @@ export default function Battle() {
                       <div className="w-16 h-16 bg-red-500 rounded-full animate-pulse"></div>
                     )}
                    </div>
-                   {/* Damage Indicators */}
-                  {damageIndicators.filter(i => i.target === 'enemy').map(i => (
-                    <div 
-                      key={i.id} 
-                      className={`absolute top-0 left-1/2 text-4xl font-extrabold animate-float-up z-50 pointer-events-none font-mono ${
-                        i.crit 
-                          ? 'text-yellow-300 drop-shadow-[0_0_12px_rgba(250,204,21,0.9)]'
-                          : 'text-red-500 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]'
-                      }`}
-                    >
-                      -{i.value}{i.crit ? '!' : ''}
-                    </div>
-                   ))}
+                {/* Damage Indicators */}
+                {damageIndicators.filter(i => i.target === 'enemy').map(i => (
+                  <div 
+                    key={i.id} 
+                    className={`absolute top-0 left-1/2 text-4xl font-extrabold animate-float-up z-50 pointer-events-none font-mono ${
+                      i.text === 'Blocked!' 
+                        ? 'text-blue-400 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)]' 
+                        : (i.crit 
+                            ? 'text-yellow-300 drop-shadow-[0_0_12px_rgba(250,204,21,0.9)]'
+                            : 'text-red-500 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]'
+                          )
+                    }`}
+                  >
+                    {i.text ? i.text : `-${i.value}${i.crit ? '!' : ''}`}
+                  </div>
+                 ))}
                </div>
                {/* Enemy Stats - Minimal */}
                <div className="w-48 space-y-2 transition-opacity duration-300">
@@ -550,6 +611,7 @@ export default function Battle() {
                   <div className="pt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500 font-mono">
                      <span>ATK <span className="text-slate-300">{enemy?.attack}</span></span>
                      <span>DEF <span className="text-slate-300">{enemy?.defense}</span></span>
+                     <span>SPD <span className="text-slate-300">{enemy?.attack_speed || 2.0}s</span></span>
                   </div>
                </div>
             </div>
@@ -558,32 +620,29 @@ export default function Battle() {
           <div className="p-4 md:p-6 bg-white dark:bg-slate-950 border-t grid grid-cols-2 gap-3 md:flex md:items-center md:justify-center md:gap-4">
              <Button 
                 size="lg" 
-                className="w-full md:w-32"
-                onClick={() => {
-                  (async () => {
-                    if (battle?.win || (battle?.user?.hp ?? 0) <= 0) return;
-                    if (!battle) {
-                      const created = await startBattle();
-                      if (!created) return;
-                    }
-                    setIsAutoBattling(true);
-                    if (!loading) {
-                      executeAttack();
-                    } else {
-                      setTimeout(() => {
-                        if (!loading) executeAttack();
-                      }, 100);
-                    }
-                  })();
-                }} 
-                disabled={isAutoBattling || battle?.win || (battle?.user?.hp ?? 0) <= 0}
+                className="w-full md:w-32 relative overflow-hidden select-none"
+                onClick={executeAttack}
+                disabled={!canAttack || battle?.win || (battle?.user?.hp ?? 0) <= 0 || loading || animState !== 'idle'}
              >
-                <Swords className="mr-2 h-4 w-4" /> {isAutoBattling ? 'Lutando...' : 'Atacar'}
+                {/* Cooldown Overlay */}
+                {!canAttack && playerMaxCooldown > 0 && (
+                    <div 
+                        className="absolute inset-0 bg-slate-900/50 z-10 transition-all duration-75"
+                        style={{ height: `${(playerCooldown / playerMaxCooldown) * 100}%` }}
+                    ></div>
+                )}
+                <div className="relative z-20 flex items-center">
+                    <Swords className="mr-2 h-4 w-4" /> 
+                    {!canAttack && playerCooldown > 0 
+                        ? `${(playerCooldown / 1000).toFixed(1)}s` 
+                        : 'Atacar'
+                    }
+                </div>
              </Button>
              <Button 
                 size="lg" 
                 variant="secondary"
-                className="w-full md:w-32"
+                className="w-full md:w-32 select-none"
                 onClick={onHeal}
                 disabled={healCooldownMs > 0}
              >
@@ -592,9 +651,8 @@ export default function Battle() {
              <Button 
                 size="lg" 
                 variant="destructive"
-                className="w-full md:w-32"
+                className="w-full md:w-32 select-none"
                 onClick={() => {
-                    setIsAutoBattling(false);
                     onFlee();
                 }} 
                 disabled={fleeCooldownMs > 0}
@@ -708,7 +766,7 @@ export default function Battle() {
             <Button className="w-full" onClick={async () => {
               if (mapDetails && mapDetails.require_item === 1 && mapDetails.consume_on_enter === 1 && Number(mapDetails.required_item_id)) {
                 try {
-                  const res = await api.get(`/api/items/user/${user.id}`);
+                  const res = await api.get(`/api/items/user/${user?.id}`);
                   const inv = res.data || [];
                   const hasItem = inv.some(x => Number(x.id) === Number(mapDetails.required_item_id) && Number(x.quantity) > 0);
                   if (!hasItem) {

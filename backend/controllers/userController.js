@@ -59,7 +59,7 @@ exports.getUserDigimons = async (req, res) => {
              ${principalSelect}
              d.id as digidex_id, 
              d.name as species_name, 
-             d.type, d.base_hp, d.base_attack, d.base_defense, d.base_level, d.sprite_path
+             d.type, d.base_hp, d.base_attack, d.base_defense, d.base_attack_speed, d.base_level, d.sprite_path
       FROM ${table} ud
       JOIN ${digidexTable} d ON d.id = ud.${digiIdCol}
       WHERE ud.${userIdCol} = ?`;
@@ -248,7 +248,7 @@ exports.getPublicProfile = async (req, res) => {
                 ${principalSelect}
                 d.id as digidex_id, 
                 d.name as species_name, 
-                d.type, d.base_hp, d.base_attack, d.base_defense, d.base_level, d.sprite_path
+                d.type, d.base_hp, d.base_attack, d.base_defense, d.base_attack_speed, d.base_level, d.sprite_path
             FROM ${table} ud
             JOIN ${digidexTable} d ON d.id = ud.${digiIdCol}
             WHERE ud.${userIdCol} = ?`;
@@ -330,9 +330,10 @@ exports.adminGiveDigimon = async (req, res) => {
     const hp = digi.base_hp + (level * 10);
     const atk = digi.base_attack + (level * 2);
     const def = digi.base_defense + (level * 2);
+    const spd = digi.base_attack_speed || 2.0;
 
-    await db.execute(`INSERT INTO ${table} (user_id, digidex_id, nickname, level, current_hp, max_hp, attack, defense, is_main) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`, 
-        [userId, digidexId, nickname || digi.name, level, hp, hp, atk, def]);
+    await db.execute(`INSERT INTO ${table} (user_id, digidex_id, nickname, level, current_hp, max_hp, attack, defense, attack_speed, is_main) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`, 
+        [userId, digidexId, nickname || digi.name, level, hp, hp, atk, def, spd]);
 
     res.json({ message: 'Digimon sent successfully' });
   } catch (error) {

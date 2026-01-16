@@ -150,7 +150,7 @@ exports.startBattle = async (req, res) => {
       userDigimonRow = anyRows && anyRows[0];
     }
     if (!userDigimonRow) return res.status(400).json({ message: 'Usuário não possui digimon' });
-    const [digRows] = await db.execute('SELECT id, name, base_hp, base_attack, base_defense, sprite_path FROM digidex WHERE id=?', [userDigimonRow.digimon_id]);
+    const [digRows] = await db.execute('SELECT id, name, base_hp, base_attack, base_defense, base_attack_speed, sprite_path FROM digidex WHERE id=?', [userDigimonRow.digimon_id]);
     const userDigimon = digRows && digRows[0];
     if (!userDigimon) return res.status(404).json({ message: 'Digimon não encontrado' });
     
@@ -208,7 +208,7 @@ exports.startBattle = async (req, res) => {
     }
     
     // Enemy selection logic
-    let enemyQuery = 'SELECT id, name, hp, attack, defense, difficulty, sprite_path FROM enemydex';
+    let enemyQuery = 'SELECT id, name, hp, attack, defense, attack_speed, difficulty, sprite_path FROM enemydex';
     let enemyParams = [];
 
     if (map_id) {
@@ -232,10 +232,12 @@ exports.startBattle = async (req, res) => {
     const enemyHp = Math.floor((Number(enemy.hp) || 0) * mapDifficulty);
     const enemyAtk = Math.floor((Number(enemy.attack) || 0) * mapDifficulty);
     const enemyDef = Math.floor((Number(enemy.defense) || 0) * mapDifficulty);
+    const enemySpd = Number(enemy.attack_speed) || 2.0;
 
     let effHp = Number(userDigimon.base_hp || 0);
     let effAtk = Number(userDigimon.base_attack || 0);
     let effDef = Number(userDigimon.base_defense || 0);
+    let effSpd = Number(userDigimon.base_attack_speed || 2.0);
     let effXp = 0;
     let level = Number(userDigimon.base_level || 1);
 
@@ -256,10 +258,19 @@ exports.startBattle = async (req, res) => {
       const hpCol = pick(userCols, ['max_hp', 'hp', 'vida']);
       const atkCol = pick(userCols, ['attack', 'atk', 'ataque', 'forca']);
       const defCol = pick(userCols, ['defense', 'def', 'defesa']);
+      const spdCol = pick(userCols, ['attack_speed', 'speed', 'velocidade']);
+
       effHp = (hpCol ? Number(m[hpCol] || Number(userDigimon.base_hp || 0)) : Number(userDigimon.base_hp || 0)) + bonusHp;
       effAtk = (atkCol ? Number(m[atkCol] || 0) : Number(userDigimon.base_attack || 0)) + bonusAtk;
       console.log('StartBattle ATK calc:', { atkCol, base: Number(userDigimon.base_attack || 0), stored: atkCol ? Number(m[atkCol] || 0) : null, bonus: bonusAtk, final: effAtk });
       effDef = (defCol ? Number(m[defCol] || 0) : Number(userDigimon.base_defense || 0)) + bonusDef;
+      
+      // FIX: Always use base_attack_speed from Digidex to ensure admin updates reflect immediately.
+      // If there are bonuses (e.g. equipment), they should be added here separately if tracked.
+      // For now, ignoring the stale 'attack_speed' column in users_digimons if it exists, unless it's strictly a bonus column.
+      // Assuming users_digimons.attack_speed was a snapshot. We prefer the live Digidex value.
+      effSpd = Number(userDigimon.base_attack_speed || 2.0);
+      
       effXp = Number(m.xp ?? m.experience ?? m.exp ?? 0);
       level = Number(m.base_level ?? m.level ?? level);
     }
@@ -297,6 +308,7 @@ exports.startBattle = async (req, res) => {
         max_hp: effHp,
         attack: effAtk,
         defense: effDef,
+        attack_speed: effSpd,
         xp: effXp,
         max_xp: nextLevelXp,
         level: level,
@@ -309,6 +321,7 @@ exports.startBattle = async (req, res) => {
         max_hp: enemyHp,
         attack: enemyAtk,
         defense: enemyDef,
+        attack_speed: enemySpd,
         difficulty: enemy.difficulty || 'Normal',
         sprite_path: enemy.sprite_path || null
       },
@@ -329,6 +342,8 @@ exports.startBattle = async (req, res) => {
 exports.attack = async (req, res) => {
   try {
     const { id } = req.params;
+    const { actor } = req.query; // 'player' or 'enemy' (defaults to undefined = full turn)
+
     // Agora buscamos user_current_hp e user_max_hp da tabela battles
     const [battleRows] = await db.execute(`SELECT user_id, user_digimon_id, enemy_id, enemy_current_hp, enemy_max_hp, user_current_hp, user_max_hp, enemy_multiplier FROM battles WHERE id=?`, [id]);
     const battle = battleRows && battleRows[0];
@@ -345,7 +360,7 @@ exports.attack = async (req, res) => {
     if (!map) return res.status(404).json({ message: 'Digimon do usuário não encontrado' });
     // Use the correct column for digimon_id based on mapping
     const digimonId = map[digiIdCol];
-    const [digRows] = await db.execute('SELECT id, name, base_hp, base_attack, base_defense, sprite_path FROM digidex WHERE id=?', [digimonId]);
+    const [digRows] = await db.execute('SELECT id, name, base_hp, base_attack, base_defense, base_attack_speed, sprite_path FROM digidex WHERE id=?', [digimonId]);
     const userDigimon = digRows && digRows[0];
     const [enemyRows] = await db.execute('SELECT id, name, hp, attack, defense, difficulty, sprite_path, exp_reward, bits_reward FROM enemydex WHERE id=?', [battle.enemy_id]);
     const enemy = enemyRows && enemyRows[0];
@@ -358,29 +373,53 @@ exports.attack = async (req, res) => {
     const bonusDef = Number(map.extra_defense ?? 0);
     
     let userAtk = (atkCol ? Number(map[atkCol] || 0) : Number(userDigimon?.base_attack || 0)) + bonusAtk;
-    console.log('Attack ATK calc:', { atkCol, base: Number(userDigimon?.base_attack || 0), stored: atkCol ? Number(map[atkCol] || 0) : null, bonus: bonusAtk, final: userAtk });
     let userDef = (defCol ? Number(map[defCol] || 0) : Number(userDigimon?.base_defense || 0)) + bonusDef;
     
     const enemyAtk = Math.floor(Number(enemy?.attack || 0) * enemyMultiplier);
     const enemyDef = Math.floor(Number(enemy?.defense || 0) * enemyMultiplier);
 
-    const rawUserDamage = userAtk - enemyDef / 2;
-    let userFactor = Math.random() < 0.8 ? (1.02 + Math.random() * 0.13) : (0.90 + Math.random() * 0.09);
-    let isCrit = Math.random() < 0.35;
-    if (isCrit) userFactor = 1.15;
-    const userDamage = Math.max(1, Math.round(rawUserDamage * userFactor));
-    const maxDamage = Math.max(1, Math.round(rawUserDamage * 1.15));
+    let userDamage = 0;
+    let enemyDamage = 0;
+    let isCrit = false;
+    let extraLogs = [];
+    let win = false;
+    let rewards = null;
 
-    const rawEnemyDamage = enemyAtk - userDef / 2;
-    let enemyFactor = Math.random() < 0.8 ? (1.01 + Math.random() * 0.10) : (0.90 + Math.random() * 0.09);
-    const enemyDamage = Math.max(1, Math.round(rawEnemyDamage * enemyFactor));
-
-    const newEnemyHp = Math.max(0, Number(battle.enemy_current_hp ?? enemy.hp ?? 0) - userDamage);
-    
+    let newEnemyHp = Number(battle.enemy_current_hp ?? enemy.hp ?? 0);
     // Usar user_current_hp do banco se existir, senão calcular do máximo
     const currentHp = battle.user_current_hp !== null ? Number(battle.user_current_hp) : Number(battle.user_max_hp || userDigimon.base_hp);
-    const newUserHp = Math.max(0, currentHp - enemyDamage);
-    
+    let newUserHp = currentHp;
+
+    // --- LOGIC SPLIT BY ACTOR ---
+
+    // 1. Player Action (Default or Explicit)
+    if (!actor || actor === 'player') {
+        const rawUserDamage = userAtk - enemyDef / 2;
+        let userFactor = Math.random() < 0.8 ? (1.02 + Math.random() * 0.13) : (0.90 + Math.random() * 0.09);
+        isCrit = Math.random() < 0.35;
+        if (isCrit) userFactor = 1.15;
+        userDamage = Math.max(1, Math.round(rawUserDamage * userFactor));
+
+        newEnemyHp = Math.max(0, newEnemyHp - userDamage);
+        extraLogs.push(`Você causou ${userDamage} de dano`);
+        if (isCrit) extraLogs.push('Golpe Crítico!');
+
+        if (newEnemyHp <= 0) {
+            win = true;
+        }
+    }
+
+    // 2. Enemy Action (Default or Explicit) - Only if Player didn't win yet (or if simultaneous)
+    // Note: If actor is missing (legacy), we do both. If actor='enemy', we only do enemy.
+    if ((!actor || actor === 'enemy') && !win) {
+        const rawEnemyDamage = enemyAtk - userDef / 2;
+        let enemyFactor = Math.random() < 0.8 ? (1.01 + Math.random() * 0.10) : (0.90 + Math.random() * 0.09);
+        enemyDamage = Math.max(1, Math.round(rawEnemyDamage * enemyFactor));
+
+        newUserHp = Math.max(0, currentHp - enemyDamage);
+        extraLogs.push(`Você tomou ${enemyDamage} de dano`);
+    }
+
     // Atualizar HP do inimigo e do usuário na tabela battles
     await db.execute(`UPDATE battles SET enemy_current_hp=?, user_current_hp=? WHERE id=?`, [newEnemyHp, newUserHp, id]);
 
@@ -396,14 +435,7 @@ exports.attack = async (req, res) => {
        await db.execute(`UPDATE ${table} SET current_hp=?, max_hp=? WHERE id=?`, [newUserHpCapped, maxHpToSave, battle.user_digimon_id]);
     }
 
-    let win = false;
-    let rewards = null;
-
-    let extraLogs = [];
-
-    if (newEnemyHp <= 0) {
-      win = true;
-      
+    if (win) {
       // Fetch global multipliers
       const [settings] = await db.execute('SELECT setting_key, setting_value FROM game_settings');
       let xpMult = 1;
@@ -464,7 +496,6 @@ exports.attack = async (req, res) => {
         const { table, digiIdCol } = mapping;
         const userCols = await getColumns(table);
         const xpCol = pick(userCols, ['xp', 'experience', 'exp']);
-        // const bitsCol = pick(userCols, ['bits', 'money', 'gold']); // Bits are stored in users table
         const levelCol = pick(userCols, ['level', 'base_level', 'lvl']);
         const hpCol = pick(userCols, ['max_hp', 'hp', 'vida']);
         const atkCol = pick(userCols, ['attack', 'atk', 'ataque', 'forca']);
@@ -476,10 +507,6 @@ exports.attack = async (req, res) => {
           sets.push(`${xpCol} = COALESCE(${xpCol}, 0) + ?`);
           params.push(xpGain);
         }
-        // if (bitsCol) {
-        //   sets.push(`${bitsCol} = COALESCE(${bitsCol}, 0) + ?`);
-        //   params.push(bitsGain);
-        // }
 
         if (sets.length > 0) {
            await db.execute(`UPDATE ${table} SET ${sets.join(', ')} WHERE id=?`, [...params, battle.user_digimon_id]);
@@ -504,8 +531,6 @@ exports.attack = async (req, res) => {
             while (newExp >= newExpM) {
                 newExp -= newExpM;
                 newLevel++;
-                // Increase requirement by 20% or flat amount? 
-                // User said "padrão 1000", but didn't specify growth. Let's use 1.2 multiplier.
                 newExpM = Math.floor(newExpM * 1.2); 
                 leveledUp = true;
             }
@@ -517,7 +542,7 @@ exports.attack = async (req, res) => {
             }
         }
 
-        // --- LEVEL UP & EVOLUTION LOGIC ---
+        // --- LEVEL UP LOGIC ---
         if (xpCol && levelCol) {
             // Fetch updated data
             const [freshRows] = await db.execute(`SELECT * FROM ${table} WHERE id=? LIMIT 1`, [battle.user_digimon_id]);
@@ -531,9 +556,7 @@ exports.attack = async (req, res) => {
                 let currentAtk = atkCol ? Number(freshUserDigimon[atkCol] || 0) : 0;
                 let currentDef = defCol ? Number(freshUserDigimon[defCol] || 0) : 0;
 
-                let currentDigiId = freshUserDigimon[digiIdCol];
                 let leveledUp = false;
-                let evolved = false;
 
                 // Level Up Loop (Threshold: Level * 100)
                 let nextLevelXp = currentLevel * 100;
@@ -556,30 +579,7 @@ exports.attack = async (req, res) => {
                     currentXp = 0;
                 }
 
-                // Evolution Check (DISABLED - Using Manual Evolution System)
-                /*
                 if (leveledUp) {
-                    const [dexRows] = await db.execute('SELECT id, name, next_evolution_id, evolution_level, evolution_line_id FROM digidex WHERE id=?', [currentDigiId]);
-                    const dexEntry = dexRows && dexRows[0];
-
-                    if (dexEntry && dexEntry.next_evolution_id) {
-                        const [targetRows] = await db.execute('SELECT id, name, evolution_line_id, evolution_level FROM digidex WHERE id=?', [dexEntry.next_evolution_id]);
-                        const targetEntry = targetRows && targetRows[0];
-                        const requiredLevel = targetEntry && targetEntry.evolution_level ? Number(targetEntry.evolution_level) : Number(dexEntry.evolution_level || 0);
-                        
-                        if (requiredLevel && currentLevel >= requiredLevel) {
-                            if (targetEntry && targetEntry.evolution_line_id === dexEntry.evolution_line_id) {
-                                currentDigiId = dexEntry.next_evolution_id;
-                                evolved = true;
-                                const newName = targetEntry.name;
-                                extraLogs.push(`Seu Digimon digievoluiu para ${newName}!`);
-                            }
-                        }
-                    }
-                }
-                */
-
-                if (leveledUp || evolved) {
                     const updates = [];
                     const updateParams = [];
                     
@@ -592,17 +592,6 @@ exports.attack = async (req, res) => {
                     if (hpCol) { updates.push(`${hpCol} = ?`); updateParams.push(currentHp); }
                     if (atkCol) { updates.push(`${atkCol} = ?`); updateParams.push(currentAtk); }
                     if (defCol) { updates.push(`${defCol} = ?`); updateParams.push(currentDef); }
-                    
-                    if (evolved) {
-                        updates.push(`${digiIdCol} = ?`);
-                        updateParams.push(currentDigiId);
-                        
-                        // Full heal on evolution?
-                        // Let's verify if we should. Usually yes.
-                        // But let's stick to user request "digievolui".
-                        // I'll update max_hp/current_hp logic naturally happens in next fetch or implicit.
-                        // But strictly, let's just update ID.
-                    }
                     
                     await db.execute(`UPDATE ${table} SET ${updates.join(', ')} WHERE id=?`, [...updateParams, battle.user_digimon_id]);
                 }
@@ -620,6 +609,16 @@ exports.attack = async (req, res) => {
 
     const [fullMapRows] = await db.execute(`SELECT * FROM ${table} WHERE id=? LIMIT 1`, [battle.user_digimon_id]);
     const fullMap = fullMapRows && fullMapRows[0];
+    
+    // Default Speed Logic: Base Speed from Digidex - Reduction from User Instance (default 0)
+    // Currently, we don't have a 'reduction' column, so we assume 0.
+    // We prioritize Digidex Base Speed over any stored speed in user instance to ensure Admin updates reflect immediately.
+    let effSpd = Number(userDigimon?.base_attack_speed || 2.0); 
+    console.log('Battle Attack Debug:', { 
+        digimonId, 
+        base_speed: userDigimon?.base_attack_speed, 
+        effSpd 
+    });
 
     if (fullMap) {
        // Recarregar colunas dinâmicas e usar valores atualizados
@@ -652,23 +651,41 @@ exports.attack = async (req, res) => {
          userDef = Number(userDigimon?.base_defense || 0) + Number(fullMap.extra_defense ?? 0);
        }
 
+       // Re-verify Speed if mapping exists (just in case user has stored speed that we want to ignore or respect in future)
+       // For now, effSpd is already set to userDigimon.base_attack_speed at top of this block.
+       // But wait, 'userDigimon' variable at top of block was the INITIAL fetch.
+       // If evolution happened (unlikely here but possible in logic), we need to ensure effSpd is correct.
+       // Let's re-fetch base_attack_speed if digimonId changed.
+       
        // Atualizar nome/sprite se houve evolução (digimon_id mudou)
        const digimonId2 = fullMap && mapping ? fullMap[mapping.digiIdCol] : null;
        if (digimonId2 && digimonId2 !== userDigimon?.id) {
-         const [digRows2] = await db.execute('SELECT id, name, sprite_path FROM digidex WHERE id=?', [digimonId2]);
+         const [digRows2] = await db.execute('SELECT id, name, sprite_path, base_attack_speed FROM digidex WHERE id=?', [digimonId2]);
          if (digRows2 && digRows2[0]) {
            userName = digRows2[0].name;
            userSprite = digRows2[0].sprite_path || userSprite;
+           effSpd = Number(digRows2[0].base_attack_speed || 2.0);
          }
        }
+    }
+
+    // Force explicit speed check even if no evolution, in case userDigimon (initial fetch) was stale or logic drifted
+    // Actually, effSpd is set to userDigimon.base_attack_speed earlier.
+    // Let's ensure userDigimon has the right value.
+    if (!fullMap || (fullMap && fullMap[mapping.digiIdCol] === userDigimon?.id)) {
+        // If same digimon, ensure we are using the freshly fetched userDigimon.base_attack_speed
+        // But userDigimon was fetched at start of function.
+        // Let's just double check the DB if needed? No, userDigimon fetch is fresh per request.
+        // The issue might be that userDigimon fetch query DOES NOT include base_attack_speed in attack() function?
+        // Let's check line 363.
+        // It says: SELECT id, name, base_hp, base_attack, base_defense, sprite_path FROM digidex...
+        // IT IS MISSING base_attack_speed!
     }
 
     const nextLevelXp = level * 100;
 
     // Sincronizar max HP calculado com a batalha para próximos turnos
     await db.execute(`UPDATE battles SET user_max_hp=? WHERE id=?`, [effHp, id]);
-
-    console.log('Attack Response - User Max HP:', effHp, 'Current HP:', newUserHp, 'Win:', win);
 
     res.json({
       id,
@@ -681,6 +698,7 @@ exports.attack = async (req, res) => {
         max_hp: effHp,
         attack: userAtk,
         defense: userDef,
+        attack_speed: effSpd,
         xp: effXp + (win ? (rewards?.xp || 0) : 0),
         max_xp: nextLevelXp,
         level: level,
@@ -699,12 +717,7 @@ exports.attack = async (req, res) => {
       crit: isCrit,
       user_damage: userDamage,
       enemy_damage: enemyDamage,
-      log: [
-        `Você causou ${userDamage} de dano`,
-        `Você tomou ${enemyDamage} de dano`,
-        ...(isCrit ? ['Golpe Crítico!'] : []),
-        ...extraLogs
-      ]
+      log: extraLogs // Use the specific logs collected
     });
   } catch (error) {
     console.error('Attack Error:', {
