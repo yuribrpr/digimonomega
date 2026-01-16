@@ -1,13 +1,5 @@
 const db = require('../config/db');
-
-// Helper to find the correct table name for user digimons
-async function getUserDigimonTable() {
-    const [rows] = await db.execute("SHOW TABLES LIKE '%user%digimon%'");
-    if (rows.length > 0) {
-        return Object.values(rows[0])[0];
-    }
-    return 'user_digimons'; // Fallback
-}
+const { resolveUserDigimonsTable } = require('../utils/dbHelpers');
 
 exports.getAvailable = async (req, res) => {
     try {
@@ -27,32 +19,35 @@ exports.adopt = async (req, res) => {
             return res.status(400).json({ message: 'Dados incompletos' });
         }
 
-        const table = await getUserDigimonTable();
+        const mapping = await resolveUserDigimonsTable();
+        if (!mapping || !mapping.userIdCol || !mapping.digiIdCol) {
+            return res.status(500).json({ message: 'Erro na configuração do banco de dados (tabela user_digimons)' });
+        }
+        const { table, userIdCol, digiIdCol } = mapping;
         
-        // Check if user already has this digimon? (Optional, user didn't specify unique restriction)
-        // User said "loja gratuita que ele pode adotar digimons novos".
-        // Usually adoption allows duplicates.
+        // Verify Digimon exists (Prevent FK Error)
+        const [digiRows] = await db.execute('SELECT id, base_hp, base_attack, base_defense FROM digidex WHERE id=?', [digimon_id]);
+        if (digiRows.length === 0) {
+            return res.status(404).json({ message: 'Digimon não encontrado no Digidex' });
+        }
+        const digimon = digiRows[0];
         
-        // Insert
-        // Default values: level=1, exp=0. is_main=0 (unless it's their first?)
-        // Check if user has any digimon
-        const [existing] = await db.execute(`SELECT count(*) as count FROM ${table} WHERE user_id=?`, [user_id]);
+        // Check if user has any digimon (to determine is_main)
+        const [existing] = await db.execute(`SELECT count(*) as count FROM ${table} WHERE ${userIdCol}=?`, [user_id]);
         const isFirst = existing[0].count === 0;
 
-        // Need to get base stats
-        const [digiRows] = await db.execute('SELECT base_hp, base_attack, base_defense FROM digidex WHERE id=?', [digimon_id]);
-        const baseHp = digiRows[0]?.base_hp || 100;
-        const baseAttack = digiRows[0]?.base_attack || 10;
-        const baseDefense = digiRows[0]?.base_defense || 10;
+        const baseHp = digimon.base_hp || 100;
+        const baseAttack = digimon.base_attack || 10;
+        const baseDefense = digimon.base_defense || 10;
 
-        const sql = `INSERT INTO ${table} (user_id, digidex_id, nickname, level, exp, current_hp, max_hp, attack, defense, is_main) VALUES (?, ?, ?, 1, 0, ?, ?, ?, ?, ?)`;
+        const sql = `INSERT INTO ${table} (${userIdCol}, ${digiIdCol}, nickname, level, exp, current_hp, max_hp, attack, defense, is_main) VALUES (?, ?, ?, 1, 0, ?, ?, ?, ?, ?)`;
         
         await db.execute(sql, [user_id, digimon_id, nickname || null, baseHp, baseHp, baseAttack, baseDefense, isFirst ? 1 : 0]);
 
         res.status(201).json({ message: 'Digimon adotado com sucesso!' });
 
     } catch (error) {
-        console.error(error);
+        console.error('Erro ao adotar:', error);
         res.status(500).json({ message: 'Erro ao adotar', error: error.message });
     }
 };
