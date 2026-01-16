@@ -1,3 +1,9 @@
+
+Quando o Actions voltar a funcionar (Win Powershell no diretorio)
 git add .
 git commit -m 
 git push origin main
+
+Na SSH
+
+ssh root@76.13.69.121 "cd ~/digimonomega && git pull origin main && docker compose up -d --build"

@@ -81,7 +81,7 @@ exports.register = async (req, res) => {
     }
 
     // Auto-login logic
-    const token = jwt.sign({ id: userId, username: username }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: userId, username: username }, process.env.JWT_SECRET || 'secret_key', { expiresIn: '24h' });
     
     // Fetch fresh user data
     const [freshUser] = await db.execute('SELECT id, username, email, bits, role, profile_image, exp, exp_m, level FROM users WHERE id = ?', [userId]);
@@ -154,7 +154,7 @@ exports.login = async (req, res) => {
     }
 
     // Generate JWT
-    const token = jwt.sign({ id: user.id, username: user.username, role: user.role, permissions }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role, permissions }, process.env.JWT_SECRET || 'secret_key', { expiresIn: '24h' });
 
     res.json({
         message: 'Login successful',
