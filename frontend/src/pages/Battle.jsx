@@ -390,7 +390,7 @@ export default function Battle() {
                 <div 
                     className="absolute inset-0 bg-cover bg-center z-0"
                     style={{ 
-                        backgroundImage: `url(${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${mapDetails.image_path.replace(/\\/g, '/')})`
+                        backgroundImage: `url(${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${mapDetails.image_path.replace(/\\/g, '/')})`
                     }}
                 ></div>
             )}
@@ -419,12 +419,17 @@ export default function Battle() {
                   <div className="w-40 h-40 flex items-center justify-center">
                     {myDigimon?.sprite_path ? (
                       <img 
-                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${myDigimon.sprite_path}`} 
+                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${myDigimon.sprite_path}`} 
                         alt={myDigimon?.name} 
                         className="h-full object-contain scale-x-[-1]" 
+                        style={{
+                          filter: isPlayerAttacking ? 'brightness(1.5)' : (isPlayerHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
+                          transform: `${isPlayerAttacking ? 'translateX(50px)' : (isPlayerHit ? 'translateX(-20px)' : 'translateX(0)')} scaleX(-1)`,
+                          transition: 'transform 0.2s, filter 0.2s'
+                        }}
                       />
                     ) : (
-                      <div className="w-24 h-24 bg-slate-800 rounded-full flex items-center justify-center text-slate-600">?</div>
+                      <div className="w-16 h-16 bg-blue-500 rounded-full animate-pulse"></div>
                     )}
                   </div>
                   {/* Damage Indicators */}
@@ -479,12 +484,17 @@ export default function Battle() {
                    <div className="w-40 h-40 flex items-center justify-center">
                     {enemy?.sprite_path ? (
                       <img 
-                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${enemy.sprite_path}`} 
+                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`} 
                         alt={enemy?.name} 
                         className={`h-full object-contain ${isBoss ? 'drop-shadow-[0_0_15px_rgba(220,38,38,0.5)]' : ''}`} 
+                        style={{
+                           filter: isEnemyAttacking ? 'brightness(1.5)' : (isEnemyHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
+                           transform: isEnemyAttacking ? 'translateX(-50px)' : (isEnemyHit ? 'translateX(20px)' : 'translateX(0)'),
+                           transition: 'transform 0.2s, filter 0.2s'
+                        }}
                       />
                     ) : (
-                      <div className="w-24 h-24 bg-slate-800 rounded-full flex items-center justify-center text-slate-600">?</div>
+                      <div className="w-16 h-16 bg-red-500 rounded-full animate-pulse"></div>
                     )}
                    </div>
                    {/* Damage Indicators */}
@@ -638,7 +648,7 @@ export default function Battle() {
                     >
                         <div className="flex flex-col items-center p-2 bg-muted/40 rounded hover:bg-muted/60 transition-colors cursor-help">
                             {drop.icon ? (
-                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${drop.icon}`} alt={drop.name} className="w-8 h-8 object-contain mb-1" />
+                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.icon}`} alt={drop.name} className="w-8 h-8 object-contain mb-1" />
                             ) : (
                                 <div className="w-8 h-8 bg-slate-200 rounded-full mb-1 flex items-center justify-center text-[8px]">?</div>
                             )}

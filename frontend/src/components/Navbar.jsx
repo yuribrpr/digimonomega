@@ -106,6 +106,10 @@ export default function Navbar({ isPlaying, toggleMusic }) {
       console.error('Erro ao buscar stats:', error);
     }
   };
+  
+  // URL base para imagens
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  
   useEffect(() => {
     fetchUserStats();
     // Refresh every 30 seconds
@@ -235,9 +239,13 @@ export default function Navbar({ isPlaying, toggleMusic }) {
                         setShowResults(false);
                       }}
                     >
-                       <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                       </div>
+                       {result.profile_image ? (
+                          <img src={`${API_URL}/${result.profile_image}`} alt={result.username} className="h-8 w-8 rounded-full object-cover" />
+                       ) : (
+                          <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
+                             <User className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                       )}
                        <div className="flex flex-col">
                           <span className="text-sm font-medium leading-none">{result.username}</span>
                           <span className="text-[10px] text-muted-foreground">Lvl {result.level || 1}</span>
@@ -269,8 +277,14 @@ export default function Navbar({ isPlaying, toggleMusic }) {
                 </div>
              </div>
              <Avatar className="h-9 w-9 cursor-pointer border-2 border-border hover:border-primary transition-colors">
-                <AvatarImage src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${userStats.profile_image}`} className="object-cover" />
-                <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">{user.username.substring(0,2).toUpperCase()}</AvatarFallback>
+                <AvatarImage 
+                  src={userStats.profile_image 
+                    ? `${API_URL}/${userStats.profile_image}` 
+                    : "https://github.com/shadcn.png"
+                  } 
+                  className="object-cover" 
+                />
+                <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
              </Avatar>
            </div>
            <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">

@@ -218,7 +218,7 @@ export default function Inventory() {
                       <CardContent className="p-4 flex flex-col items-center text-center space-y-3 pt-6">
                           <div className="w-16 h-16 bg-secondary/50 rounded-md flex items-center justify-center mb-2 relative">
                               {slot.icon ? (
-                                  <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${slot.icon}`} alt={slot.name} className="w-12 h-12 object-contain" />
+                                  <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${slot.icon}`} alt={slot.name} className="w-12 h-12 object-contain" />
                               ) : (
                                   <Backpack className="w-8 h-8 text-muted-foreground/50" />
                               )}

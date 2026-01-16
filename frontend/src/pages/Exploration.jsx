@@ -100,7 +100,7 @@ export default function Exploration() {
             <div className="aspect-video bg-slate-950 relative overflow-hidden">
                 {map.image_path ? (
                     <img 
-                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${map.image_path}`} 
+                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${map.image_path.replace(/\\/g, '/')}`} 
                         alt={map.name} 
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                     />

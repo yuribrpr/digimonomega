@@ -71,7 +71,7 @@ export default function Adoption() {
           >
             <div className="aspect-square bg-muted/30 flex items-center justify-center p-4">
                 <img 
-                  src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${d.sprite_path}`} 
+                  src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${d.sprite_path}`} 
                   alt={d.name} 
                   className="w-16 h-16 object-contain drop-shadow-sm transition-transform group-hover:scale-110" 
                   style={{imageRendering: 'pixelated'}}
@@ -113,7 +113,7 @@ export default function Adoption() {
              {selectedDigimon && (
                 <div className="w-24 h-24 bg-muted/30 rounded-lg flex items-center justify-center border-2 border-muted">
                     <img 
-                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${selectedDigimon.sprite_path}`} 
+                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${selectedDigimon.sprite_path}`} 
                         alt={selectedDigimon.name} 
                         className="w-16 h-16 object-contain"
                         style={{imageRendering: 'pixelated'}}

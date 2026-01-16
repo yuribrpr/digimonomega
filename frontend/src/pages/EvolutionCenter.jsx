@@ -33,7 +33,7 @@ export default function EvolutionCenter() {
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [inventory, setInventory] = useState([]);
   const [messageModal, setMessageModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
   // Animation State
   const [evolutionAnim, setEvolutionAnim] = useState({
     isOpen: false,
@@ -308,11 +308,15 @@ export default function EvolutionCenter() {
                                                             )}
                                                         </div>
                                                         <div className="h-16 w-full rounded-lg flex items-center justify-center p-1 bg-transparent">
-                                                            <img 
-                                                                src={`${API_URL}/${evo.sprite_path}`} 
-                                                                className={`h-full object-contain transition-all duration-500 ${!visualUnlocked ? 'grayscale blur-[1px]' : 'hover:scale-110'}`} 
-                                                                alt={evo.name} 
-                                                            />
+                                                            {evo.sprite_path ? (
+                                                                <img 
+                                                                    src={`${API_URL}/${evo.sprite_path}`} 
+                                                                    className={`h-full object-contain transition-all duration-500 ${!visualUnlocked ? 'grayscale blur-[1px]' : 'hover:scale-110'}`} 
+                                                                    alt={evo.name} 
+                                                                />
+                                                            ) : (
+                                                                <Dna className="h-8 w-8 text-muted-foreground/30" />
+                                                            )}
                                                         </div>
                                                         <div className="text-center">
                                                             <h4 className="font-bold text-sm truncate leading-tight">{evo.name}</h4>

@@ -422,12 +422,13 @@ export default function AdminEnemydex() {
                   </Button>
                 </div>
               </div>
-              <div className="w-full h-32 my-2 flex items-center justify-center">
+              {/* Sprite Preview */}
+              <div className="w-full h-32 my-2 flex items-center justify-center bg-secondary/10 rounded-md">
                 {enemy.sprite_path ? (
                   <img
-                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${enemy.sprite_path}`}
+                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`}
                     alt={enemy.name}
-                    className="h-full object-contain drop-shadow-md"
+                    className="h-full object-contain"
                     onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}
                   />
                 ) : (

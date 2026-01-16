@@ -80,18 +80,20 @@ export default function Digidex() {
           {filteredDigimons.map((digimon) => (
             <Card key={digimon.id} className="hover:shadow-lg transition-shadow border-muted">
               <CardHeader className="text-center pb-2">
-                 <div className="w-full h-40 bg-secondary/20 rounded-md mb-4 flex items-center justify-center overflow-hidden">
-                    {digimon.sprite_path ? (
-                        <img 
-                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${digimon.sprite_path}`} 
-                            alt={digimon.name}
-                            className="h-full object-contain mix-blend-multiply"
-                            onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=Sem+Imagem'; }}
-                        />
-                    ) : (
-                        <span className="text-muted-foreground">Sem Imagem</span>
-                    )}
-                 </div>
+                <div className="w-full h-32 my-4 flex items-center justify-center p-2 bg-gradient-to-b from-transparent to-black/5 dark:to-white/5 rounded-lg">
+                  {digimon.sprite_path ? (
+                    <img 
+                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${digimon.sprite_path}`}
+                      alt={digimon.name}
+                      className="h-full w-full object-contain drop-shadow-lg transition-transform duration-300 group-hover:scale-110"
+                      onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">?</span>
+                    </div>
+                  )}
+                </div>
                 <div className="flex justify-between items-start">
                     <div className="text-left">
                         <CardTitle className="text-lg">{digimon.name}</CardTitle>

@@ -28,7 +28,8 @@ import {
   Star, 
   Search, 
   Filter,
-  Crown
+  Crown,
+  Dna
 } from "lucide-react";
 export default function MeusDigimons() {
   const user = JSON.parse(localStorage.getItem('user'));
@@ -172,17 +173,17 @@ export default function MeusDigimons() {
                     </Badge>
                 </div>
             </CardHeader>
-            <div className="relative w-full h-48 flex items-center justify-center p-6 bg-gradient-to-b from-muted/20 to-muted/50">
+            {/* Sprite Container */}
+            <div className="relative h-48 bg-gradient-to-b from-transparent to-black/20 p-4 flex items-center justify-center">
                 {it.sprite_path ? (
                   <img
-                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${it.sprite_path}`}
+                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${it.sprite_path}`}
                     alt={it.species_name || it.name}
                     className="h-full w-auto object-contain drop-shadow-xl transition-transform duration-300 group-hover:scale-110"
-                    onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center text-muted-foreground h-full w-full bg-muted/20 rounded-lg">
-                      <span className="text-xs">Sem Imagem</span>
+                  <div className="w-24 h-24 rounded-full bg-secondary flex items-center justify-center">
+                    <Dna className="w-10 h-10 text-muted-foreground opacity-50" />
                   </div>
                 )}
             </div>

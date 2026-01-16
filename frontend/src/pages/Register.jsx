@@ -15,7 +15,7 @@ const STARTERS = [
     type: 'Vaccine',
     description: 'Alto potencial de ataque.',
     stats: { hp: 100, atk: 12, def: 8 },
-    image: (import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/assets/sprites/695db86a2548c.gif',
+    image: (import.meta.env.VITE_API_URL || 'http://localhost:3000') + '/assets/sprites/695db86a2548c.gif',
   },
   {
     id: 5,
@@ -23,7 +23,7 @@ const STARTERS = [
     type: 'Data',
     description: 'Leal e ágil.',
     stats: { hp: 90, atk: 11, def: 9 },
-    image: (import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/assets/sprites/695dbb1f46cb2.gif',
+    image: (import.meta.env.VITE_API_URL || 'http://localhost:3000') + '/assets/sprites/695dbb1f46cb2.gif',
   },
   {
     id: 13,
@@ -31,7 +31,7 @@ const STARTERS = [
     type: 'Data',
     description: 'Suporte equilibrado.',
     stats: { hp: 110, atk: 8, def: 11 },
-    image: (import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/assets/sprites/695dbfae99fad.gif',
+    image: (import.meta.env.VITE_API_URL || 'http://localhost:3000') + '/assets/sprites/695dbfae99fad.gif',
   }
 ];
 export default function Register() {
@@ -81,6 +81,8 @@ export default function Register() {
     setLoading(true);
     setError('');
     try {
+      // Use API_URL from env or default to localhost:3000 (backend port)
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const res = await api.post('/api/auth/register', {
         username: formData.username,
         email: formData.email,
@@ -153,29 +155,35 @@ export default function Register() {
           {step === 2 && (
             <div className="space-y-8 py-2">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {STARTERS.map((digimon) => (
-                        <div 
-                            key={digimon.id}
-                            onClick={() => setFormData({ ...formData, starterId: digimon.id })}
-                            className={cn(
-                                "cursor-pointer relative p-4 rounded-lg border transition-all duration-300 flex flex-col items-center gap-3 hover:bg-secondary/80",
-                                formData.starterId === digimon.id 
-                                    ? "border-primary bg-secondary shadow-md scale-105" 
-                                    : "border-border bg-card/50 opacity-60 hover:opacity-100"
-                            )}
-                        >
-                            <img src={digimon.image} alt={digimon.name} className="w-16 h-16 object-contain pixelated grayscale-[0.2] hover:grayscale-0 transition-all" />
-                            <div className="text-center">
-                                <h3 className={cn("font-medium text-sm", formData.starterId === digimon.id ? "text-foreground" : "text-muted-foreground")}>{digimon.name}</h3>
-                                <p className="text-[10px] text-muted-foreground mt-1">{digimon.description}</p>
-                            </div>
-                            {/* Minimal Stats */}
-                            <div className="w-full grid grid-cols-3 gap-1 text-center text-[10px] mt-2 border-t border-border pt-2">
-                                <div><span className="text-muted-foreground">HP</span> <span className="text-foreground">{digimon.stats.hp}</span></div>
-                                <div><span className="text-muted-foreground">ATK</span> <span className="text-foreground">{digimon.stats.atk}</span></div>
-                                <div><span className="text-muted-foreground">DEF</span> <span className="text-foreground">{digimon.stats.def}</span></div>
-                            </div>
+                    {STARTERS.map((starter) => (
+                      <div
+                        key={starter.id}
+                        className={`
+                          cursor-pointer rounded-xl border-2 p-4 transition-all hover:scale-105
+                          ${formData.starterId === starter.id 
+                            ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+                            : 'border-border hover:border-primary/50 bg-card'
+                          }
+                        `}
+                        onClick={() => setFormData({ ...formData, starterId: starter.id })}
+                      >
+                        <div className="aspect-square relative mb-3 bg-muted/20 rounded-lg p-2">
+                          <img
+                            src={starter.image}
+                            alt={starter.name}
+                            className="h-full w-full object-contain"
+                          />
                         </div>
+                        <div className="text-center">
+                          <h3 className="font-bold text-foreground">{starter.name}</h3>
+                          <p className="text-xs text-muted-foreground mb-2">{starter.description}</p>
+                          <div className="grid grid-cols-3 gap-1 text-[10px] font-mono text-muted-foreground bg-muted/50 p-1 rounded">
+                            <span>HP:{starter.stats.hp}</span>
+                            <span>ATK:{starter.stats.atk}</span>
+                            <span>DEF:{starter.stats.def}</span>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                 </div>
                 <div className="max-w-sm mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-100">

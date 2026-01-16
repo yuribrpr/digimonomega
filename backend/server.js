@@ -26,6 +26,7 @@ const server = http.createServer(app);
 socketHandler(server);
 
 const path = require('path');
+const axios = require('axios'); // Import Axios for proxy
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -33,6 +34,27 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 console.log('Serving static files from:', path.join(__dirname, 'public/assets'));
 app.use('/assets', express.static(path.join(__dirname, 'public/assets')));
+
+// --- SOLUÇÃO PARA DEV LOCAL ---
+// Proxy reverso: O backend local baixa a imagem do servidor de produção e entrega para o navegador.
+// Isso contorna bloqueios de navegador (CORS/Mixed Content) e não requer baixar arquivos manualmente.
+app.use('/assets', async (req, res) => {
+    try {
+        const prodUrl = `http://76.13.69.121:3000/assets${req.path}`;
+        const response = await axios({
+            method: 'get',
+            url: prodUrl,
+            responseType: 'stream'
+        });
+        
+        // Repassa os headers relevantes (Content-Type, etc)
+        res.set('Content-Type', response.headers['content-type']);
+        response.data.pipe(res);
+    } catch (error) {
+        // console.error(`[DEV Proxy] Falha ao buscar ${req.path}:`, error.message);
+        res.status(404).send('Image not found on production server');
+    }
+});
 
 // Routes
 app.use('/api/auth', authRoutes);

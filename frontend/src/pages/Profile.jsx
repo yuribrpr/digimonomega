@@ -80,7 +80,7 @@ export default function Profile() {
             onClick={handleImageClick}
           >
              {user.profile_image ? (
-                 <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${user.profile_image}`} alt="Avatar" className="h-full w-full object-cover" />
+                 <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${user.profile_image}`} alt="Avatar" className="h-full w-full object-cover" />
              ) : (
                  <div className="h-full w-full bg-secondary flex items-center justify-center">
                     <User className="h-8 w-8 text-muted-foreground" />

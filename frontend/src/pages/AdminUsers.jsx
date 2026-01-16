@@ -20,7 +20,7 @@ export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [roles, setRoles] = useState([]);
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
   const navigate = useNavigate();
   // Dialog states
   const [editOpen, setEditOpen] = useState(false);

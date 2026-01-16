@@ -366,7 +366,7 @@ export default function AdminDigidex() {
                             {items.map(item => (
                                 <SelectItem key={item.id} value={String(item.id)}>
                                     <div className="flex items-center gap-2">
-                                        {item.icon && <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${item.icon}`} className="h-4 w-4 object-contain" />}
+                                        {item.icon && <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${item.icon}`} className="h-4 w-4 object-contain" />}
                                         {item.name}
                                     </div>
                                 </SelectItem>
@@ -455,7 +455,7 @@ export default function AdminDigidex() {
               <div className="w-full h-32 my-2 flex items-center justify-center">
                 {digimon.sprite_path ? (
                   <img 
-                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${digimon.sprite_path}`}
+                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${digimon.sprite_path}`}
                     alt={digimon.name}
                     className="h-full object-contain drop-shadow-md"
                     onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}

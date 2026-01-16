@@ -290,7 +290,7 @@ export default function AdminMaps() {
           <Card key={map.id} className="group overflow-hidden">
             <div className="aspect-video bg-slate-900 relative">
                 {map.image_path ? (
-                    <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${map.image_path}`} alt={map.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${map.image_path}`} alt={map.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-500">
                         <MapIcon className="w-12 h-12 opacity-20" />
