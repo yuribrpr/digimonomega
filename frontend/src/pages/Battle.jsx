@@ -156,6 +156,22 @@ export default function Battle() {
         logContainerRef.current.scrollTop = 0;
     }
   }, [logs]);
+
+  // Resume AudioContext on interaction to fix Autoplay Policy
+  useEffect(() => {
+    const resumeAudio = () => {
+      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume().catch(err => console.error('Audio resume failed', err));
+      }
+    };
+    window.addEventListener('click', resumeAudio);
+    window.addEventListener('keydown', resumeAudio);
+    return () => {
+      window.removeEventListener('click', resumeAudio);
+      window.removeEventListener('keydown', resumeAudio);
+    };
+  }, []);
+
   const formatLog = (logArray) => {
     if (!logArray || logArray.length === 0) return null;
     // Check if it's a standard attack log (2 lines usually)
