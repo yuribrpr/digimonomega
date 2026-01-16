@@ -26,7 +26,10 @@ services:
 
   # --- O JOGO (Mudou: Perdeu a porta 80 pública) ---
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=http://76.13.69.121:3000
     container_name: digimon_frontend
     restart: always
     expose:
