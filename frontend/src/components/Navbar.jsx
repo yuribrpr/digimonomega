@@ -34,6 +34,40 @@ export default function Navbar({ isPlaying, toggleMusic }) {
   const navigate = useNavigate();
   const location = useLocation();
   const user = JSON.parse(localStorage.getItem('user'));
+  
+  // Define user-specific nav items including admin ones if applicable
+  const getNavItems = () => {
+    const items = [
+      { icon: HomeIcon, label: 'Início', path: '/', color: 'text-slate-500' },
+      { icon: MapIcon, label: 'Explorar', path: '/exploration', color: 'text-green-500' },
+      { icon: ArrowUpCircle, label: 'Evolução', path: '/evolution-center', color: 'text-cyan-500' },
+      { icon: Dna, label: 'Digimons', path: '/meus-digimons', color: 'text-blue-500' },
+      { icon: ShoppingBag, label: 'Loja', path: '/adoption', color: 'text-purple-500' },
+      { icon: BookOpen, label: 'Digidex', path: '/digidex', color: 'text-amber-500' },
+      { icon: Backpack, label: 'Inventário', path: '/inventory', color: 'text-indigo-500' },
+    ];
+
+    // Add Admin items if user has permissions
+    if (user && (user.username === 'clovis' || user.role === 'admin' || (user.permissions && user.permissions.length > 0))) {
+      // General Admin Dashboard or specific items could be added. 
+      // For now, adding individual admin links that are most commonly used
+      if (user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_users')) {
+         items.push({ icon: User, label: 'Adm Users', path: '/admin/users', color: 'text-red-500' });
+      }
+      if (user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_digidex')) {
+         items.push({ icon: Dna, label: 'Adm Digidex', path: '/admin/digidex', color: 'text-red-500' });
+      }
+      if (user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_enemydex')) {
+         items.push({ icon: Dna, label: 'Adm Enemydex', path: '/admin/enemydex', color: 'text-red-500' });
+      }
+    }
+    
+    return items;
+  };
+
+  const navItems = getNavItems();
+
+
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -105,82 +139,7 @@ export default function Navbar({ isPlaying, toggleMusic }) {
     return null;
   }
   if (!user) return null;
-  const navItems = [
-    { icon: MapIcon, label: 'Explorar', path: '/exploration', color: 'text-green-500' },
-    { icon: ArrowUpCircle, label: 'Centro de Digievolução', path: '/evolution-center', color: 'text-cyan-500' },
-    { icon: Dna, label: 'Digimons', path: '/meus-digimons', color: 'text-blue-500' },
-    { icon: ShoppingBag, label: 'Loja de Digimons', path: '/adoption', color: 'text-purple-500' },
-    { icon: BookOpen, label: 'Digidex', path: '/digidex', color: 'text-amber-500' },
-    { icon: Backpack, label: 'Inventário', path: '/inventory', color: 'text-indigo-500' },
-  ];
 
-  // Bottom Mobile Navigation
-  const MobileNav = () => (
-    <>
-      {/* Mobile Menu Popup */}
-      {mobileMenuOpen && (
-        <div className="fixed bottom-20 right-4 z-[100] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-2 flex flex-col gap-1 min-w-[160px] animate-in fade-in slide-in-from-bottom-5">
-           {navItems.slice(4).map((item) => (
-              <Link 
-                key={item.path} 
-                to={item.path} 
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                 <item.icon className={`h-5 w-5 ${item.color}`} />
-                 <span className="text-sm font-medium">{item.label}</span>
-              </Link>
-           ))}
-           <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
-           <div 
-             className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors cursor-pointer"
-             onClick={() => {
-               setMobileMenuOpen(false);
-               navigate('/menu'); // Or open settings
-             }}
-           >
-             <Settings className="h-5 w-5 text-muted-foreground" />
-             <span className="text-sm font-medium text-muted-foreground">Configurações</span>
-           </div>
-        </div>
-      )}
-      
-      {/* Mobile Menu Overlay for closing */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[90] bg-black/20 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-      )}
-
-      {/* Bottom Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 md:hidden pb-safe safe-area-inset-bottom shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
-        <div className="flex justify-around items-center h-16 px-2">
-          {navItems.slice(0, 4).map((item) => { 
-            const isActive = location.pathname === item.path;
-            return (
-              <Link key={item.path} to={item.path} className="flex flex-col items-center justify-center w-full h-full py-1" onClick={() => setMobileMenuOpen(false)}>
-                 <div className={`p-1.5 rounded-xl transition-all duration-300 ${isActive ? 'bg-primary/10 scale-110' : ''}`}>
-                   <item.icon className={`h-6 w-6 ${isActive ? item.color : 'text-slate-400 dark:text-slate-500'}`} />
-                 </div>
-                 <span className={`text-[10px] mt-1 font-medium ${isActive ? 'text-foreground' : 'text-slate-400 dark:text-slate-500'}`}>
-                   {item.label.split(' ')[0]} 
-                 </span>
-              </Link>
-            );
-          })}
-          
-          {/* More Button */}
-          <div 
-              className="flex flex-col items-center justify-center w-full h-full py-1 cursor-pointer"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-               <div className={`p-1.5 rounded-xl transition-all duration-300 ${mobileMenuOpen ? 'bg-primary/10 scale-110' : ''}`}>
-                  <MoreHorizontal className={`h-6 w-6 ${mobileMenuOpen ? 'text-primary' : 'text-slate-400 dark:text-slate-500'}`} />
-               </div>
-               <span className={`text-[10px] mt-1 font-medium ${mobileMenuOpen ? 'text-foreground' : 'text-slate-400 dark:text-slate-500'}`}>Mais</span>
-          </div>
-        </div>
-      </div>
-    </>
-  );
 
   return (
     <>
