@@ -202,9 +202,15 @@ export default function NewsList({ className, limit = 10, showHeader = true, com
         </CardContent>
       </Card>
       <Dialog open={!!selectedNews} onOpenChange={(open) => !open && setSelectedNews(null)}>
-        <DialogContent className="max-w-4xl w-[95vw] h-[85vh] p-0 gap-0 flex flex-col overflow-hidden bg-background border-none shadow-2xl sm:rounded-2xl">
+        <DialogContent 
+            className="max-w-4xl w-[95vw] h-[85vh] p-0 gap-0 flex flex-col overflow-hidden bg-background border-none shadow-2xl sm:rounded-2xl"
+            aria-describedby="news-dialog-description"
+        >
           {selectedNews && (
             <>
+              <DialogDescription id="news-dialog-description" className="sr-only">
+                Detalhes da notícia: {selectedNews.title}
+              </DialogDescription>
               {/* Header Fixo */}
               <div className="shrink-0 p-6 pb-4 border-b bg-background/80 backdrop-blur-sm z-10 flex items-start justify-between gap-4">
                  <div className="space-y-1.5 flex-1 min-w-0">

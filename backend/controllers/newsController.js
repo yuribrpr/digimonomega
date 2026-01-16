@@ -100,21 +100,26 @@ exports.toggleLike = async (req, res) => {
             [id, userId]
         );
 
+        // Convert boolean/tinyint properly for comparison
+        const isLikeBool = is_like === true || is_like === 'true' || is_like === 1;
+
         if (existing.length > 0) {
-            if (Boolean(existing[0].is_like) === Boolean(is_like)) {
+            const existingIsLike = existing[0].is_like === 1 || existing[0].is_like === true;
+            
+            if (existingIsLike === isLikeBool) {
                 // Remove (toggle off)
                 await db.query('DELETE FROM news_likes WHERE id = ?', [existing[0].id]);
                 return res.json({ message: 'Removed', action: 'removed' });
             } else {
                 // Update (switch)
-                await db.query('UPDATE news_likes SET is_like = ? WHERE id = ?', [is_like, existing[0].id]);
+                await db.query('UPDATE news_likes SET is_like = ? WHERE id = ?', [isLikeBool, existing[0].id]);
                 return res.json({ message: 'Updated', action: 'updated' });
             }
         } else {
             // Insert
             await db.query(
                 'INSERT INTO news_likes (news_id, user_id, is_like) VALUES (?, ?, ?)',
-                [id, userId, is_like]
+                [id, userId, isLikeBool]
             );
             return res.json({ message: 'Added', action: 'added' });
         }
