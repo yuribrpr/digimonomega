@@ -45,7 +45,7 @@ export default function AdminDigidex() {
   const [baseLevel, setBaseLevel] = useState('');
   const [requiredEvoluters, setRequiredEvoluters] = useState('');
   const [requiredItemId, setRequiredItemId] = useState('12'); // Default to Evoluter
-  const [requiredItemQty, setRequiredItemQty] = useState('');
+  const [requiredItemQty, setRequiredItemQty] = useState('1'); // Default quantity
   const [file, setFile] = useState(null);
   const fetchItems = async () => {
     try {
@@ -95,7 +95,7 @@ export default function AdminDigidex() {
     setBaseLevel('');
     setRequiredEvoluters('');
     setRequiredItemId('12');
-    setRequiredItemQty('');
+    setRequiredItemQty('1');
     setFile(null);
     setEditingDigimon(null);
     setIsCreatingLine(false);
@@ -117,7 +117,11 @@ export default function AdminDigidex() {
     setBaseLevel(digimon.base_level || '');
     setRequiredEvoluters(digimon.required_evoluters || '');
     setRequiredItemId(digimon.required_item_id ? String(digimon.required_item_id) : '12');
-    setRequiredItemQty(digimon.required_item_quantity || '');
+    setRequiredItemQty(
+      digimon.required_item_quantity !== undefined && digimon.required_item_quantity !== null
+        ? String(digimon.required_item_quantity)
+        : '1'
+    );
     setIsOpen(true);
   };
   const handleSubmit = async (e) => {
@@ -216,7 +220,7 @@ export default function AdminDigidex() {
     switch(String(val)) {
       case '1': 
         setEvolutionLevel('1'); 
-        setRequiredItemQty(''); // Rookie = none
+        setRequiredItemQty('1');
         break;
       case '2': 
         setEvolutionLevel('15'); 
