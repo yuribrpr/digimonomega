@@ -138,18 +138,41 @@ exports.updateDigimon = async (req, res) => {
             evolution_line_id, next_evolution_id, evolution_level, base_level, required_evoluters,
             required_item_id, required_item_quantity
         } = req.body;
-        
-        const nextEvoId = next_evolution_id || null;
-        const evoLevel = evolution_level || null;
-        const bLevel = base_level || 1;
-        
-        // Handle both old and new field names for backward compatibility
-        // If required_item_quantity is provided, use it. Else fallback to required_evoluters.
-        const reqItemQty = required_item_quantity !== undefined ? required_item_quantity : (required_evoluters || 0);
-        const reqItemId = required_item_id || 12; // Default to Evoluter if not specified
+
+        const [rows] = await db.execute('SELECT * FROM digidex WHERE id = ?', [id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Digimon not found' });
+        }
+        const existing = rows[0];
+
+        const numOr = (val, fallback) => {
+            if (val === undefined || val === null || val === '') return fallback;
+            const n = Number(val);
+            return Number.isNaN(n) ? fallback : n;
+        };
+
+        const newName = typeof name !== 'undefined' && name !== '' ? name : existing.name;
+        const newType = typeof type !== 'undefined' && type !== '' ? type : existing.type;
+        const newBaseHp = numOr(base_hp, existing.base_hp);
+        const newBaseAttack = numOr(base_attack, existing.base_attack);
+        const newBaseDefense = numOr(base_defense, existing.base_defense);
+
+        const newEvolutionLineId = typeof evolution_line_id !== 'undefined' && evolution_line_id !== '' ? evolution_line_id : existing.evolution_line_id;
+        const nextEvoId = typeof next_evolution_id !== 'undefined' && next_evolution_id !== '' ? next_evolution_id : existing.next_evolution_id;
+        const evoLevel = numOr(evolution_level, existing.evolution_level);
+        const bLevel = numOr(base_level, existing.base_level || 1);
+
+        const rawQty = required_item_quantity !== undefined && required_item_quantity !== ''
+            ? required_item_quantity
+            : (required_evoluters !== undefined && required_evoluters !== '' ? required_evoluters : (existing.required_item_quantity ?? existing.required_evoluters ?? 0));
+        const reqItemQty = numOr(rawQty, 0);
+
+        const reqItemId = required_item_id !== undefined && required_item_id !== ''
+            ? required_item_id
+            : (existing.required_item_id || 12);
 
         let query = 'UPDATE digidex SET name=?, type=?, base_hp=?, base_attack=?, base_defense=?, evolution_line_id=?, next_evolution_id=?, evolution_level=?, base_level=?, required_evoluters=?, required_item_id=?, required_item_quantity=?';
-        let params = [name, type, base_hp, base_attack, base_defense, evolution_line_id, nextEvoId, evoLevel, bLevel, reqItemQty, reqItemId, reqItemQty];
+        let params = [newName, newType, newBaseHp, newBaseAttack, newBaseDefense, newEvolutionLineId, nextEvoId, evoLevel, bLevel, reqItemQty, reqItemId, reqItemQty];
 
         if (req.file) {
             query += ', sprite_path=?';
