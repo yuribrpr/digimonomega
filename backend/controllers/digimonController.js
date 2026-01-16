@@ -2,28 +2,39 @@ const db = require('../config/db');
 const { resolveUserDigimonsTable } = require('../utils/dbHelpers');
 
 async function ensureDigidexColumns() {
-    const [cols] = await db.execute('DESCRIBE digidex');
-    const names = cols.map(c => c.Field);
-    if (!names.includes('evolution_line_id')) {
-        await db.execute("ALTER TABLE digidex ADD COLUMN evolution_line_id VARCHAR(100) DEFAULT NULL");
-    }
-    if (!names.includes('next_evolution_id')) {
-        await db.execute('ALTER TABLE digidex ADD COLUMN next_evolution_id INT DEFAULT NULL');
-    }
-    if (!names.includes('base_level')) {
-        await db.execute('ALTER TABLE digidex ADD COLUMN base_level INT DEFAULT 1');
-    }
-    if (!names.includes('sprite_path')) {
-        await db.execute('ALTER TABLE digidex ADD COLUMN sprite_path VARCHAR(255) DEFAULT NULL');
-    }
-    if (!names.includes('required_evoluters')) {
-        await db.execute('ALTER TABLE digidex ADD COLUMN required_evoluters INT DEFAULT 0');
-    }
-    if (!names.includes('required_item_id')) {
-        await db.execute('ALTER TABLE digidex ADD COLUMN required_item_id INT DEFAULT 12');
-    }
-    if (!names.includes('required_item_quantity')) {
-        await db.execute('ALTER TABLE digidex ADD COLUMN required_item_quantity INT DEFAULT 0');
+    try {
+        // 1. Ensure Columns in digidex
+        const [cols] = await db.execute('DESCRIBE digidex');
+        const names = cols.map(c => c.Field);
+        
+        const alterQueries = [];
+        if (!names.includes('evolution_line_id')) alterQueries.push("ADD COLUMN evolution_line_id VARCHAR(100) DEFAULT NULL");
+        if (!names.includes('next_evolution_id')) alterQueries.push("ADD COLUMN next_evolution_id INT DEFAULT NULL");
+        if (!names.includes('base_level')) alterQueries.push("ADD COLUMN base_level INT DEFAULT 1");
+        if (!names.includes('sprite_path')) alterQueries.push("ADD COLUMN sprite_path VARCHAR(255) DEFAULT NULL");
+        if (!names.includes('required_evoluters')) alterQueries.push("ADD COLUMN required_evoluters INT DEFAULT 0");
+        if (!names.includes('required_item_id')) alterQueries.push("ADD COLUMN required_item_id INT DEFAULT 12");
+        if (!names.includes('required_item_quantity')) alterQueries.push("ADD COLUMN required_item_quantity INT DEFAULT 0");
+
+        for (const query of alterQueries) {
+            await db.execute(`ALTER TABLE digidex ${query}`);
+        }
+
+        // 2. Ensure Default Evoluter Item (ID 12) exists
+        // This is crucial because required_item_id defaults to 12
+        const [items] = await db.execute('SELECT id FROM items WHERE id = 12');
+        if (items.length === 0) {
+            console.log('Ensuring Evoluter item (ID 12) exists...');
+            // Note: matching columns from itemController.js (name, description, icon, type, effect_target, effect_value, is_percent)
+            await db.execute(`
+                INSERT INTO items (id, name, description, icon, type, effect_target, effect_value, is_percent)
+                VALUES (12, 'Evoluter', 'Item used to unlock evolutions.', 'assets/items/evoluter.png', 'consumable', 'none', 0, 0)
+            `);
+        }
+    } catch (error) {
+        console.error('Error in ensureDigidexColumns:', error);
+        // Don't block the request if this fails, but log it. 
+        // Although if it fails, the main query might fail too.
     }
 }
 
