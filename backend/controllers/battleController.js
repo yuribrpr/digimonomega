@@ -101,8 +101,24 @@ async function ensureBattleColumns() {
     try {
         const [rows] = await db.execute('DESCRIBE battles');
         const fields = rows.map(r => r.Field);
+        
         if (!fields.includes('enemy_multiplier')) {
             await db.execute('ALTER TABLE battles ADD COLUMN enemy_multiplier FLOAT DEFAULT 1.0');
+        }
+        if (!fields.includes('user_digimon_id')) {
+            await db.execute('ALTER TABLE battles ADD COLUMN user_digimon_id INT DEFAULT NULL');
+        }
+        if (!fields.includes('enemy_current_hp')) {
+            await db.execute('ALTER TABLE battles ADD COLUMN enemy_current_hp INT DEFAULT NULL');
+        }
+        if (!fields.includes('enemy_max_hp')) {
+            await db.execute('ALTER TABLE battles ADD COLUMN enemy_max_hp INT DEFAULT NULL');
+        }
+        if (!fields.includes('user_current_hp')) {
+             await db.execute('ALTER TABLE battles ADD COLUMN user_current_hp INT DEFAULT NULL');
+        }
+        if (!fields.includes('user_max_hp')) {
+             await db.execute('ALTER TABLE battles ADD COLUMN user_max_hp INT DEFAULT NULL');
         }
     } catch (error) {
         console.error('Error ensuring battle columns:', error);
