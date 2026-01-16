@@ -77,6 +77,7 @@ function App() {
       <Router>
         <audio ref={audioRef} src={BGM_URL} preload="auto" />
         <Navbar isPlaying={isPlaying} toggleMusic={toggleMusic} />
+        <div className="md:pb-0 pb-20">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -187,6 +188,7 @@ function App() {
             </PrivateRoute>
         } />
       </Routes>
+        </div>
         <ChatWidget />
       </Router>
     </ChatProvider>
