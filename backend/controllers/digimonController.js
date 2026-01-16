@@ -1,6 +1,32 @@
 const db = require('../config/db');
 const { resolveUserDigimonsTable } = require('../utils/dbHelpers');
 
+async function ensureDigidexColumns() {
+    const [cols] = await db.execute('DESCRIBE digidex');
+    const names = cols.map(c => c.Field);
+    if (!names.includes('evolution_line_id')) {
+        await db.execute("ALTER TABLE digidex ADD COLUMN evolution_line_id VARCHAR(100) DEFAULT NULL");
+    }
+    if (!names.includes('next_evolution_id')) {
+        await db.execute('ALTER TABLE digidex ADD COLUMN next_evolution_id INT DEFAULT NULL');
+    }
+    if (!names.includes('base_level')) {
+        await db.execute('ALTER TABLE digidex ADD COLUMN base_level INT DEFAULT 1');
+    }
+    if (!names.includes('sprite_path')) {
+        await db.execute('ALTER TABLE digidex ADD COLUMN sprite_path VARCHAR(255) DEFAULT NULL');
+    }
+    if (!names.includes('required_evoluters')) {
+        await db.execute('ALTER TABLE digidex ADD COLUMN required_evoluters INT DEFAULT 0');
+    }
+    if (!names.includes('required_item_id')) {
+        await db.execute('ALTER TABLE digidex ADD COLUMN required_item_id INT DEFAULT 12');
+    }
+    if (!names.includes('required_item_quantity')) {
+        await db.execute('ALTER TABLE digidex ADD COLUMN required_item_quantity INT DEFAULT 0');
+    }
+}
+
 exports.getRanking = async (req, res) => {
     try {
         const mapping = await resolveUserDigimonsTable();
@@ -66,6 +92,7 @@ exports.getAllDigimons = async (req, res) => {
 
 exports.createDigimon = async (req, res) => {
     try {
+        await ensureDigidexColumns();
         const { 
             name, type, base_hp, base_attack, base_defense,
             evolution_line_id, next_evolution_id, evolution_level, base_level,
@@ -87,12 +114,13 @@ exports.createDigimon = async (req, res) => {
         res.status(201).json({ message: 'Digimon created', id: result.insertId });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Error creating digimon' });
+        res.status(500).json({ message: 'Error creating digimon', error: error.sqlMessage || error.message || String(error) });
     }
 };
 
 exports.updateDigimon = async (req, res) => {
     try {
+        await ensureDigidexColumns();
         const { id } = req.params;
         const { 
             name, type, base_hp, base_attack, base_defense,
@@ -124,7 +152,7 @@ exports.updateDigimon = async (req, res) => {
         res.json({ message: 'Digimon updated' });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Error updating digimon' });
+        res.status(500).json({ message: 'Error updating digimon', error: error.sqlMessage || error.message || String(error) });
     }
 };
 
