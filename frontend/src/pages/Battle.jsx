@@ -326,6 +326,11 @@ export default function Battle() {
   const hpPercent = calcPercent(myDigimon?.hp, myDigimon?.max_hp);
   const enemyHpPercent = calcPercent(enemy?.hp, enemy?.max_hp);
   const xpPercent = calcPercent(myDigimon?.xp, myDigimon?.max_xp);
+  const [isPlayerAttacking, setIsPlayerAttacking] = useState(false);
+  const [isPlayerHit, setIsPlayerHit] = useState(false);
+  const [isEnemyAttacking, setIsEnemyAttacking] = useState(false);
+  const [isEnemyHit, setIsEnemyHit] = useState(false);
+
   // Helper styles for animations
   const getPlayerStyle = () => {
     if (animState === 'player-attack') return "translate-x-64 scale-110 z-20 transition-transform duration-300 ease-in";
@@ -337,6 +342,23 @@ export default function Battle() {
     if (animState === 'enemy-hit') return "animate-shake text-red-500 brightness-150 saturate-0";
     return "transition-all duration-300";
   };
+
+  useEffect(() => {
+    // Sync boolean states with animState for inline styles
+    if (animState === 'player-attack') {
+        setIsPlayerAttacking(true);
+        setTimeout(() => setIsPlayerAttacking(false), 300);
+    } else if (animState === 'player-hit') {
+        setIsPlayerHit(true);
+        setTimeout(() => setIsPlayerHit(false), 500);
+    } else if (animState === 'enemy-attack') {
+        setIsEnemyAttacking(true);
+        setTimeout(() => setIsEnemyAttacking(false), 300);
+    } else if (animState === 'enemy-hit') {
+        setIsEnemyHit(true);
+        setTimeout(() => setIsEnemyHit(false), 500);
+    }
+  }, [animState]);
   return (
     <div className="container mx-auto py-8 max-w-4xl space-y-6">
       {/* Custom Keyframes for Shake Effect */}
