@@ -23,6 +23,8 @@ services:
       - db
     env_file:
       - ./backend/.env
+    volumes:
+      - ./backend/public/assets:/app/public/assets
 
   # --- O JOGO (Mudou: Perdeu a porta 80 pública) ---
   frontend:
