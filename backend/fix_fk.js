@@ -55,6 +55,39 @@ async function fixFK() {
       console.log('Error adding inventory_ibfk_2:', err.message);
     }
 
+    // Fix user_digimons FKs to reference current DB tables
+    try {
+      console.log('Dropping user_digimons_ibfk_1 (if exists)...');
+      await connection.execute('ALTER TABLE user_digimons DROP FOREIGN KEY user_digimons_ibfk_1');
+      console.log('user_digimons_ibfk_1 dropped.');
+    } catch (err) {
+      console.log('Error dropping user_digimons_ibfk_1 (might not exist):', err.message);
+    }
+
+    try {
+      console.log('Dropping user_digimons_ibfk_2 (if exists)...');
+      await connection.execute('ALTER TABLE user_digimons DROP FOREIGN KEY user_digimons_ibfk_2');
+      console.log('user_digimons_ibfk_2 dropped.');
+    } catch (err) {
+      console.log('Error dropping user_digimons_ibfk_2 (might not exist):', err.message);
+    }
+
+    try {
+      console.log('Adding user_digimons_ibfk_1 referencing users(id)...');
+      await connection.execute('ALTER TABLE user_digimons ADD CONSTRAINT user_digimons_ibfk_1 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE');
+      console.log('user_digimons_ibfk_1 added successfully.');
+    } catch (err) {
+      console.log('Error adding user_digimons_ibfk_1:', err.message);
+    }
+
+    try {
+      console.log('Adding user_digimons_ibfk_2 referencing digidex(id)...');
+      await connection.execute('ALTER TABLE user_digimons ADD CONSTRAINT user_digimons_ibfk_2 FOREIGN KEY (digidex_id) REFERENCES digidex(id) ON DELETE CASCADE');
+      console.log('user_digimons_ibfk_2 added successfully.');
+    } catch (err) {
+      console.log('Error adding user_digimons_ibfk_2:', err.message);
+    }
+
 
   } catch (error) {
     console.error('Fatal error:', error);
