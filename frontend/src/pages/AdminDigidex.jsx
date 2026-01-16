@@ -122,6 +122,9 @@ export default function AdminDigidex() {
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const qtyValue = requiredItemQty === '' || requiredItemQty === null || requiredItemQty === undefined
+      ? '0'
+      : String(requiredItemQty);
     const formData = new FormData();
     formData.append('name', name);
     formData.append('type', type);
@@ -129,9 +132,9 @@ export default function AdminDigidex() {
     formData.append('base_attack', atk);
     formData.append('base_defense', def);
     formData.append('evolution_line_id', evolutionLineId);
-    formData.append('required_evoluters', requiredItemQty); // Legacy support
+    formData.append('required_evoluters', qtyValue); // Legacy support
     formData.append('required_item_id', requiredItemId);
-    formData.append('required_item_quantity', requiredItemQty);
+    formData.append('required_item_quantity', qtyValue);
     // next_evolution_id removed
     formData.append('evolution_level', evolutionLevel);
     formData.append('base_level', baseLevel);
