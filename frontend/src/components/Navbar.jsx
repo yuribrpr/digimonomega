@@ -38,30 +38,13 @@ export default function Navbar({ isPlaying, toggleMusic }) {
   // Define user-specific nav items including admin ones if applicable
   const getNavItems = () => {
     const items = [
-      { icon: HomeIcon, label: 'Início', path: '/', color: 'text-slate-500' },
       { icon: MapIcon, label: 'Explorar', path: '/exploration', color: 'text-green-500' },
-      { icon: ArrowUpCircle, label: 'Evolução', path: '/evolution-center', color: 'text-cyan-500' },
+      { icon: ArrowUpCircle, label: 'Centro de Digievolução', path: '/evolution-center', color: 'text-cyan-500' },
       { icon: Dna, label: 'Digimons', path: '/meus-digimons', color: 'text-blue-500' },
-      { icon: ShoppingBag, label: 'Loja', path: '/adoption', color: 'text-purple-500' },
+      { icon: ShoppingBag, label: 'Loja de Digimons', path: '/adoption', color: 'text-purple-500' },
       { icon: BookOpen, label: 'Digidex', path: '/digidex', color: 'text-amber-500' },
       { icon: Backpack, label: 'Inventário', path: '/inventory', color: 'text-indigo-500' },
     ];
-
-    // Add Admin items if user has permissions
-    if (user && (user.username === 'clovis' || user.role === 'admin' || (user.permissions && user.permissions.length > 0))) {
-      // General Admin Dashboard or specific items could be added. 
-      // For now, adding individual admin links that are most commonly used
-      if (user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_users')) {
-         items.push({ icon: User, label: 'Adm Users', path: '/admin/users', color: 'text-red-500' });
-      }
-      if (user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_digidex')) {
-         items.push({ icon: Dna, label: 'Adm Digidex', path: '/admin/digidex', color: 'text-red-500' });
-      }
-      if (user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_enemydex')) {
-         items.push({ icon: Dna, label: 'Adm Enemydex', path: '/admin/enemydex', color: 'text-red-500' });
-      }
-    }
-    
     return items;
   };
 
@@ -345,33 +328,30 @@ const MobileNav = ({ mobileMenuOpen, setMobileMenuOpen, navItems, navigate, loca
 
       {/* Bottom Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 md:hidden pb-safe safe-area-inset-bottom shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
-        <div className="flex items-center h-16 px-2 overflow-x-auto no-scrollbar gap-1">
-          {navItems.map((item) => { 
+        <div className="flex justify-around items-center h-16 px-2">
+          {navItems.slice(0, 4).map((item) => { 
             const isActive = location.pathname === item.path;
             return (
-              <Link key={item.path} to={item.path} className="flex flex-col items-center justify-center min-w-[20%] h-full py-1 shrink-0" onClick={() => setMobileMenuOpen(false)}>
+              <Link key={item.path} to={item.path} className="flex flex-col items-center justify-center w-full h-full py-1" onClick={() => setMobileMenuOpen(false)}>
                  <div className={`p-1.5 rounded-xl transition-all duration-300 ${isActive ? 'bg-primary/10 scale-110' : ''}`}>
                    <item.icon className={`h-6 w-6 ${isActive ? item.color : 'text-slate-400 dark:text-slate-500'}`} />
                  </div>
-                 <span className={`text-[10px] mt-1 font-medium truncate w-full text-center px-1 ${isActive ? 'text-foreground' : 'text-slate-400 dark:text-slate-500'}`}>
+                 <span className={`text-[10px] mt-1 font-medium ${isActive ? 'text-foreground' : 'text-slate-400 dark:text-slate-500'}`}>
                    {item.label.split(' ')[0]} 
                  </span>
               </Link>
             );
           })}
           
-          {/* Settings Button (was in More menu) */}
+          {/* More Button */}
           <div 
-              className="flex flex-col items-center justify-center min-w-[20%] h-full py-1 cursor-pointer shrink-0"
-              onClick={() => {
-                  setMobileMenuOpen(false);
-                  navigate('/menu');
-              }}
+              className="flex flex-col items-center justify-center w-full h-full py-1 cursor-pointer"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
-               <div className={`p-1.5 rounded-xl transition-all duration-300 ${location.pathname === '/menu' ? 'bg-primary/10 scale-110' : ''}`}>
-                  <Settings className={`h-6 w-6 ${location.pathname === '/menu' ? 'text-primary' : 'text-slate-400 dark:text-slate-500'}`} />
+               <div className={`p-1.5 rounded-xl transition-all duration-300 ${mobileMenuOpen ? 'bg-primary/10 scale-110' : ''}`}>
+                  <MoreHorizontal className={`h-6 w-6 ${mobileMenuOpen ? 'text-primary' : 'text-slate-400 dark:text-slate-500'}`} />
                </div>
-               <span className={`text-[10px] mt-1 font-medium ${location.pathname === '/menu' ? 'text-foreground' : 'text-slate-400 dark:text-slate-500'}`}>Config</span>
+               <span className={`text-[10px] mt-1 font-medium ${mobileMenuOpen ? 'text-foreground' : 'text-slate-400 dark:text-slate-500'}`}>Mais</span>
           </div>
         </div>
       </div>
