@@ -153,7 +153,7 @@ export default function Profile() {
                             </div>
                             <div className="flex justify-center my-4 bg-secondary/20 rounded-lg p-2 h-32 items-center">
                                 <img 
-                                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${digi.sprite_path}`} 
+                                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${digi.sprite_path}`} 
                                     alt={digi.species_name} 
                                     className="h-24 w-24 object-contain pixelated"
                                     onError={(e) => { e.target.src = '/placeholder-digimon.png' }}
