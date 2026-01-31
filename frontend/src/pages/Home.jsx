@@ -159,7 +159,7 @@ export default function Home() {
                       <div className="space-y-5 bg-secondary/30 p-5 rounded-sm border backdrop-blur-sm">
                         <div className="space-y-2">
                           <div className="flex justify-between text-[10px] font-mono tracking-wider text-muted-foreground uppercase">
-                            <span>Health Integrity</span>
+                            <span>Vida</span>
                             {(() => {
                               const baseHp = Number(mainDigimon.base_hp || 0);
                               const hpCols = ['max_hp','hp','vida'];
@@ -199,7 +199,7 @@ export default function Home() {
                         </div>
                         <div className="space-y-2">
                           <div className="flex justify-between text-[10px] font-mono tracking-wider text-muted-foreground uppercase">
-                            <span>Data Volume (XP)</span>
+                            <span>Experiência</span>
                             <span>{mainDigimon.xp || 0} / {mainDigimon.level * 100}</span>
                           </div>
                           <Progress value={((mainDigimon.xp || 0) / (mainDigimon.level * 100)) * 100} className="h-1" />
