@@ -39,14 +39,6 @@ services:
     depends_on:
       - backend
 
-  # --- A LANDING PAGE (Novo) ---
-  landing:
-    build: ./landing-page
-    container_name: kubelabs_landing
-    restart: always
-    expose:
-      - "80" # Apenas exposto internamente para o Proxy
-
   # --- O PORTEIRO (Novo Dono da Porta 80) ---
   nginx_proxy:
     image: nginx:alpine
@@ -55,10 +47,9 @@ services:
     ports:
       - "80:80" # Ele recebe todo o tráfego da internet
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf # Sua lista de regras
+      - ./nginx.conf:/etc/nginx/nginx.conf # Usando arquivo completo em vez de include
     depends_on:
       - frontend
-      - landing
 
 volumes:
   db_data:
