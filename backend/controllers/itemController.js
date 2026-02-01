@@ -4,7 +4,8 @@ exports.createItem = async (req, res) => {
   try {
     const { 
       name, description, type, 
-      effect_target, effect_value, is_percent 
+      effect_target, effect_value, is_percent,
+      recovery_type 
     } = req.body;
     
     const icon_path = req.file ? `assets/items/${req.file.filename}` : null;
@@ -17,11 +18,12 @@ exports.createItem = async (req, res) => {
     const [result] = await db.execute(
       `INSERT INTO items (
         name, description, icon, type, 
-        effect_target, effect_value, is_percent
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        effect_target, effect_value, is_percent, recovery_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name, description || null, icon_path, type,
-        effect_target || 'none', effect_value || 0, is_percent === 'true' || is_percent === true ? 1 : 0
+        effect_target || 'none', effect_value || 0, is_percent === 'true' || is_percent === true ? 1 : 0,
+        recovery_type || 'max'
       ]
     );
 
@@ -80,7 +82,8 @@ exports.updateItem = async (req, res) => {
       type,
       effect_target,
       effect_value,
-      is_percent
+      is_percent,
+      recovery_type
     } = req.body;
 
     const [rows] = await db.execute('SELECT * FROM items WHERE id = ?', [id]);
@@ -100,12 +103,13 @@ exports.updateItem = async (req, res) => {
     const newIsPercent = typeof is_percent !== 'undefined'
       ? (is_percent === 'true' || is_percent === true ? 1 : 0)
       : existing.is_percent;
+    const newRecoveryType = typeof recovery_type !== 'undefined' ? recovery_type : existing.recovery_type;
 
     await db.execute(
       `UPDATE items 
-       SET name = ?, description = ?, icon = ?, type = ?, effect_target = ?, effect_value = ?, is_percent = ?
+       SET name = ?, description = ?, icon = ?, type = ?, effect_target = ?, effect_value = ?, is_percent = ?, recovery_type = ?
        WHERE id = ?`,
-      [newName, newDesc, icon_path, newType, newTarget, newValue, newIsPercent, id]
+      [newName, newDesc, icon_path, newType, newTarget, newValue, newIsPercent, newRecoveryType, id]
     );
 
     res.json({ message: 'Item atualizado com sucesso' });
@@ -162,18 +166,42 @@ exports.useItem = async (req, res) => {
     let message = '';
 
     if (target === 'hp') {
-        let maxHp = Number(userDigimon.max_hp || 100);
-        let singleInc = isPercent ? Math.floor(maxHp * (value / 100)) : value;
-        let totalInc = singleInc * qtyToUse;
-        const [cols] = await db.execute(`DESCRIBE ${table}`);
-        const hpExtraCol = cols.find(c => c.Field === 'extra_hp') ? 'extra_hp' : null;
-        if (!hpExtraCol) {
-            return res.status(400).json({ message: 'Coluna extra_hp não encontrada.' });
+        const recoveryType = item.recovery_type || 'max';
+
+        if (recoveryType === 'current') {
+            const currentHp = Number(userDigimon.current_hp || 0);
+            const baseMaxHp = Number(userDigimon.max_hp || 100);
+            const extraHp = Number(userDigimon.extra_hp || 0);
+            const totalMaxHp = baseMaxHp + extraHp;
+            
+            let singleRec = isPercent ? Math.floor(totalMaxHp * (value / 100)) : value;
+            let totalRec = singleRec * qtyToUse;
+            
+            let newHp = Math.min(currentHp + totalRec, totalMaxHp);
+            
+            if (newHp > currentHp) {
+                await db.execute(`UPDATE ${table} SET current_hp = ? WHERE id = ?`, [newHp, userDigimon.id]);
+                success = true;
+                message = `Usou ${qtyToUse}x ${item.name}. Recuperou ${newHp - currentHp} HP!`;
+                var newCurrentHp = newHp;
+            } else {
+                return res.status(400).json({ message: 'HP já está cheio!' });
+            }
+        } else {
+            // MAX HP logic
+            let maxHp = Number(userDigimon.max_hp || 100);
+            let singleInc = isPercent ? Math.floor(maxHp * (value / 100)) : value;
+            let totalInc = singleInc * qtyToUse;
+            const [cols] = await db.execute(`DESCRIBE ${table}`);
+            const hpExtraCol = cols.find(c => c.Field === 'extra_hp') ? 'extra_hp' : null;
+            if (!hpExtraCol) {
+                return res.status(400).json({ message: 'Coluna extra_hp não encontrada.' });
+            }
+            await db.execute(`UPDATE ${table} SET ${hpExtraCol} = COALESCE(${hpExtraCol}, 0) + ? WHERE id = ?`, [totalInc, userDigimon.id]);
+            const [checkRows] = await db.execute(`SELECT ${hpExtraCol} FROM ${table} WHERE id=?`, [userDigimon.id]);
+            success = true;
+            message = `Usou ${qtyToUse}x ${item.name}. HP máximo aumentou em ${totalInc}!`;
         }
-        await db.execute(`UPDATE ${table} SET ${hpExtraCol} = COALESCE(${hpExtraCol}, 0) + ? WHERE id = ?`, [totalInc, userDigimon.id]);
-        const [checkRows] = await db.execute(`SELECT ${hpExtraCol} FROM ${table} WHERE id=?`, [userDigimon.id]);
-        success = true;
-        message = `Usou ${qtyToUse}x ${item.name}. HP máximo aumentou em ${totalInc}!`;
     } else if (target === 'attack' || target === 'defense') {
         const colMap = {
             'attack': ['extra_attack', 'attack_bonus', 'atk_bonus'],
@@ -207,7 +235,7 @@ exports.useItem = async (req, res) => {
             await db.execute('DELETE FROM inventory WHERE id = ?', [inventoryItem.id]);
         }
         
-        res.json({ success: true, message, itemId, remaining: inventoryItem.quantity - qtyToUse });
+        res.json({ success: true, message, itemId, remaining: inventoryItem.quantity - qtyToUse, newCurrentHp });
     } else {
         res.status(400).json({ message: 'Falha ao usar item.' });
     }

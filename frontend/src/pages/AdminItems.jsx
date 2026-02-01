@@ -23,6 +23,7 @@ export default function AdminItems() {
   const [effectTarget, setEffectTarget] = useState('none');
   const [effectValue, setEffectValue] = useState('');
   const [isPercent, setIsPercent] = useState(false);
+  const [recoveryType, setRecoveryType] = useState('max'); // 'max' or 'current'
   const [file, setFile] = useState(null);
   useEffect(() => {
     fetchItems();
@@ -52,6 +53,7 @@ export default function AdminItems() {
         formData.append('effect_target', effectTarget);
         formData.append('effect_value', effectValue);
         formData.append('is_percent', isPercent);
+        formData.append('recovery_type', recoveryType);
     }
     if (file) {
       formData.append('icon', file);
@@ -101,6 +103,7 @@ export default function AdminItems() {
     setEffectTarget(item.effect_target || 'none');
     setEffectValue(item.effect_value || '');
     setIsPercent(item.is_percent === 1 || item.is_percent === true);
+    setRecoveryType(item.recovery_type || 'max');
     setFile(null);
     setIsOpen(true);
   };
@@ -166,6 +169,22 @@ export default function AdminItems() {
                             </SelectContent>
                         </Select>
                     </div>
+
+                    {effectTarget === 'hp' && (
+                        <div className="space-y-2">
+                            <Label>Tipo de Recuperação</Label>
+                            <Select value={recoveryType} onValueChange={setRecoveryType}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="max">Aumentar HP Máximo (Permanente)</SelectItem>
+                                    <SelectItem value="current">Recuperar HP Atual (Batalha)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+
                     <div className="flex gap-4 items-end">
                         <div className="space-y-2 flex-1">
                             <Label>Valor</Label>

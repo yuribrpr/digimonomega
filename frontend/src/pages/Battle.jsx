@@ -26,7 +26,8 @@ import {
   Pause,
   ChevronRight,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Backpack
 } from 'lucide-react';
 import GlobalTooltip from '@/components/GlobalTooltip';
 import api from '../services/api';
@@ -55,6 +56,10 @@ export default function Battle() {
   const [enemyCooldown, setEnemyCooldown] = useState(0);
   const [enemyMaxCooldown, setEnemyMaxCooldown] = useState(2000);
   const [hasPlayerAttacked, setHasPlayerAttacked] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [showBag, setShowBag] = useState(false);
+  const [inventory, setInventory] = useState([]);
+  const [usedItemIds, setUsedItemIds] = useState(new Set());
 
   const [damageIndicators, setDamageIndicators] = useState([]);
   const [mapDetails, setMapDetails] = useState(null);
@@ -95,6 +100,38 @@ export default function Battle() {
       osc2.stop(t0 + 0.18);
     }
   };
+
+  const playHealSound = () => {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    // Layer 1: High chime
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(800, t0);
+    osc1.frequency.exponentialRampToValueAtTime(1200, t0 + 0.3);
+    gain1.gain.setValueAtTime(0.0001, t0);
+    gain1.gain.linearRampToValueAtTime(0.1, t0 + 0.05);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+    osc1.connect(gain1).connect(ctx.destination);
+    osc1.start(t0);
+    osc1.stop(t0 + 0.5);
+    
+    // Layer 2: Low warm pad
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(300, t0);
+    osc2.frequency.linearRampToValueAtTime(400, t0 + 0.4);
+    gain2.gain.setValueAtTime(0.0001, t0);
+    gain2.gain.linearRampToValueAtTime(0.05, t0 + 0.1);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
+    osc2.connect(gain2).connect(ctx.destination);
+    osc2.start(t0);
+    osc2.stop(t0 + 0.6);
+  };
+
   const logContainerRef = useRef(null);
   // Replicating basic auth check if needed, or just using localStorage
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -128,6 +165,7 @@ export default function Battle() {
   const startBattle = async (isEntry = false) => {
     if (!user?.id) return;
     setLoading(true);
+    setPaused(false);
     try {
       const payload = { user_id: user.id };
       if (mapId) payload.map_id = mapId;
@@ -173,7 +211,7 @@ export default function Battle() {
   }, []);
   // Main Loop for Cooldowns
   useEffect(() => {
-    if (!battle || battle.win || battle.user.hp <= 0) return;
+    if (!battle || battle.win || battle.user.hp <= 0 || paused) return;
 
     const interval = 50; // Update every 50ms
     const timer = setInterval(() => {
@@ -214,7 +252,7 @@ export default function Battle() {
     }, interval);
 
     return () => clearInterval(timer);
-  }, [battle, animState, canAttack, playerMaxCooldown, enemyMaxCooldown, hasPlayerAttacked]);
+  }, [battle, animState, canAttack, playerMaxCooldown, enemyMaxCooldown, hasPlayerAttacked, paused]);
 
   // Execute Enemy Attack (Client-side trigger for server calculation)
   const executeEnemyAttackReal = async () => {
@@ -369,6 +407,92 @@ export default function Battle() {
     }
     setLoading(false);
   };
+
+  const fetchInventory = async () => {
+       if (!user?.id) return;
+       try {
+           const res = await api.get(`/api/items/user/${user.id}`);
+           // Filter only consumable items and sort: HP first, then others
+           const consumables = res.data.filter(i => i.type === 'consumable').sort((a, b) => {
+               // HP items first
+               if (a.effect_target === 'hp' && b.effect_target !== 'hp') return -1;
+               if (a.effect_target !== 'hp' && b.effect_target === 'hp') return 1;
+               // Then by name
+               return a.name.localeCompare(b.name);
+           });
+           setInventory(consumables);
+       } catch (error) {
+           console.error('Erro ao buscar inventário:', error);
+       }
+   };
+
+  const handleOpenBag = () => {
+      setPaused(true);
+      fetchInventory();
+      setShowBag(true);
+  };
+
+  const handleCloseBag = () => {
+      setShowBag(false);
+      setPaused(false);
+  };
+
+  const handleUseItem = async (item) => {
+      try {
+          const res = await api.post('/api/items/use', {
+              userId: user.id,
+              itemId: item.item_id,
+              quantity: 1
+          });
+
+          if (res.data.success) {
+              playHealSound();
+              // Update inventory locally
+              setInventory(prev => prev.map(i => 
+                  i.inventory_id === item.inventory_id 
+                      ? { ...i, quantity: res.data.remaining } 
+                      : i
+              ).filter(i => i.quantity > 0));
+
+              // Update Battle State (HP)
+              if (res.data.newCurrentHp !== undefined) {
+                  setBattle(prev => ({
+                      ...prev,
+                      user: { ...prev.user, hp: res.data.newCurrentHp }
+                  }));
+                  // Show heal indicator
+                  const healedAmount = res.data.newCurrentHp - battle.user.hp;
+                  if (healedAmount > 0) {
+                      addDamageIndicator(healedAmount, 'player', false, `+${healedAmount}`);
+                  }
+              }
+
+              // Log usage
+              setLogs(prev => [res.data.message, ...prev]);
+              return true; // Success signal for UI
+          }
+      } catch (error) {
+          console.error('Erro ao usar item:', error);
+          const msg = error.response?.data?.message || 'Erro ao usar item.';
+          setLogs(prev => [msg, ...prev]);
+          return false;
+      }
+  };
+
+  const handleUseItemWithFeedback = async (item) => {
+      const success = await handleUseItem(item);
+      if (success) {
+          setUsedItemIds(prev => new Set(prev).add(item.inventory_id));
+          setTimeout(() => {
+              setUsedItemIds(prev => {
+                  const next = new Set(prev);
+                  next.delete(item.inventory_id);
+                  return next;
+              });
+          }, 1500);
+      }
+  };
+
   const myDigimon = battle?.user;
   const enemy = battle?.enemy;
   const isBoss = enemy?.difficulty === 'Boss';
@@ -649,10 +773,10 @@ export default function Battle() {
                 size="lg" 
                 variant="secondary"
                 className="w-full md:w-32 select-none"
-                onClick={onHeal}
-                disabled={healCooldownMs > 0}
+                onClick={handleOpenBag}
+                disabled={loading || battle?.win}
              >
-                <Activity className="mr-2 h-4 w-4" /> {healCooldownMs > 0 ? `Curar (${(healCooldownMs/1000).toFixed(2)}s)` : 'Curar'}
+                <Backpack className="mr-2 h-4 w-4" /> Itens
              </Button>
              <Button 
                 size="lg" 
@@ -694,6 +818,73 @@ export default function Battle() {
           </div>
         </CardContent>
       </Card>
+      
+      <Dialog open={showBag} onOpenChange={(open) => !open && handleCloseBag()}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl flex items-center gap-2">
+                <Backpack className="w-6 h-6" /> Inventário de Batalha
+            </DialogTitle>
+            <DialogDescription>
+              Selecione um item para usar instantaneamente.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+             {inventory.length === 0 ? (
+                 <div className="flex flex-col items-center justify-center py-10 text-muted-foreground opacity-50">
+                    <Backpack className="w-12 h-12 mb-2" />
+                    <p>Mochila vazia.</p>
+                 </div>
+             ) : (
+                 inventory.map(item => (
+                     <div 
+                        key={item.inventory_id} 
+                        className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors group"
+                     >
+                         <div className="w-12 h-12 shrink-0 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center">
+                             {item.icon ? (
+                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${item.icon}`} className="w-8 h-8 object-contain" />
+                             ) : (
+                                <Package className="w-6 h-6 opacity-50"/>
+                             )}
+                         </div>
+                         
+                         <div className="flex-1 min-w-0">
+                             <div className="flex items-center gap-2 mb-0.5">
+                                <h4 className="font-medium text-sm truncate text-slate-900 dark:text-slate-100">{item.name}</h4>
+                                <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-normal text-slate-500 bg-slate-100 dark:bg-slate-800">x{item.quantity}</Badge>
+                                {item.effect_target === 'hp' && <Heart className="w-3 h-3 text-green-500 fill-green-500/20" />}
+                             </div>
+                             
+                             <p className="text-xs text-slate-500 truncate">
+                                {item.description}
+                             </p>
+                         </div>
+
+                         <Button 
+                            size="sm" 
+                            variant={usedItemIds.has(item.inventory_id) ? "outline" : "ghost"}
+                            className={`h-9 min-w-[80px] text-xs font-medium transition-all ${
+                                usedItemIds.has(item.inventory_id) 
+                                ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900' 
+                                : 'hover:bg-slate-200 dark:hover:bg-slate-800'
+                            }`}
+                            onClick={() => handleUseItemWithFeedback(item)}
+                            disabled={usedItemIds.has(item.inventory_id)}
+                         >
+                            {usedItemIds.has(item.inventory_id) ? 'USADO!' : 'USAR'}
+                         </Button>
+                     </div>
+                 ))
+             )}
+          </div>
+          <DialogFooter>
+             <Button variant="outline" onClick={handleCloseBag}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showWinModal} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-sm [&>button]:hidden" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
