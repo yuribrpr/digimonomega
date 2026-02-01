@@ -486,7 +486,7 @@ export default function Battle() {
                         <Skull className="w-24 h-24 text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]" />
                     </div>
                   )}
-                  <div className="w-40 h-40 md:w-72 md:h-72 flex items-center justify-center">
+                  <div className="w-48 h-48 md:w-72 md:h-72 flex items-center justify-center">
                     {myDigimon?.sprite_path ? (
                       <img 
                         src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${myDigimon.sprite_path}`} 
@@ -561,7 +561,7 @@ export default function Battle() {
                         )}
                     </div>
                    )}
-                   <div className="w-40 h-40 md:w-72 md:h-72 flex items-center justify-center">
+                   <div className="w-48 h-48 md:w-72 md:h-72 flex items-center justify-center">
                     {enemy?.sprite_path ? (
                       <img 
                         src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`} 

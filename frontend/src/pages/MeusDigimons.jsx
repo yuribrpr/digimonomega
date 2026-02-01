@@ -174,12 +174,12 @@ export default function MeusDigimons() {
                 </div>
             </CardHeader>
             {/* Sprite Container */}
-            <div className="relative h-48 bg-gradient-to-b from-transparent to-black/20 p-4 flex items-center justify-center">
+            <div className="relative h-64 bg-gradient-to-b from-transparent to-black/20 p-4 flex items-center justify-center">
                 {it.sprite_path ? (
                   <img
                     src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${it.sprite_path}`}
                     alt={it.species_name || it.name}
-                    className="h-full w-auto object-contain drop-shadow-xl transition-transform duration-300 group-hover:scale-110"
+                    className="h-full w-full object-contain drop-shadow-xl transition-transform duration-300 group-hover:scale-110"
                   />
                 ) : (
                   <div className="w-24 h-24 rounded-full bg-secondary flex items-center justify-center">
