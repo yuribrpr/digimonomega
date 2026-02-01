@@ -54,6 +54,7 @@ export default function Battle() {
   const [canAttack, setCanAttack] = useState(false); // If player can click attack
   const [enemyCooldown, setEnemyCooldown] = useState(0);
   const [enemyMaxCooldown, setEnemyMaxCooldown] = useState(2000);
+  const [hasPlayerAttacked, setHasPlayerAttacked] = useState(false);
 
   const [damageIndicators, setDamageIndicators] = useState([]);
   const [mapDetails, setMapDetails] = useState(null);
@@ -143,6 +144,7 @@ export default function Battle() {
       setFleeCooldownUntil(0);
       setFleeCooldownMs(0);
       setAnimState('idle');
+      setHasPlayerAttacked(false);
       
       // Initialize Cooldowns
       // Prefer using the value returned by backend in `b.user` which should be effSpd
@@ -192,7 +194,8 @@ export default function Battle() {
             // If player CAN attack, we shouldn't block enemy unless player IS attacking.
             // But if player clicks right now, we want priority.
             // So we strictly check animState.
-            if (next === 0 && animState === 'idle' && battle.user.hp > 0 && !battle.win) {
+            // Also checking hasPlayerAttacked to prevent auto-start
+            if (next === 0 && animState === 'idle' && battle.user.hp > 0 && !battle.win && hasPlayerAttacked) {
                 // Double check if player is currently acting to enforce priority
                 if (!isPlayerAttacking && animState === 'idle') {
                     executeEnemyAttackReal();
@@ -211,7 +214,7 @@ export default function Battle() {
     }, interval);
 
     return () => clearInterval(timer);
-  }, [battle, animState, canAttack, playerMaxCooldown, enemyMaxCooldown]);
+  }, [battle, animState, canAttack, playerMaxCooldown, enemyMaxCooldown, hasPlayerAttacked]);
 
   // Execute Enemy Attack (Client-side trigger for server calculation)
   const executeEnemyAttackReal = async () => {
@@ -328,6 +331,9 @@ export default function Battle() {
       // Modifying call to send actor=player
       const res = await api.post(`/api/battles/${battle.id}/attack?actor=player`);
       await triggerSequence(res.data, 'player');
+      
+      // Mark that player has attacked, allowing enemy to start attacking if they were waiting
+      if (!hasPlayerAttacked) setHasPlayerAttacked(true);
     } catch (error) {
       console.error('Erro ao atacar:', error);
     }
