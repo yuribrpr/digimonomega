@@ -19,21 +19,30 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-pool.getConnection((err, connection) => {
-    if (err) {
-        if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-            console.error('Database connection was closed.');
+const checkConnection = async (retries = 5, delay = 5000) => {
+    pool.getConnection((err, connection) => {
+        if (err) {
+            console.error(`Database connection failed (Code: ${err.code}). Retrying in ${delay/1000}s...`);
+            if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+                console.error('Database connection was closed.');
+            }
+            if (err.code === 'ER_CON_COUNT_ERROR') {
+                console.error('Database has too many connections.');
+            }
+            if (err.code === 'ECONNREFUSED') {
+                console.error('Database connection was refused.');
+            }
+            // Recursively retry
+            setTimeout(() => checkConnection(retries, delay), delay);
+        } else {
+            if (connection) {
+                console.log('✅ Database connected successfully!');
+                connection.release();
+            }
         }
-        if (err.code === 'ER_CON_COUNT_ERROR') {
-            console.error('Database has too many connections.');
-        }
-        if (err.code === 'ECONNREFUSED') {
-            console.error('Database connection was refused.');
-        }
-        console.error('Erro detalhado de conexão:', err); // Adicionei para ajudar no debug
-    }
-    if (connection) connection.release();
-    return;
-});
+    });
+};
+
+checkConnection();
 
 module.exports = pool.promise();
