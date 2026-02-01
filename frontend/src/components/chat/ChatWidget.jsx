@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { MessageCircle, Send, Users, User, Minimize2 } from 'lucide-react';
+import { MessageCircle, Send, Users, User, Minimize2, Paperclip } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useChat } from '../../context/ChatContext';
@@ -31,8 +31,47 @@ export default function ChatWidget() {
     const [unreadLobby, setUnreadLobby] = useState(0);
     const unreadDM = recentChats.reduce((acc, chat) => acc + (chat.unread_count || 0), 0);
     const messagesEndRef = useRef(null);
+    const fileInputRef = useRef(null);
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem('user'));
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) { // 5MB limit
+            alert("A imagem deve ter no máximo 5MB.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await api.post('/api/chat/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            // Send message with image URL prefix
+            const imageUrl = res.data.path;
+            const messageData = {
+                senderId: user.id,
+                receiverId: activeTab === 'dm' ? activeDM.id : null,
+                content: `IMAGE|${imageUrl}`,
+                senderName: user.username,
+                senderAvatar: user.profile_image
+            };
+            socket.emit('send_message', messageData);
+            
+        } catch (error) {
+            console.error("Error uploading chat image", error);
+            alert("Erro ao enviar imagem.");
+        }
+    };
     const token = localStorage.getItem('token');
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
@@ -351,14 +390,39 @@ export default function ChatWidget() {
                                                             </span>
                                                         )}
                                                     </span>
-                                                    {msg.content}
+                                                    {msg.content.startsWith('IMAGE|') ? (
+                                                        <img 
+                                                            src={getAvatarUrl(msg.content.split('|')[1])} 
+                                                            alt="Chat Image" 
+                                                            className="max-w-full rounded-md mt-1 cursor-pointer"
+                                                            onClick={() => window.open(getAvatarUrl(msg.content.split('|')[1]), '_blank')}
+                                                        />
+                                                    ) : (
+                                                        msg.content
+                                                    )}
                                                 </div>
                                             </div>
                                         );
                                     })}
                                     <div ref={messagesEndRef} />
                                 </div>
-                                <form onSubmit={handleSendMessage} className="p-2 border-t border-border bg-card flex gap-2">
+                                <form onSubmit={handleSendMessage} className="p-2 border-t border-border bg-card flex gap-2 items-center">
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        onChange={handleFileUpload} 
+                                        accept="image/*" 
+                                        className="hidden" 
+                                    />
+                                    <Button 
+                                        type="button" 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-8 w-8 p-0"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <Paperclip size={16} />
+                                    </Button>
                                     <Input 
                                         value={newMessage} 
                                         onChange={(e) => setNewMessage(e.target.value)} 

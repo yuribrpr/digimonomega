@@ -129,3 +129,18 @@ exports.markMessagesRead = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+exports.uploadChatImage = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'Nenhuma imagem enviada.' });
+        }
+        // Return the path so frontend can send it as message content
+        // Similar format to avatar: assets/chat/filename
+        const filePath = `assets/chat/${req.file.filename}`;
+        res.json({ path: filePath });
+    } catch (error) {
+        console.error('Error uploading chat image:', error);
+        res.status(500).json({ message: 'Erro ao fazer upload da imagem.' });
+    }
+};
