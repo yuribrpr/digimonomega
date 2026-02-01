@@ -39,7 +39,11 @@ function AdminRoute({ children }) {
 
 function Layout({ children, isPlaying, toggleMusic, audioRef, BGM_URL }) {
   const location = useLocation();
-  const isLanding = location.pathname === '/kubelabs';
+  const hostname = window.location.hostname;
+  const isLandingDomain = hostname === 'kubelabs.online' || hostname === 'www.kubelabs.online';
+  
+  // Is Landing if: explicitly on /kubelabs OR on landing domain at root
+  const isLanding = location.pathname === '/kubelabs' || (isLandingDomain && location.pathname === '/');
 
   return (
     <>
@@ -57,6 +61,11 @@ function Layout({ children, isPlaying, toggleMusic, audioRef, BGM_URL }) {
 function App() {
   const [isPlaying, setIsPlaying] = useState(true);
   const audioRef = useRef(null);
+  
+  // Check domain for default routing
+  const hostname = window.location.hostname;
+  const isLandingDomain = hostname === 'kubelabs.online' || hostname === 'www.kubelabs.online';
+  
   // URL substituída por uma de teste confiável (SoundHelix) para evitar erro 403.
   // Você pode substituir por qualquer link direto (ex: arquivo no GitHub, S3, ou local na pasta public)
   const BGM_URL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"; 
@@ -74,6 +83,7 @@ function App() {
 
   useEffect(() => {
     if (isPlaying) {
+      if (!audioRef.current) return;
       const playPromise = audioRef.current.play();
       if (playPromise !== undefined) {
         playPromise.catch(e => {
@@ -87,7 +97,7 @@ function App() {
         });
       }
     } else {
-      audioRef.current.pause();
+      if (audioRef.current) audioRef.current.pause();
     }
   }, [isPlaying]);
 
@@ -100,9 +110,11 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
         <Route path="/" element={
+            isLandingDomain ? <KubelabsLanding /> : (
             <PrivateRoute>
                 <Home />
             </PrivateRoute>
+            )
         } />
         <Route path="/profile/:id" element={
             <PrivateRoute>
