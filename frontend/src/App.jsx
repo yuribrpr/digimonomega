@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import KubelabsLanding from './pages/KubelabsLanding';
 import Home from './pages/Home';
 import AdminDigidex from './pages/AdminDigidex';
 import AdminEnemydex from './pages/AdminEnemydex';
@@ -34,6 +35,23 @@ function AdminRoute({ children }) {
     const user = JSON.parse(localStorage.getItem('user'));
     const hasPermissions = user?.permissions && user.permissions.length > 0;
     return user && (user.username === 'clovis' || user.role === 'admin' || hasPermissions) ? children : <Navigate to="/" />;
+}
+
+function Layout({ children, isPlaying, toggleMusic, audioRef, BGM_URL }) {
+  const location = useLocation();
+  const isLanding = location.pathname === '/kubelabs';
+
+  return (
+    <>
+      <PageTitleUpdater />
+      {!isLanding && <audio ref={audioRef} src={BGM_URL} preload="auto" />}
+      {!isLanding && <Navbar isPlaying={isPlaying} toggleMusic={toggleMusic} />}
+      <div className={!isLanding ? "md:pb-0 pb-20" : ""}>
+        {children}
+      </div>
+      {!isLanding && <ChatWidget />}
+    </>
+  );
 }
 
 function App() {
@@ -76,11 +94,9 @@ function App() {
   return (
     <ChatProvider>
       <Router>
-        <PageTitleUpdater />
-        <audio ref={audioRef} src={BGM_URL} preload="auto" />
-        <Navbar isPlaying={isPlaying} toggleMusic={toggleMusic} />
-        <div className="md:pb-0 pb-20">
+        <Layout isPlaying={isPlaying} toggleMusic={toggleMusic} audioRef={audioRef} BGM_URL={BGM_URL}>
         <Routes>
+          <Route path="/kubelabs" element={<KubelabsLanding />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
         <Route path="/" element={
@@ -190,8 +206,7 @@ function App() {
             </PrivateRoute>
         } />
       </Routes>
-        </div>
-        <ChatWidget />
+        </Layout>
       </Router>
     </ChatProvider>
   );

@@ -10,6 +10,8 @@ const PageTitleUpdater = () => {
 
     if (path === '/') {
         title = 'Digimon Omega | Início';
+    } else if (path === '/kubelabs') {
+        title = 'Kubelabs | Software House';
     } else if (path === '/login') {
         title = 'Digimon Omega | Login';
     } else if (path === '/register') {
