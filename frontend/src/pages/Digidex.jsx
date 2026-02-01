@@ -80,7 +80,7 @@ export default function Digidex() {
           {filteredDigimons.map((digimon) => (
             <Card key={digimon.id} className="hover:shadow-lg transition-shadow border-muted">
               <CardHeader className="text-center pb-2">
-                <div className="w-full h-56 my-4 flex items-center justify-center p-2 bg-gradient-to-b from-transparent to-black/5 dark:to-white/5 rounded-lg">
+                <div className="w-full h-32 my-4 flex items-center justify-center p-2 bg-gradient-to-b from-transparent to-black/5 dark:to-white/5 rounded-lg">
                   {digimon.sprite_path ? (
                     <img 
                       src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${digimon.sprite_path}`}

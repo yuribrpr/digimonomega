@@ -486,12 +486,12 @@ export default function Battle() {
                         <Skull className="w-24 h-24 text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]" />
                     </div>
                   )}
-                  <div className="w-56 h-56 md:w-96 md:h-96 flex items-center justify-center">
+                  <div className="w-40 h-40 flex items-center justify-center">
                     {myDigimon?.sprite_path ? (
                       <img 
                         src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${myDigimon.sprite_path}`} 
                         alt={myDigimon?.name} 
-                        className="h-full w-full object-contain scale-x-[-1]" 
+                        className="h-full object-contain scale-x-[-1]" 
                         style={{
                           filter: isPlayerAttacking ? 'brightness(1.5)' : (isPlayerHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
                           transform: `${isPlayerAttacking ? 'translateX(50px)' : (isPlayerHit ? 'translateX(-20px)' : 'translateX(0)')} scaleX(-1)`,
@@ -561,12 +561,12 @@ export default function Battle() {
                         )}
                     </div>
                    )}
-                   <div className="w-56 h-56 md:w-96 md:h-96 flex items-center justify-center">
+                   <div className="w-40 h-40 flex items-center justify-center">
                     {enemy?.sprite_path ? (
                       <img 
                         src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`} 
                         alt={enemy?.name} 
-                        className={`h-full w-full object-contain ${isBoss ? 'drop-shadow-[0_0_15px_rgba(220,38,38,0.5)]' : ''}`} 
+                        className={`h-full object-contain ${isBoss ? 'drop-shadow-[0_0_15px_rgba(220,38,38,0.5)]' : ''}`} 
                         style={{
                            filter: isEnemyAttacking ? 'brightness(1.5)' : (isEnemyHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
                            transform: isEnemyAttacking ? 'translateX(-50px)' : (isEnemyHit ? 'translateX(20px)' : 'translateX(0)'),
