@@ -23,6 +23,7 @@ import EvolutionCenter from './pages/EvolutionCenter';
 import Navbar from './components/Navbar';
 import ChatWidget from './components/chat/ChatWidget';
 import { ChatProvider } from './context/ChatContext';
+import PageTitleUpdater from './components/PageTitleUpdater';
 
 function PrivateRoute({ children }) {
     const token = localStorage.getItem('token');
@@ -75,6 +76,7 @@ function App() {
   return (
     <ChatProvider>
       <Router>
+        <PageTitleUpdater />
         <audio ref={audioRef} src={BGM_URL} preload="auto" />
         <Navbar isPlaying={isPlaying} toggleMusic={toggleMusic} />
         <div className="md:pb-0 pb-20">
