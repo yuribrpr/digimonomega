@@ -174,7 +174,7 @@ export default function MeusDigimons() {
                 </div>
             </CardHeader>
             {/* Sprite Container */}
-            <div className="relative h-64 bg-gradient-to-b from-transparent to-black/20 p-4 flex items-center justify-center">
+            <div className="relative h-80 bg-gradient-to-b from-transparent to-black/20 p-2 flex items-center justify-center">
                 {it.sprite_path ? (
                   <img
                     src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${it.sprite_path}`}
