@@ -3,7 +3,15 @@ const db = require('../config/db');
 exports.getLobbyMessages = async (req, res) => {
     try {
         const [rows] = await db.execute(`
-            SELECT m.*, u.username as senderName, u.profile_image as senderAvatar 
+            SELECT 
+                m.id,
+                m.sender_id,
+                m.receiver_id,
+                m.content,
+                m.is_read,
+                m.created_at AS created_at,
+                u.username AS senderName,
+                u.profile_image AS senderAvatar
             FROM chat_messages m
             JOIN users u ON m.sender_id = u.id
             WHERE m.receiver_id IS NULL
@@ -23,7 +31,15 @@ exports.getDMMessages = async (req, res) => {
 
     try {
         const [rows] = await db.execute(`
-            SELECT m.*, u.username as senderName, u.profile_image as senderAvatar
+            SELECT 
+                m.id,
+                m.sender_id,
+                m.receiver_id,
+                m.content,
+                m.is_read,
+                m.created_at AS created_at,
+                u.username AS senderName,
+                u.profile_image AS senderAvatar
             FROM chat_messages m
             JOIN users u ON m.sender_id = u.id
             WHERE (m.sender_id = ? AND m.receiver_id = ?) 
@@ -47,9 +63,9 @@ exports.getRecentChats = async (req, res) => {
                 CASE 
                     WHEN sender_id = ? THEN receiver_id 
                     ELSE sender_id 
-                END as partner_id,
-                MAX(created_at) as last_msg_time,
-                SUM(CASE WHEN receiver_id = ? AND (is_read = 0 OR is_read IS NULL) THEN 1 ELSE 0 END) as unread_count
+                END AS partner_id,
+                MAX(created_at) AS last_msg_time,
+                SUM(CASE WHEN receiver_id = ? AND (is_read = 0 OR is_read IS NULL) THEN 1 ELSE 0 END) AS unread_count
             FROM chat_messages 
             WHERE sender_id = ? OR receiver_id = ?
             GROUP BY partner_id
@@ -65,7 +81,7 @@ exports.getRecentChats = async (req, res) => {
         // Get details for these users
         const placeholders = partnerIds.map(() => '?').join(',');
         const [users] = await db.execute(`
-            SELECT id, username, profile_image as avatar 
+            SELECT id, username, profile_image AS avatar 
             FROM users 
             WHERE id IN (${placeholders})
         `, partnerIds);
