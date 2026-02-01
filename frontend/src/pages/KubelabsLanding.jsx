@@ -73,7 +73,7 @@ const KubelabsLanding = () => {
                   Um jogo online imersivo com batalhas em tempo real, sistema de evolução e economia dinâmica. Desenvolvido com React e Node.js.
                 </CardContent>
                 <CardFooter>
-                  <Button className="w-full gap-2 cursor-pointer" variant="outline" onClick={() => window.open('https://digimon.kubelabs.online', '_blank')}>
+                  <Button className="w-full gap-2 cursor-pointer" variant="outline" onClick={() => window.open('http://digimon.kubelabs.online', '_blank')}>
                     Jogar Agora <ExternalLink className="w-4 h-4" />
                   </Button>
                 </CardFooter>
