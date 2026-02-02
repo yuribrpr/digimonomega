@@ -42,6 +42,7 @@ export default function Navbar({ isPlaying, toggleMusic }) {
       { icon: ArrowUpCircle, label: 'Centro de Digievolução', path: '/evolution-center', color: 'text-cyan-500' },
       { icon: Dna, label: 'Digimons', path: '/meus-digimons', color: 'text-blue-500' },
       { icon: ShoppingBag, label: 'Loja de Digimons', path: '/adoption', color: 'text-purple-500' },
+      { icon: Coins, label: 'Black Trade', path: '/black-trade', color: 'text-yellow-500' },
       { icon: BookOpen, label: 'Digidex', path: '/digidex', color: 'text-amber-500' },
       { icon: Backpack, label: 'Inventário', path: '/inventory', color: 'text-indigo-500' },
     ];

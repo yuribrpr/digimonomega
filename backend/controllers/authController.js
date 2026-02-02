@@ -188,3 +188,16 @@ exports.verifyToken = (req, res, next) => {
         next();
     });
 };
+
+exports.getMe = async (req, res) => {
+    try {
+        const [rows] = await db.execute('SELECT id, username, email, bits, role, profile_image, exp, exp_m, level FROM users WHERE id = ?', [req.user.id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json(rows[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};

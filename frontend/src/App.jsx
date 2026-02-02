@@ -21,6 +21,7 @@ import Exploration from './pages/Exploration';
 import Inventory from './pages/Inventory';
 import Menu from './pages/Menu';
 import EvolutionCenter from './pages/EvolutionCenter';
+import BlackTrade from './pages/BlackTrade';
 import Navbar from './components/Navbar';
 import ChatWidget from './components/chat/ChatWidget';
 import { ChatProvider } from './context/ChatContext';
@@ -37,7 +38,7 @@ function AdminRoute({ children }) {
     return user && (user.username === 'clovis' || user.role === 'admin' || hasPermissions) ? children : <Navigate to="/" />;
 }
 
-function Layout({ children, isPlaying, toggleMusic, audioRef, BGM_URL }) {
+function Layout({ children, isPlaying, toggleMusic, audioRef, BGM_URL, isAutoplayBlocked }) {
   const location = useLocation();
   const hostname = window.location.hostname;
   const isLandingDomain = hostname === 'kubelabs.online' || hostname === 'www.kubelabs.online';
@@ -50,6 +51,19 @@ function Layout({ children, isPlaying, toggleMusic, audioRef, BGM_URL }) {
       <PageTitleUpdater />
       {!isLanding && <audio ref={audioRef} src={BGM_URL} preload="auto" />}
       {!isLanding && <Navbar isPlaying={isPlaying} toggleMusic={toggleMusic} />}
+      
+      {!isLanding && isAutoplayBlocked && (
+        <div className="fixed bottom-24 right-4 z-50 bg-black/80 text-white p-3 rounded-lg shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom-5 fade-in duration-500 border border-yellow-500/50">
+           <span className="text-xs">🔇 Autoplay bloqueado</span>
+           <button 
+               onClick={toggleMusic}
+               className="bg-yellow-500 hover:bg-yellow-600 text-black px-3 py-1 rounded text-xs font-bold transition-colors"
+           >
+               Ativar Som
+           </button>
+        </div>
+      )}
+
       <div className={!isLanding ? "md:pb-0 pb-20" : ""}>
         {children}
       </div>
@@ -60,6 +74,7 @@ function Layout({ children, isPlaying, toggleMusic, audioRef, BGM_URL }) {
 
 function App() {
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(false);
   const audioRef = useRef(null);
   
   // Check domain for default routing
@@ -72,6 +87,7 @@ function App() {
 
   const toggleMusic = () => {
     setIsPlaying(!isPlaying);
+    if (!isPlaying) setIsAutoplayBlocked(false);
   };
 
   useEffect(() => {
@@ -91,6 +107,7 @@ function App() {
             if (e.name === 'NotAllowedError' || e.name === 'AutoplayError') {
                 console.log("Autoplay blocked by browser policy. Music paused.");
                 setIsPlaying(false);
+                setIsAutoplayBlocked(true);
             } else {
                 console.error("Audio play failed:", e);
             }
@@ -104,7 +121,7 @@ function App() {
   return (
     <ChatProvider>
       <Router>
-        <Layout isPlaying={isPlaying} toggleMusic={toggleMusic} audioRef={audioRef} BGM_URL={BGM_URL}>
+        <Layout isPlaying={isPlaying} toggleMusic={toggleMusic} audioRef={audioRef} BGM_URL={BGM_URL} isAutoplayBlocked={isAutoplayBlocked}>
         <Routes>
           <Route path="/kubelabs" element={<KubelabsLanding />} />
           <Route path="/login" element={<Login />} />
@@ -159,6 +176,11 @@ function App() {
         <Route path="/evolution-center" element={
             <PrivateRoute>
                 <EvolutionCenter />
+            </PrivateRoute>
+        } />
+        <Route path="/black-trade" element={
+            <PrivateRoute>
+                <BlackTrade />
             </PrivateRoute>
         } />
         <Route path="/admin/digidex" element={
