@@ -27,10 +27,105 @@ import {
   ChevronRight,
   XCircle,
   AlertCircle,
-  Backpack
+  Backpack,
+  ScrollText,
+  CheckCircle2,
+  Circle
 } from 'lucide-react';
 import GlobalTooltip from '@/components/GlobalTooltip';
 import api from '../services/api';
+import { QuestDetailDialog } from './Quests';
+
+
+
+
+function QuestTracker({ quests, onSelectQuest }) {
+    const API_URL = api.defaults.baseURL;
+
+    return (
+        <Card className="w-full lg:w-1/3 bg-slate-900/50 border-slate-800 backdrop-blur-sm h-fit shrink-0">
+            <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-yellow-500">
+                    <ScrollText className="w-4 h-4" /> Missões Ativas
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 px-4 pb-4">
+                {(!quests || quests.length === 0) ? (
+                    <div className="text-xs text-slate-500 text-center py-4 italic">
+                        Nenhuma missão em andamento.
+                    </div>
+                ) : (
+                    quests.map(q => (
+                    <div 
+                        key={q.id} 
+                        className="p-3 bg-slate-950/50 rounded-lg border border-slate-800 hover:border-yellow-500/30 cursor-pointer transition-colors group"
+                        onClick={() => (onSelectQuest ? onSelectQuest(q) : window.open('/quests', '_blank'))}
+                        title="Clique para ver detalhes"
+                    >
+                        <div className="flex items-start justify-between gap-3">
+                            <p className="font-bold text-xs text-slate-200 truncate group-hover:text-yellow-400 transition-colors flex-1 min-w-0">
+                                {q.title}
+                            </p>
+                            <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-slate-800 text-slate-200 border border-slate-700">
+                                {q.objectives?.filter(obj => (q.progress?.[obj.id] || 0) >= obj.quantity_required).length || 0}/{q.objectives?.length || 0}
+                            </Badge>
+                        </div>
+
+                        <div className="grid gap-2 mt-2">
+                            {(q.objectives || []).map((obj, i) => {
+                                const current = q.progress?.[obj.id] || 0;
+                                const isComplete = current >= obj.quantity_required;
+                                const label = obj.description || (obj.type === 'COLLECT_ITEM'
+                                    ? `Coletar ${obj.target_name || 'Item'}`
+                                    : `Derrotar ${obj.target_name || 'Inimigo'}`
+                                );
+
+                                return (
+                                    <div
+                                        key={i}
+                                        className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${isComplete ? 'bg-green-500/10 border-green-500/20' : 'bg-secondary/50 border-transparent'}`}
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            {isComplete ? (
+                                                <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+                                            ) : (
+                                                <Circle className="h-5 w-5 text-muted-foreground shrink-0" />
+                                            )}
+
+                                            {obj.target_image && (
+                                                <div className="w-10 h-10 rounded-md bg-secondary/50 p-1 border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
+                                                    <img
+                                                        src={`${API_URL}/${obj.target_image}`}
+                                                        alt={obj.target_name || 'Objetivo'}
+                                                        className="w-full h-full object-contain"
+                                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            <div className="flex flex-col min-w-0">
+                                                <span className={`text-sm font-medium leading-tight ${isComplete ? 'text-green-500 line-through opacity-70' : 'text-foreground'}`}>
+                                                    {label}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    Progresso: {current} / {obj.quantity_required}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <Badge variant={isComplete ? "success" : "secondary"} className="shrink-0">
+                                            {obj.quantity_required}x
+                                        </Badge>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )))}
+            </CardContent>
+        </Card>
+    );
+}
 
 export default function Battle() {
   const navigate = useNavigate();
@@ -40,6 +135,42 @@ export default function Battle() {
   const [showWinModal, setShowWinModal] = useState(false);
   const [rewards, setRewards] = useState(null);
   const [levelUpInfo, setLevelUpInfo] = useState(null);
+  
+  const [activeQuests, setActiveQuests] = useState([]);
+  const [selectedQuestForDetails, setSelectedQuestForDetails] = useState(null);
+  const [completedQuests, setCompletedQuests] = useState([]);
+  const [showQuestCompletedModal, setShowQuestCompletedModal] = useState(false);
+  const prevActiveQuestsRef = useRef([]);
+
+  const fetchActiveQuests = async ({ detectCompletion = false } = {}) => {
+    try {
+        const prev = prevActiveQuestsRef.current || [];
+        const res = await api.get('/api/quests/active');
+        const next = res.data || [];
+        if (detectCompletion && prev.length > 0) {
+          const nextIds = new Set(next.map(q => q.id));
+          const newlyCompleted = prev.filter(q => !nextIds.has(q.id));
+          if (newlyCompleted.length > 0) {
+            setCompletedQuests(newlyCompleted);
+            setShowQuestCompletedModal(true);
+          }
+        }
+        prevActiveQuestsRef.current = next;
+        setActiveQuests(next);
+    } catch (error) {
+        console.error('Error fetching active quests:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchActiveQuests({ detectCompletion: false });
+  }, []);
+
+  useEffect(() => {
+    if (showWinModal) {
+        fetchActiveQuests({ detectCompletion: true });
+    }
+  }, [showWinModal]);
   const [healCooldownUntil, setHealCooldownUntil] = useState(0);
   const [healCooldownMs, setHealCooldownMs] = useState(0);
   const [fleeCooldownUntil, setFleeCooldownUntil] = useState(0);
@@ -538,7 +669,7 @@ export default function Battle() {
     }
   }, [animState]);
   return (
-    <div className="container mx-auto py-8 max-w-4xl space-y-6">
+    <div className="container mx-auto py-8 space-y-6">
       {/* Custom Keyframes for Shake Effect */}
       <style>{`
         @keyframes shake {
@@ -573,7 +704,9 @@ export default function Battle() {
             animation: float-up 0.8s ease-out forwards;
         }
       `}</style>
-      <Card className="border shadow-none rounded-xl overflow-hidden bg-white dark:bg-slate-950">
+      <div className="flex flex-col lg:flex-row gap-4 items-start">
+        <div className="flex-1 w-full min-w-0">
+          <Card className="border shadow-none rounded-xl overflow-hidden bg-white dark:bg-slate-950">
         <CardHeader className="border-b bg-white dark:bg-slate-950 py-4">
           <div className="flex justify-between items-center">
             <CardTitle className="text-lg font-medium tracking-tight flex items-center gap-2">
@@ -818,7 +951,54 @@ export default function Battle() {
           </div>
         </CardContent>
       </Card>
-      
+        </div>
+        <QuestTracker quests={activeQuests} onSelectQuest={setSelectedQuestForDetails} />
+      </div>
+
+      <QuestDetailDialog
+        quest={selectedQuestForDetails}
+        open={!!selectedQuestForDetails}
+        onOpenChange={(open) => !open && setSelectedQuestForDetails(null)}
+        userProgress={
+          selectedQuestForDetails
+            ? (() => {
+                const q = activeQuests.find(x => x.id === selectedQuestForDetails.id);
+                return q ? { status: q.status, progress: q.progress } : null;
+              })()
+            : null
+        }
+        showActions={false}
+      />
+
+      <Dialog open={showQuestCompletedModal} onOpenChange={setShowQuestCompletedModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {completedQuests.length === 1 ? 'Missão Concluída!' : 'Missões Concluídas!'}
+            </DialogTitle>
+            <DialogDescription>
+              Acesse o menu de quests para resgatar suas recompensas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 text-sm text-muted-foreground">
+            {completedQuests.length === 1
+              ? `A missão "${completedQuests[0]?.title}" foi concluída com sucesso.`
+              : `Você concluiu ${completedQuests.length} missões com sucesso.`}
+          </div>
+          <DialogFooter>
+            <Button
+              className="w-full"
+              onClick={() => {
+                setShowQuestCompletedModal(false);
+                window.open('/quests', '_blank');
+              }}
+            >
+              Acessar Quests
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showBag} onOpenChange={(open) => !open && handleCloseBag()}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>

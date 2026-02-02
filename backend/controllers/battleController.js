@@ -490,6 +490,68 @@ exports.attack = async (req, res) => {
       // Atualizar status da batalha
       await db.execute(`UPDATE battles SET status='won' WHERE id=?`, [id]);
 
+      // --- QUEST UPDATE LOGIC ---
+      try {
+        const activeQuests = await db.execute('SELECT * FROM user_quests WHERE user_id = ? AND status = ?', [battle.user_id, 'IN_PROGRESS']).then(([rows]) => rows);
+        
+        if (activeQuests.length > 0) {
+            for (const quest of activeQuests) {
+                const objectives = await db.execute('SELECT * FROM quest_objectives WHERE quest_id = ?', [quest.quest_id]).then(([rows]) => rows);
+                let progress = quest.progress;
+                if (typeof progress === 'string') {
+                    try {
+                        progress = JSON.parse(progress || '{}');
+                    } catch {
+                        progress = {};
+                    }
+                } else if (Buffer.isBuffer(progress)) {
+                    try {
+                        progress = JSON.parse(progress.toString('utf8') || '{}');
+                    } catch {
+                        progress = {};
+                    }
+                } else if (!progress || typeof progress !== 'object') {
+                    progress = {};
+                }
+                let updated = false;
+
+                for (const obj of objectives) {
+                    if (obj.type === 'KILL_ENEMY' && Number(obj.target_enemy_id) === Number(enemy.id)) {
+                        const current = progress[obj.id] || 0;
+                        if (current < obj.quantity_required) {
+                            progress[obj.id] = current + 1;
+                            updated = true;
+                        }
+                    } else if (obj.type === 'COLLECT_ITEM' && obj.target_item_id) {
+                         const [invRows] = await db.execute('SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ?', [battle.user_id, Number(obj.target_item_id)]);
+                         const currentQty = invRows.length > 0 ? Number(invRows[0].quantity || 0) : 0;
+                         if (Number(progress[obj.id] || 0) !== currentQty) {
+                             progress[obj.id] = currentQty;
+                             updated = true;
+                         }
+                    }
+                }
+
+                const allCompleted = objectives.every((obj) => Number(progress[obj.id] || 0) >= Number(obj.quantity_required || 0));
+
+                if (updated || (allCompleted && quest.status === 'IN_PROGRESS')) {
+                    if (allCompleted && quest.status === 'IN_PROGRESS') {
+                        await db.execute('UPDATE user_quests SET progress = ?, status = ?, completed_at = NOW() WHERE id = ?', [
+                            JSON.stringify(progress),
+                            'COMPLETED',
+                            quest.id
+                        ]);
+                    } else if (updated) {
+                        await db.execute('UPDATE user_quests SET progress = ? WHERE id = ?', [JSON.stringify(progress), quest.id]);
+                    }
+                }
+            }
+        }
+      } catch (questError) {
+          console.error('Error updating quests after battle:', questError);
+          // Don't fail the battle response just because quest update failed
+      }
+
       // Atualizar user_digimons com XP
       const mapping = await findPrincipalMappingTable();
       if (mapping) {

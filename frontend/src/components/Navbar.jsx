@@ -18,7 +18,9 @@ import {
   ArrowUpCircle,
   Volume2,
   VolumeX,
-  MoreHorizontal
+  MoreHorizontal,
+  ScrollText,
+  Menu
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -43,6 +45,7 @@ export default function Navbar({ isPlaying, toggleMusic }) {
       { icon: Dna, label: 'Digimons', path: '/meus-digimons', color: 'text-blue-500' },
       { icon: ShoppingBag, label: 'Loja de Digimons', path: '/adoption', color: 'text-purple-500' },
       { icon: Coins, label: 'Black Trade', path: '/black-trade', color: 'text-yellow-500' },
+      { icon: ScrollText, label: 'Quests', path: '/quests', color: 'text-orange-500' },
       { icon: BookOpen, label: 'Digidex', path: '/digidex', color: 'text-amber-500' },
       { icon: Backpack, label: 'Inventário', path: '/inventory', color: 'text-indigo-500' },
     ];
@@ -195,6 +198,9 @@ export default function Navbar({ isPlaying, toggleMusic }) {
                    )}
                    {(user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_digidex')) && (
                      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/digidex')}>Digidex</Button>
+                   )}
+                   {(user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_digidex')) && (
+                     <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/quests')}>Quests</Button>
                    )}
                    {(user.username === 'clovis' || user.role === 'admin' || user.permissions?.includes('manage_enemydex')) && (
                      <Button variant="ghost" className="w-full justify-start" onClick={() => navigate('/admin/enemydex')}>Enemydex</Button>

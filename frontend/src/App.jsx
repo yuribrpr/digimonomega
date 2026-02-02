@@ -13,6 +13,7 @@ import AdminNews from './pages/AdminNews';
 import Profile from './pages/Profile';
 import AdminUsers from './pages/AdminUsers';
 import AdminRoles from './pages/admin/AdminRoles';
+import AdminQuests from './pages/admin/AdminQuests';
 import Digidex from './pages/Digidex';
 import Battle from './pages/Battle';
 import MeusDigimons from './pages/MeusDigimons';
@@ -22,6 +23,7 @@ import Inventory from './pages/Inventory';
 import Menu from './pages/Menu';
 import EvolutionCenter from './pages/EvolutionCenter';
 import BlackTrade from './pages/BlackTrade';
+import Quests from './pages/Quests';
 import Navbar from './components/Navbar';
 import ChatWidget from './components/chat/ChatWidget';
 import { ChatProvider } from './context/ChatContext';
@@ -183,6 +185,11 @@ function App() {
                 <BlackTrade />
             </PrivateRoute>
         } />
+        <Route path="/quests" element={
+            <PrivateRoute>
+                <Quests />
+            </PrivateRoute>
+        } />
         <Route path="/admin/digidex" element={
             <PrivateRoute>
                 <AdminRoute>
@@ -236,6 +243,13 @@ function App() {
             <PrivateRoute>
                 <AdminRoute>
                     <AdminRoles />
+                </AdminRoute>
+            </PrivateRoute>
+        } />
+        <Route path="/admin/quests" element={
+            <PrivateRoute>
+                <AdminRoute>
+                    <AdminQuests />
                 </AdminRoute>
             </PrivateRoute>
         } />
