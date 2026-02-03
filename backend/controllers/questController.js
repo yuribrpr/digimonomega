@@ -150,6 +150,24 @@ exports.getActiveQuests = async (req, res) => {
     }
 };
 
+const buildInitialQuestProgress = async (userId, questId) => {
+  const objectives = await knex('quest_objectives').where('quest_id', questId);
+  const initialProgress = {};
+
+  for (const obj of objectives) {
+    if (obj.type === 'COLLECT_ITEM' && obj.target_item_id) {
+      const inventoryItem = await knex('inventory')
+        .where({ user_id: userId, item_id: obj.target_item_id })
+        .first();
+      initialProgress[obj.id] = inventoryItem ? inventoryItem.quantity : 0;
+    } else {
+      initialProgress[obj.id] = 0;
+    }
+  }
+
+  return initialProgress;
+};
+
 // Start a Quest
 exports.startQuest = async (req, res) => {
   const { questId } = req.body;
@@ -174,23 +192,7 @@ exports.startQuest = async (req, res) => {
       return res.status(400).json({ message: 'Quest already started or completed' });
     }
 
-    // Initialize progress based on objectives and current inventory
-    const objectives = await knex('quest_objectives').where('quest_id', questId);
-    const initialProgress = {};
-    
-    // Check inventory for COLLECT_ITEM objectives
-    for (const obj of objectives) {
-        if (obj.type === 'COLLECT_ITEM' && obj.target_item_id) {
-            const inventoryItem = await knex('inventory')
-                .where({ user_id: userId, item_id: obj.target_item_id })
-                .first();
-            
-            // Initial progress is what they have, capped at required quantity (optional, but raw count is better for display)
-            initialProgress[obj.id] = inventoryItem ? inventoryItem.quantity : 0;
-        } else {
-            initialProgress[obj.id] = 0;
-        }
-    }
+    const initialProgress = await buildInitialQuestProgress(userId, questId);
 
     await knex('user_quests').insert({
       user_id: userId,
@@ -204,6 +206,55 @@ exports.startQuest = async (req, res) => {
   } catch (error) {
     console.error('Error starting quest:', error);
     res.status(500).json({ message: 'Error starting quest' });
+  }
+};
+
+exports.restartQuest = async (req, res) => {
+  const { questId } = req.body;
+  const userId = req.user.id;
+
+  try {
+    const quest = await knex('quests').where('id', questId).first();
+    if (!quest) return res.status(404).json({ message: 'Quest not found' });
+    if (!quest.restartable) return res.status(400).json({ message: 'Quest não permite recomeçar.' });
+
+    const userQuest = await knex('user_quests')
+      .where({ user_id: userId, quest_id: questId })
+      .first();
+
+    if (!userQuest) return res.status(400).json({ message: 'Quest não iniciada.' });
+
+    if (userQuest.status === 'IN_PROGRESS') {
+      const initialProgress = await buildInitialQuestProgress(userId, questId);
+      await knex('user_quests')
+        .where('id', userQuest.id)
+        .update({
+          status: 'IN_PROGRESS',
+          progress: JSON.stringify(initialProgress),
+          started_at: knex.fn.now(),
+          completed_at: null,
+        });
+      return res.json({ message: 'Quest reiniciada com sucesso.' });
+    }
+
+    if (userQuest.status !== 'CLAIMED' && userQuest.status !== 'COMPLETED') {
+      return res.status(400).json({ message: 'Quest não pode ser reiniciada neste estado.' });
+    }
+
+    const initialProgress = await buildInitialQuestProgress(userId, questId);
+    await knex('user_quests')
+      .where('id', userQuest.id)
+      .update({
+        status: 'IN_PROGRESS',
+        progress: JSON.stringify(initialProgress),
+        started_at: knex.fn.now(),
+        completed_at: null,
+      });
+
+    res.json({ message: 'Quest reiniciada com sucesso.' });
+  } catch (error) {
+    console.error('Error restarting quest:', error);
+    res.status(500).json({ message: 'Error restarting quest' });
   }
 };
 
@@ -232,9 +283,7 @@ exports.cancelQuest = async (req, res) => {
 exports.deleteCampaign = async (req, res) => {
     const { id } = req.params;
     try {
-        // Delete associated quests first (or let cascade handle it if configured, but safe to be explicit)
-        // Ideally DB has cascade delete, but let's try direct delete of campaign
-        await knex('quest_campaigns').where('id', id).del();
+        await knex('campaigns').where('id', id).del();
         res.json({ message: 'Campanha excluída com sucesso' });
     } catch (error) {
         console.error('Error deleting campaign:', error);
@@ -419,7 +468,7 @@ exports.updateCampaign = async (req, res) => {
 
 // Admin: Create Quest
 exports.createQuest = async (req, res) => {
-  const { campaign_id, title, description, npc_digimon_id, order, objectives, rewards } = req.body;
+  const { campaign_id, title, description, npc_digimon_id, order, restartable, objectives, rewards } = req.body;
   
   const trx = await knex.transaction();
   try {
@@ -428,7 +477,8 @@ exports.createQuest = async (req, res) => {
       title,
       description,
       npc_digimon_id: npc_digimon_id || null,
-      order
+      order,
+      restartable: !!restartable,
     });
 
     if (objectives && objectives.length > 0) {
@@ -466,12 +516,17 @@ exports.createQuest = async (req, res) => {
 // Admin: Update Quest
 exports.updateQuest = async (req, res) => {
     const { id } = req.params;
-    const { campaign_id, title, description, npc_digimon_id, order, objectives, rewards } = req.body;
+    const { campaign_id, title, description, npc_digimon_id, order, restartable, objectives, rewards } = req.body;
     
     const trx = await knex.transaction();
     try {
       await trx('quests').where('id', id).update({
-        campaign_id, title, description, npc_digimon_id: npc_digimon_id || null, order
+        campaign_id,
+        title,
+        description,
+        npc_digimon_id: npc_digimon_id || null,
+        order,
+        restartable: !!restartable,
       });
   
       // Replace objectives/rewards (simplest strategy: delete all and insert new)

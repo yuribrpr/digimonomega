@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -132,14 +133,17 @@ export default function Battle() {
   const [battle, setBattle] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isFetchingBattleData, setIsFetchingBattleData] = useState(false);
+  const [isFetchingEnemyData, setIsFetchingEnemyData] = useState(false);
   const [showWinModal, setShowWinModal] = useState(false);
   const [rewards, setRewards] = useState(null);
   const [levelUpInfo, setLevelUpInfo] = useState(null);
   
   const [activeQuests, setActiveQuests] = useState([]);
   const [selectedQuestForDetails, setSelectedQuestForDetails] = useState(null);
-  const [completedQuests, setCompletedQuests] = useState([]);
-  const [showQuestCompletedModal, setShowQuestCompletedModal] = useState(false);
+  const [questCompletionQueue, setQuestCompletionQueue] = useState([]);
+  const [activeQuestCompletion, setActiveQuestCompletion] = useState(null);
+  const [showQuestCompletionDialog, setShowQuestCompletionDialog] = useState(false);
   const prevActiveQuestsRef = useRef([]);
 
   const fetchActiveQuests = async ({ detectCompletion = false } = {}) => {
@@ -147,18 +151,16 @@ export default function Battle() {
         const prev = prevActiveQuestsRef.current || [];
         const res = await api.get('/api/quests/active');
         const next = res.data || [];
-        if (detectCompletion && prev.length > 0) {
-          const nextIds = new Set(next.map(q => q.id));
-          const newlyCompleted = prev.filter(q => !nextIds.has(q.id));
-          if (newlyCompleted.length > 0) {
-            setCompletedQuests(newlyCompleted);
-            setShowQuestCompletedModal(true);
-          }
-        }
+        const nextIds = new Set(next.map(x => x.id));
+        const newlyCompleted = detectCompletion && prev.length > 0
+          ? prev.filter(q => !nextIds.has(q.id))
+          : [];
         prevActiveQuestsRef.current = next;
         setActiveQuests(next);
+        return newlyCompleted;
     } catch (error) {
         console.error('Error fetching active quests:', error);
+        return [];
     }
   };
 
@@ -166,11 +168,6 @@ export default function Battle() {
     fetchActiveQuests({ detectCompletion: false });
   }, []);
 
-  useEffect(() => {
-    if (showWinModal) {
-        fetchActiveQuests({ detectCompletion: true });
-    }
-  }, [showWinModal]);
   const [healCooldownUntil, setHealCooldownUntil] = useState(0);
   const [healCooldownMs, setHealCooldownMs] = useState(0);
   const [fleeCooldownUntil, setFleeCooldownUntil] = useState(0);
@@ -296,6 +293,10 @@ export default function Battle() {
   const startBattle = async (isEntry = false) => {
     if (!user?.id) return;
     setLoading(true);
+    setIsFetchingBattleData(true);
+    setIsFetchingEnemyData(false);
+    setBattle(null);
+    setLogs([]);
     setPaused(false);
     try {
       const payload = { user_id: user.id };
@@ -304,7 +305,7 @@ export default function Battle() {
       const res = await api.post('/api/battles', payload);
       const b = res.data;
       setBattle(b);
-      setLogs([]);
+      await fetchActiveQuests({ detectCompletion: false });
       setShowWinModal(false);
       setRewards(null);
       setLevelUpInfo(null);
@@ -329,13 +330,14 @@ export default function Battle() {
       setPlayerCooldown(0); // Start ready (cooldown 0)
       setEnemyCooldown(0); // Enemy starts ready (cooldown 0)
       setCanAttack(true); // Enable button immediately
-
-      setLoading(false);
       return res.data;
     } catch (error) {
       console.error('Erro ao iniciar batalha:', error);
+      return null;
+    } finally {
+      setLoading(false);
+      setIsFetchingBattleData(false);
     }
-    setLoading(false);
   };
   useEffect(() => {
     startBattle(true);
@@ -455,7 +457,15 @@ export default function Battle() {
              setLevelUpInfo({ leveledUp, prevLevel, newLevel, hpGain, atkGain, defGain });
          }
          setRewards(newData.rewards);
-         setShowWinModal(true);
+         const newlyCompleted = await fetchActiveQuests({ detectCompletion: true });
+         if (newlyCompleted.length > 0) {
+           setActiveQuestCompletion(newlyCompleted[0]);
+           setQuestCompletionQueue(newlyCompleted.slice(1));
+           setShowQuestCompletionDialog(true);
+           setShowWinModal(false);
+         } else {
+           setShowWinModal(true);
+         }
          setAnimState('idle');
          return;
     }
@@ -526,6 +536,8 @@ export default function Battle() {
   const onFlee = async () => {
     if (!battle || fleeCooldownMs > 0) return;
     setLoading(true);
+    setIsFetchingEnemyData(true);
+    setBattle(prev => (prev ? { ...prev, enemy: null } : prev));
     try {
       const payload = {};
       if (mapId) payload.map_id = mapId;
@@ -537,6 +549,7 @@ export default function Battle() {
       console.error('Erro ao fugir:', error);
     }
     setLoading(false);
+    setIsFetchingEnemyData(false);
   };
 
   const fetchInventory = async () => {
@@ -626,7 +639,24 @@ export default function Battle() {
 
   const myDigimon = battle?.user;
   const enemy = battle?.enemy;
+  const showPlayerSkeleton = isFetchingBattleData;
+  const showEnemySkeleton = isFetchingBattleData || isFetchingEnemyData;
   const isBoss = enemy?.difficulty === 'Boss';
+  const playerDisplayName = myDigimon?.display_name || myDigimon?.nickname || myDigimon?.name;
+  const enemyDisplayName = enemy?.display_name || enemy?.name;
+  const getAttributeBadgeMeta = (rawType) => {
+    const t = String(rawType || 'unknown').toLowerCase();
+    if (t === 'vaccine' || t === 'vacina') {
+      return { label: 'Vacina', className: 'border-emerald-400/30 bg-emerald-500/20 text-emerald-100' };
+    }
+    if (t === 'data') {
+      return { label: 'Data', className: 'border-sky-400/30 bg-sky-500/20 text-sky-100' };
+    }
+    if (t === 'virus' || t === 'vírus') {
+      return { label: 'Virus', className: 'border-red-400/30 bg-red-500/20 text-red-100' };
+    }
+    return { label: 'Unknown', className: 'border-white/10 bg-black/45 text-slate-100' };
+  };
   const calcPercent = (current, max) => {
     if (!max || max <= 0) return 100;
     const p = (current / max) * 100;
@@ -668,6 +698,120 @@ export default function Battle() {
         setTimeout(() => setIsEnemyHit(false), 500);
     }
   }, [animState]);
+
+  const toNum = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const toInt = (v) => Math.floor(toNum(v));
+
+  const playerExtraAtk = toInt(myDigimon?.extra_attack);
+  const playerExtraDef = toInt(myDigimon?.extra_defense);
+  const playerExtraHp = toInt(myDigimon?.extra_hp);
+
+  const playerTooltipContent = myDigimon ? (
+    <div className="space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-slate-50 truncate">{playerDisplayName}</div>
+          <div className="text-[10px] text-slate-300">Lv. {myDigimon?.level ?? '—'}</div>
+        </div>
+        {myDigimon?.type ? (
+          <span className="shrink-0 rounded border border-slate-700 bg-slate-800/70 px-2 py-0.5 text-[10px] text-slate-100">
+            {myDigimon.type}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+        <div className="flex items-center gap-1.5">
+          <Heart className="h-3.5 w-3.5 text-red-400" />
+          <span className="text-slate-200">Vida</span>
+          <span className="ml-auto font-mono text-slate-50">
+            {toInt(myDigimon?.hp)}/{toInt(myDigimon?.max_hp)}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Zap className="h-3.5 w-3.5 text-yellow-300" />
+          <span className="text-slate-200">Vel.</span>
+          <span className="ml-auto font-mono text-slate-50">{toNum(myDigimon?.attack_speed).toFixed(2)}s</span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <Swords className="h-3.5 w-3.5 text-slate-200" />
+          <span className="text-slate-200">Ataque</span>
+          <span className="ml-auto flex items-baseline gap-1 font-mono">
+            <span className="text-slate-50">{toInt(myDigimon?.attack)}</span>
+            {playerExtraAtk ? <span className="text-cyan-300">(+{playerExtraAtk})</span> : null}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Shield className="h-3.5 w-3.5 text-slate-200" />
+          <span className="text-slate-200">Defesa</span>
+          <span className="ml-auto flex items-baseline gap-1 font-mono">
+            <span className="text-slate-50">{toInt(myDigimon?.defense)}</span>
+            {playerExtraDef ? <span className="text-cyan-300">(+{playerExtraDef})</span> : null}
+          </span>
+        </div>
+      </div>
+
+      {playerExtraHp ? (
+        <div className="flex items-center justify-between gap-3 text-[11px]">
+          <span className="text-slate-300">Vida extra</span>
+          <span className="font-mono text-cyan-300">+{playerExtraHp}</span>
+        </div>
+      ) : null}
+    </div>
+  ) : null;
+
+  const enemyTooltipContent = enemy ? (
+    <div className="space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-slate-50 truncate">{enemyDisplayName}</div>
+          <div className="text-[10px] text-slate-300">
+            {enemy?.difficulty || 'Normal'}
+          </div>
+        </div>
+        {enemy?.type ? (
+          <span className="shrink-0 rounded border border-slate-700 bg-slate-800/70 px-2 py-0.5 text-[10px] text-slate-100">
+            {enemy.type}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+        <div className="flex items-center gap-1.5">
+          <Heart className="h-3.5 w-3.5 text-red-400" />
+          <span className="text-slate-200">Vida</span>
+          <span className="ml-auto font-mono text-slate-50">
+            {toInt(enemy?.hp)}/{toInt(enemy?.max_hp)}
+          </span>
+        </div>
+        {enemy?.attack_speed ? (
+          <div className="flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5 text-yellow-300" />
+            <span className="text-slate-200">Vel.</span>
+            <span className="ml-auto font-mono text-slate-50">{toNum(enemy?.attack_speed).toFixed(2)}s</span>
+          </div>
+        ) : (
+          <div />
+        )}
+
+        <div className="flex items-center gap-1.5">
+          <Swords className="h-3.5 w-3.5 text-slate-200" />
+          <span className="text-slate-200">Ataque</span>
+          <span className="ml-auto font-mono text-slate-50">{toInt(enemy?.attack)}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Shield className="h-3.5 w-3.5 text-slate-200" />
+          <span className="text-slate-200">Defesa</span>
+          <span className="ml-auto font-mono text-slate-50">{toInt(enemy?.defense)}</span>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="container mx-auto py-8 space-y-6">
       {/* Custom Keyframes for Shake Effect */}
@@ -717,54 +861,160 @@ export default function Battle() {
         </CardHeader>
         <CardContent className="p-0">
           {/* Battle Arena - Tech Grid */}
-          <div className="relative h-[300px] md:h-[400px] bg-slate-950 w-full overflow-hidden flex justify-between items-center px-2 md:px-24">
+          <div className="relative h-[300px] md:h-[400px] bg-slate-950 w-full overflow-hidden flex justify-between items-end px-2 pb-6 md:px-24 md:pb-10">
             {/* Map Background */}
             {mapDetails?.image_path && (
                 <div 
-                    className="absolute inset-0 bg-cover bg-center z-0"
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0"
                     style={{ 
                         backgroundImage: `url(${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${mapDetails.image_path.replace(/\\/g, '/')})`
                     }}
                 ></div>
             )}
-            {/* Dark Gradient Overlay with Blur for Text Readability */}
-            <div className="absolute inset-0 z-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent backdrop-blur-[1px]"
-                 style={{ height: '100%' }}
-            ></div>
-            {/* Grid Background - Visible in dark areas */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#334155_1px,transparent_1px),linear-gradient(to_bottom,#334155_1px,transparent_1px)] bg-[size:40px_40px] z-0 opacity-50"
-                 style={{
-                    maskImage: 'linear-gradient(to top, black 50%, transparent 85%)',
-                    WebkitMaskImage: 'linear-gradient(to top, black 50%, transparent 85%)'
-                 }}
-            ></div>
+            <div className="absolute left-2 right-2 top-2 z-30 pointer-events-none md:left-6 md:right-6 md:top-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="w-[46%] md:w-[40%]">
+                  <div className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-md">
+                    {showPlayerSkeleton ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-4 w-32 bg-white/10" />
+                          <Skeleton className="h-4 w-14 rounded-full bg-white/10" />
+                        </div>
+                        <Skeleton className="h-2.5 w-full rounded-full bg-white/10" />
+                        <Skeleton className="h-1.5 w-[86%] rounded-full bg-white/10" />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1.5">
+                          <span className="min-w-0 truncate text-xs font-semibold text-slate-100">
+                            {playerDisplayName || '—'}
+                          </span>
+                          {myDigimon?.level !== undefined && myDigimon?.level !== null ? (
+                            <span className="shrink-0 text-[10px] font-semibold text-slate-200/80">
+                              (Lv. {myDigimon.level})
+                            </span>
+                          ) : null}
+                          {(() => {
+                            const meta = getAttributeBadgeMeta(myDigimon?.type ?? myDigimon?.attribute);
+                            return (
+                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.className}`}>
+                                {meta.label}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        <div
+                          className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-black/35 ring-1 ring-white/10"
+                          role="progressbar"
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={Math.round(hpPercent)}
+                        >
+                          <div className="h-full bg-gradient-to-r from-red-500 to-red-400 shadow-[inset_0_-1px_0_rgba(0,0,0,0.4)]" style={{ width: `${hpPercent}%` }} />
+                        </div>
+                        <div
+                          className="mt-1 h-1.5 w-[86%] overflow-hidden rounded-full bg-black/35 ring-1 ring-white/10"
+                          role="progressbar"
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={Math.round(xpPercent)}
+                        >
+                          <div className="h-full bg-gradient-to-r from-amber-400 to-yellow-200 shadow-[inset_0_-1px_0_rgba(0,0,0,0.35)]" style={{ width: `${xpPercent}%` }} />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <div className="rounded-full border border-white/10 bg-slate-950/35 px-2.5 py-1 text-[10px] font-bold tracking-[0.32em] text-slate-200 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-md">
+                    VS
+                  </div>
+                </div>
+
+                <div className="w-[46%] md:w-[40%]">
+                  <div className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-right shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-md">
+                    {showEnemySkeleton ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-end gap-2">
+                          <Skeleton className="h-4 w-20 bg-white/10" />
+                          <Skeleton className="h-4 w-12 rounded-full bg-white/10" />
+                        </div>
+                        <Skeleton className="h-2.5 w-full rounded-full bg-white/10" />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-end gap-2">
+                          {isBoss ? (
+                            <span className="inline-flex items-center rounded-full border border-red-500/30 bg-red-600/25 px-2 py-0.5 text-[10px] font-semibold text-red-200">
+                              BOSS
+                            </span>
+                          ) : null}
+                          <span className="min-w-0 truncate text-xs font-semibold text-slate-100">
+                            {enemyDisplayName || '—'}
+                          </span>
+                          {(() => {
+                            const meta = getAttributeBadgeMeta(enemy?.type ?? enemy?.attribute);
+                            return (
+                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.className}`}>
+                                {meta.label}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        <div
+                          className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-black/35 ring-1 ring-white/10"
+                          role="progressbar"
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={Math.round(enemyHpPercent)}
+                        >
+                          <div className="ml-auto h-full bg-gradient-to-l from-red-500 to-red-400 shadow-[inset_0_-1px_0_rgba(0,0,0,0.4)]" style={{ width: `${enemyHpPercent}%` }} />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
             {/* Player Side */}
-            <div className={`relative z-10 flex flex-col items-center gap-6 ${getPlayerStyle()}`}>
+            <div className={`relative z-10 flex flex-col items-center gap-2 ${getPlayerStyle()}`}>
                <div className="relative">
-                  {/* Selection circle */}
-                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-24 h-6 bg-blue-500/20 rounded-[100%] blur-md transition-opacity duration-300"></div>
                   {/* Impact Effect Overlay */}
                   {showImpact === 'player' && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center animate-impact pointer-events-none">
                         <Skull className="w-24 h-24 text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]" />
                     </div>
                   )}
-                  <div className="w-40 h-40 flex items-center justify-center">
-                    {myDigimon?.sprite_path ? (
-                      <img 
-                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${myDigimon.sprite_path}`} 
-                        alt={myDigimon?.name} 
-                        className="h-full object-contain scale-x-[-1]" 
-                        style={{
-                          filter: isPlayerAttacking ? 'brightness(1.5)' : (isPlayerHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
-                          transform: `${isPlayerAttacking ? 'translateX(50px)' : (isPlayerHit ? 'translateX(-20px)' : 'translateX(0)')} scaleX(-1)`,
-                          transition: 'transform 0.2s, filter 0.2s'
-                        }}
-                      />
-                    ) : (
+                  {showPlayerSkeleton ? (
+                    <div className="w-40 h-40 flex items-center justify-center">
+                      <Skeleton className="h-32 w-32 rounded-full bg-white/10" />
+                    </div>
+                  ) : myDigimon ? (
+                    <GlobalTooltip content={playerTooltipContent}>
+                      <div className="w-40 h-40 flex items-center justify-center">
+                        {myDigimon?.sprite_path ? (
+                          <img
+                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${myDigimon.sprite_path}`}
+                            alt={myDigimon?.name}
+                            className="max-h-full max-w-full object-contain"
+                            style={{
+                              filter: isPlayerAttacking ? 'brightness(1.5)' : (isPlayerHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
+                              transform: `${isPlayerAttacking ? 'translateX(50px)' : (isPlayerHit ? 'translateX(-20px)' : 'translateX(0)')} scaleX(-1)`,
+                              transition: 'transform 0.2s, filter 0.2s'
+                            }}
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-blue-500 rounded-full animate-pulse"></div>
+                        )}
+                      </div>
+                    </GlobalTooltip>
+                  ) : (
+                    <div className="w-40 h-40 flex items-center justify-center">
                       <div className="w-16 h-16 bg-blue-500 rounded-full animate-pulse"></div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   {/* Damage Indicators */}
                   {damageIndicators.filter(i => i.target === 'player').map(i => (
                     <div key={i.id} className="absolute top-0 left-1/2 text-4xl font-bold text-red-500 animate-float-up z-50 pointer-events-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] font-mono">
@@ -772,48 +1022,12 @@ export default function Battle() {
                     </div>
                   ))}
                </div>
-               {/* Player Stats - Minimal */}
-               <div className="w-48 space-y-2 transition-opacity duration-300">
-                  <div className="flex justify-between items-end">
-                    <span className="font-medium text-slate-200">{myDigimon?.name}</span>
-                    <span className="text-xs text-slate-500 font-mono">Lvl {myDigimon?.level}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] text-slate-400 uppercase tracking-wider">
-                      <span>HP</span>
-                      <span className={animState === 'player-hit' ? 'text-red-500 font-bold' : ''}>{myDigimon?.hp}/{myDigimon?.max_hp}</span>
-                    </div>
-                    <Progress value={hpPercent} className="h-1.5 bg-slate-800" indicatorClassName={`bg-white transition-all duration-500 ${hpPercent < 30 ? 'bg-red-500' : ''}`} />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] text-slate-400 uppercase tracking-wider">
-                      <span>XP</span>
-                    </div>
-                    <Progress value={xpPercent} className="h-1 bg-slate-800" indicatorClassName="bg-slate-500" />
-                  </div>
-                  {/* Detailed Stats */}
-                  <div className="pt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500 font-mono">
-                     <div className="flex items-center gap-1">
-                        <Swords className="h-3 w-3 text-blue-400" />
-                        <span className="text-slate-300">{battle?.user?.attack}</span>
-                     </div>
-                     <div className="flex items-center gap-1">
-                        <Shield className="h-3 w-3 text-green-400" />
-                        <span className="text-slate-300">{battle?.user?.defense}</span>
-                     </div>
-                     <div className="flex items-center gap-1">
-                        <Zap className="h-3 w-3 text-yellow-400" />
-                        <span className="text-slate-300">{battle?.user?.attack_speed ? Number(battle.user.attack_speed).toFixed(1) : '2.0'}s</span>
-                     </div>
-                  </div>
-               </div>
             </div>
             {/* VS Divider - Fades out during combat action */}
             <div className={`h-32 w-px bg-gradient-to-b from-transparent via-slate-800 to-transparent transition-opacity duration-300 ${animState !== 'idle' ? 'opacity-0' : 'opacity-100'}`}></div>
             {/* Enemy Side */}
-            <div className={`relative z-10 flex flex-col items-center gap-6 ${getEnemyStyle()}`}>
+            <div className={`relative z-10 flex flex-col items-center gap-2 ${getEnemyStyle()}`}>
                <div className="relative">
-                   <div className={`absolute -bottom-4 left-1/2 -translate-x-1/2 w-24 h-6 ${isBoss ? 'bg-red-600/40 shadow-[0_0_20px_rgba(220,38,38,0.5)]' : 'bg-red-500/20'} rounded-[100%] blur-md transition-opacity duration-300`}></div>
                   {/* Impact Effect Overlay */}
                   {showImpact === 'enemy' && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center animate-impact pointer-events-none">
@@ -824,22 +1038,34 @@ export default function Battle() {
                         )}
                     </div>
                    )}
-                   <div className="w-40 h-40 flex items-center justify-center">
-                    {enemy?.sprite_path ? (
-                      <img 
-                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`} 
-                        alt={enemy?.name} 
-                        className={`h-full object-contain ${isBoss ? 'drop-shadow-[0_0_15px_rgba(220,38,38,0.5)]' : ''}`} 
-                        style={{
-                           filter: isEnemyAttacking ? 'brightness(1.5)' : (isEnemyHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
-                           transform: isEnemyAttacking ? 'translateX(-50px)' : (isEnemyHit ? 'translateX(20px)' : 'translateX(0)'),
-                           transition: 'transform 0.2s, filter 0.2s'
-                        }}
-                      />
-                    ) : (
-                      <div className="w-16 h-16 bg-red-500 rounded-full animate-pulse"></div>
-                    )}
-                   </div>
+                   {showEnemySkeleton ? (
+                     <div className="w-40 h-40 flex items-center justify-center">
+                       <Skeleton className="h-32 w-32 rounded-full bg-white/10" />
+                     </div>
+                   ) : enemy ? (
+                     <GlobalTooltip content={enemyTooltipContent}>
+                       <div className="w-40 h-40 flex items-center justify-center">
+                        {enemy?.sprite_path ? (
+                          <img
+                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`}
+                            alt={enemy?.name}
+                            className="max-h-full max-w-full object-contain"
+                            style={{
+                               filter: isEnemyAttacking ? 'brightness(1.5)' : (isEnemyHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
+                               transform: isEnemyAttacking ? 'translateX(-50px)' : (isEnemyHit ? 'translateX(20px)' : 'translateX(0)'),
+                               transition: 'transform 0.2s, filter 0.2s'
+                            }}
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-red-500 rounded-full animate-pulse"></div>
+                        )}
+                       </div>
+                     </GlobalTooltip>
+                   ) : (
+                     <div className="w-40 h-40 flex items-center justify-center">
+                       <div className="w-16 h-16 bg-red-500 rounded-full animate-pulse"></div>
+                     </div>
+                   )}
                 {/* Damage Indicators */}
                 {damageIndicators.filter(i => i.target === 'enemy').map(i => (
                   <div 
@@ -856,26 +1082,6 @@ export default function Battle() {
                     {i.text ? i.text : `-${i.value}${i.crit ? '!' : ''}`}
                   </div>
                  ))}
-               </div>
-               {/* Enemy Stats - Minimal */}
-               <div className="w-48 space-y-2 transition-opacity duration-300">
-                  <div className="flex justify-between items-end">
-                    <span className="font-medium text-slate-200">{enemy?.name}</span>
-                    <Badge variant="outline" className={`text-[10px] h-5 px-1.5 font-normal ${isBoss ? 'border-red-500/50 text-red-400 bg-red-950/30' : 'border-slate-700 text-slate-400'}`}>{enemy?.difficulty}</Badge>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] text-slate-400 uppercase tracking-wider">
-                      <span>HP</span>
-                      <span className={animState === 'enemy-hit' ? 'text-red-500 font-bold' : ''}>{enemy?.hp}/{enemy?.max_hp}</span>
-                    </div>
-                    <Progress value={enemyHpPercent} className="h-1.5 bg-slate-800" indicatorClassName={`bg-slate-400 transition-all duration-500 ${enemyHpPercent < 30 ? 'bg-red-500' : ''}`} />
-                  </div>
-                  {/* Detailed Stats */}
-                  <div className="pt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500 font-mono">
-                     <span>ATK <span className="text-slate-300">{enemy?.attack}</span></span>
-                     <span>DEF <span className="text-slate-300">{enemy?.defense}</span></span>
-                     <span>SPD <span className="text-slate-300">{enemy?.attack_speed || 2.0}s</span></span>
-                  </div>
                </div>
             </div>
           </div>
@@ -970,34 +1176,50 @@ export default function Battle() {
         showActions={false}
       />
 
-      <Dialog open={showQuestCompletedModal} onOpenChange={setShowQuestCompletedModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {completedQuests.length === 1 ? 'Missão Concluída!' : 'Missões Concluídas!'}
-            </DialogTitle>
-            <DialogDescription>
-              Acesse o menu de quests para resgatar suas recompensas.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-2 text-sm text-muted-foreground">
-            {completedQuests.length === 1
-              ? `A missão "${completedQuests[0]?.title}" foi concluída com sucesso.`
-              : `Você concluiu ${completedQuests.length} missões com sucesso.`}
-          </div>
-          <DialogFooter>
-            <Button
-              className="w-full"
-              onClick={() => {
-                setShowQuestCompletedModal(false);
-                window.open('/quests', '_blank');
-              }}
-            >
-              Acessar Quests
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <QuestDetailDialog
+        quest={activeQuestCompletion}
+        open={showQuestCompletionDialog}
+        onOpenChange={(open) => {
+          if (open) return;
+          const [next, ...rest] = questCompletionQueue;
+          if (next) {
+            setActiveQuestCompletion(next);
+            setQuestCompletionQueue(rest);
+            setShowQuestCompletionDialog(true);
+            return;
+          }
+          setActiveQuestCompletion(null);
+          setQuestCompletionQueue([]);
+          setShowQuestCompletionDialog(false);
+          setShowWinModal(true);
+        }}
+        userProgress={
+          activeQuestCompletion
+            ? { status: 'COMPLETED', progress: activeQuestCompletion.progress }
+            : null
+        }
+        onClaim={async (questId) => {
+          try {
+            await api.post('/api/quests/claim', { questId });
+          } catch (error) {
+            console.error("Error claiming reward:", error);
+          } finally {
+            await fetchActiveQuests({ detectCompletion: false });
+            const [next, ...rest] = questCompletionQueue;
+            if (next) {
+              setActiveQuestCompletion(next);
+              setQuestCompletionQueue(rest);
+              setShowQuestCompletionDialog(true);
+              return;
+            }
+            setActiveQuestCompletion(null);
+            setQuestCompletionQueue([]);
+            setShowQuestCompletionDialog(false);
+            setShowWinModal(true);
+          }
+        }}
+        onCancel={() => {}}
+      />
 
       <Dialog open={showBag} onOpenChange={(open) => !open && handleCloseBag()}>
         <DialogContent className="sm:max-w-3xl">
@@ -1066,99 +1288,139 @@ export default function Battle() {
       </Dialog>
 
       <Dialog open={showWinModal} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-sm [&>button]:hidden" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle>Vitória</DialogTitle>
-            <DialogDescription>
-              Você derrotou o inimigo com sucesso.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-3">
-            <div className="flex justify-between items-center text-sm border-b pb-2">
-              <span className="text-slate-500">Experiência obtida</span>
-              <span className="font-medium">+{rewards?.xp} XP</span>
-            </div>
-            <div className="flex justify-between items-center text-sm border-b pb-2">
-              <span className="text-slate-500">Bits obtidos</span>
-              <span className="font-medium">+{rewards?.bits} Bits</span>
-            </div>
-            {rewards?.drops && rewards.drops.length > 0 && (
-              <div className="space-y-2 border-b pb-2">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500">Drops</span>
+        <DialogContent
+          overlayClassName="bg-black/90 backdrop-blur-md"
+          className="sm:max-w-md sm:min-h-[620px] max-h-[85vh] overflow-hidden border-white/10 bg-gradient-to-b from-slate-950/95 to-slate-950/90 text-slate-100 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.95)] flex flex-col [&>button]:hidden"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <div className="relative z-10 flex flex-1 flex-col gap-4 overflow-hidden">
+            <DialogHeader className="space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-11 w-11 place-items-center rounded-2xl border border-yellow-400/20 bg-yellow-500/10">
+                    <Trophy className="h-6 w-6 text-yellow-300" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-bold tracking-tight">Vitória</DialogTitle>
+                    <DialogDescription className="text-slate-300">
+                      {enemyDisplayName ? `Você derrotou ${enemyDisplayName}.` : 'Você derrotou o inimigo com sucesso.'}
+                    </DialogDescription>
+                  </div>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {rewards.drops.map((drop, idx) => (
-                    <GlobalTooltip 
-                        key={idx} 
+                {isBoss ? (
+                  <span className="mt-1 inline-flex items-center rounded-full border border-red-500/30 bg-red-600/20 px-2.5 py-1 text-[11px] font-semibold text-red-200">
+                    BOSS
+                  </span>
+                ) : null}
+              </div>
+            </DialogHeader>
+
+            <div className="flex-1 space-y-4 overflow-auto pr-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className="text-[11px] font-semibold tracking-wide text-slate-300">Experiência</div>
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <span className="text-2xl font-extrabold text-white">+{rewards?.xp ?? 0}</span>
+                    <span className="text-sm font-semibold text-slate-300">XP</span>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className="text-[11px] font-semibold tracking-wide text-slate-300">Bits</div>
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <span className="text-2xl font-extrabold text-white">+{rewards?.bits ?? 0}</span>
+                    <span className="text-sm font-semibold text-slate-300">Bits</span>
+                  </div>
+                </div>
+              </div>
+
+              {rewards?.drops && rewards.drops.length > 0 ? (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold tracking-wide text-slate-300">Drops</span>
+                    <span className="text-[11px] font-semibold text-slate-400">{rewards.drops.length}</span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-4 gap-2">
+                    {rewards.drops.map((drop, idx) => (
+                      <GlobalTooltip
+                        key={idx}
                         content={
-                            <div className="space-y-1">
-                                <p className="font-bold text-sm text-yellow-400">{drop.name}</p>
-                                <p className="text-slate-300">Tipo: {drop.type === 'consumable' ? 'Consumível' : 'Outro'}</p>
-                                {drop.type === 'consumable' && drop.effect_target && drop.effect_target !== 'none' && (
-                                    <p className="text-green-400 text-xs">
-                                        Efeito: +{drop.effect_value}{drop.is_percent ? '%' : ''} {drop.effect_target.toUpperCase()}
-                                    </p>
-                                )}
-                            </div>
+                          <div className="space-y-1">
+                            <p className="font-bold text-sm text-yellow-400">{drop.name}</p>
+                            <p className="text-slate-300">Tipo: {drop.type === 'consumable' ? 'Consumível' : 'Outro'}</p>
+                            {drop.type === 'consumable' && drop.effect_target && drop.effect_target !== 'none' ? (
+                              <p className="text-green-400 text-xs">
+                                Efeito: +{drop.effect_value}{drop.is_percent ? '%' : ''} {drop.effect_target.toUpperCase()}
+                              </p>
+                            ) : null}
+                          </div>
                         }
-                    >
-                        <div className="flex flex-col items-center p-2 bg-muted/40 rounded hover:bg-muted/60 transition-colors cursor-help">
-                            {drop.icon ? (
-                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.icon}`} alt={drop.name} className="w-8 h-8 object-contain mb-1" />
-                            ) : (
-                                <div className="w-8 h-8 bg-slate-200 rounded-full mb-1 flex items-center justify-center text-[8px]">?</div>
-                            )}
-                            <span className="text-[10px] text-center leading-tight truncate w-full">{drop.name}</span>
+                      >
+                        <div className="group flex flex-col items-center rounded-lg border border-white/10 bg-black/20 p-2 transition-colors hover:bg-black/30 cursor-help">
+                          {drop.icon ? (
+                            <img
+                              src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.icon}`}
+                              alt={drop.name}
+                              className="w-8 h-8 object-contain mb-1"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full mb-1 bg-white/10 ring-1 ring-white/10 flex items-center justify-center text-[9px] text-slate-300">
+                              ?
+                            </div>
+                          )}
+                          <span className="text-[10px] text-center leading-tight truncate w-full text-slate-200">{drop.name}</span>
                         </div>
-                    </GlobalTooltip>
-                  ))}
-                </div>
-              </div>
-            )}
-            {levelUpInfo?.leveledUp && (
-              <div className="space-y-2 border-b pb-2">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500">Subiu de nível</span>
-                  <span className="font-medium">Nível {levelUpInfo.prevLevel} → {levelUpInfo.newLevel}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="flex items-center justify-between bg-muted/40 px-2 py-1 rounded">
-                    <span className="text-slate-500">HP</span>
-                    <span className="font-semibold text-green-600">+{levelUpInfo.hpGain}</span>
-                  </div>
-                  <div className="flex items-center justify-between bg-muted/40 px-2 py-1 rounded">
-                    <span className="text-slate-500">ATK</span>
-                    <span className="font-semibold text-green-600">+{levelUpInfo.atkGain}</span>
-                  </div>
-                  <div className="flex items-center justify-between bg-muted/40 px-2 py-1 rounded">
-                    <span className="text-slate-500">DEF</span>
-                    <span className="font-semibold text-green-600">+{levelUpInfo.defGain}</span>
+                      </GlobalTooltip>
+                    ))}
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button className="w-full" onClick={async () => {
-              if (mapDetails && mapDetails.require_item === 1 && mapDetails.consume_on_enter === 1 && Number(mapDetails.required_item_id)) {
-                try {
-                  const res = await api.get(`/api/items/user/${user?.id}`);
-                  const inv = res.data || [];
-                  const hasItem = inv.some(x => Number(x.id) === Number(mapDetails.required_item_id) && Number(x.quantity) > 0);
-                  if (!hasItem) {
-                    setShowNoItemsModal(true);
-                    return;
+              ) : null}
+
+              {levelUpInfo?.leveledUp ? (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-semibold tracking-wide text-slate-300">Subiu de nível</span>
+                    <span className="text-xs font-semibold text-slate-200">Nível {levelUpInfo.prevLevel} → {levelUpInfo.newLevel}</span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1">
+                      <span className="text-slate-300">HP</span>
+                      <span className="font-semibold text-emerald-300">+{levelUpInfo.hpGain}</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1">
+                      <span className="text-slate-300">ATK</span>
+                      <span className="font-semibold text-emerald-300">+{levelUpInfo.atkGain}</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1">
+                      <span className="text-slate-300">DEF</span>
+                      <span className="font-semibold text-emerald-300">+{levelUpInfo.defGain}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <DialogFooter className="mt-auto">
+              <Button className="w-full" onClick={async () => {
+                if (mapDetails && mapDetails.require_item === 1 && mapDetails.consume_on_enter === 1 && Number(mapDetails.required_item_id)) {
+                  try {
+                    const res = await api.get(`/api/items/user/${user?.id}`);
+                    const inv = res.data || [];
+                    const hasItem = inv.some(x => Number(x.id) === Number(mapDetails.required_item_id) && Number(x.quantity) > 0);
+                    if (!hasItem) {
+                      setShowNoItemsModal(true);
+                      return;
+                    }
+                  } catch (e) {
+                    console.error('Erro ao verificar inventário:', e);
                   }
-                } catch (e) {
-                  console.error('Erro ao verificar inventário:', e);
                 }
-              }
-              startBattle(false);
-            }}>
-              Continuar
-            </Button>
-          </DialogFooter>
+                startBattle(false);
+              }}>
+                Continuar
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
       <Dialog open={showNoItemsModal} onOpenChange={setShowNoItemsModal}>

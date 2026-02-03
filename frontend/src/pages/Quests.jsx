@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, ScrollText, CheckCircle2, Circle, Trophy, ChevronLeft, Map as MapIcon, Lock, Play, Gift, Backpack, Coins, Dna, ArrowUpCircle, XCircle } from 'lucide-react';
+import { Loader2, ScrollText, CheckCircle2, Circle, Trophy, ChevronLeft, Map as MapIcon, Lock, Play, Gift, Backpack, Coins, Dna, ArrowUpCircle, RotateCcw, XCircle } from 'lucide-react';
 
 export default function Quests() {
   const [campaigns, setCampaigns] = useState([]);
@@ -88,6 +88,19 @@ export default function Quests() {
     }
   };
 
+  const handleRestartQuest = async (questId) => {
+    if (!window.confirm("Deseja refazer esta missão? Seu progresso atual será reiniciado.")) return;
+    try {
+      await api.post('/api/quests/restart', { questId });
+      fetchData();
+      setSelectedQuest(null);
+    } catch (error) {
+      console.error("Error restarting quest:", error);
+      const msg = error.response?.data?.message || "Falha ao reiniciar missão";
+      alert(msg);
+    }
+  };
+
   const handleSelectCampaign = (campaign) => {
     setSelectedCampaign(campaign);
     setView('details');
@@ -146,6 +159,7 @@ export default function Quests() {
         onStart={handleStartQuest}
         onClaim={handleClaimReward}
         onCancel={handleCancelQuest}
+        onRestart={handleRestartQuest}
       />
     </div>
   );
@@ -303,7 +317,7 @@ function QuestCard({ quest, status, index, onSelect }) {
   );
 }
 
-export function QuestDetailDialog({ quest, open, onOpenChange, userProgress, onStart = () => {}, onClaim = () => {}, onCancel = () => {}, showActions = true }) {
+export function QuestDetailDialog({ quest, open, onOpenChange, userProgress, onStart = () => {}, onClaim = () => {}, onCancel = () => {}, onRestart = () => {}, showActions = true }) {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -335,6 +349,8 @@ export function QuestDetailDialog({ quest, open, onOpenChange, userProgress, onS
   const progressData = userProgress?.progress 
     ? (typeof userProgress.progress === 'string' ? JSON.parse(userProgress.progress) : userProgress.progress)
     : {};
+
+  const isRestartable = !!(details?.restartable ?? quest.restartable);
 
   const API_URL = api.defaults.baseURL;
 
@@ -504,9 +520,20 @@ export function QuestDetailDialog({ quest, open, onOpenChange, userProgress, onS
                 </Button>
             )}
             {showActions && status === 'CLAIMED' && (
-                <Button disabled variant="outline" className="w-full border-green-500/30 text-green-500 bg-green-500/5">
-                    <CheckCircle2 className="mr-2 h-4 w-4" /> Missão Concluída
-                </Button>
+                isRestartable ? (
+                    <div className="flex gap-2 w-full">
+                        <Button onClick={() => onRestart(quest.id)} variant="secondary" className="flex-1">
+                            <RotateCcw className="mr-2 h-4 w-4" /> Refazer
+                        </Button>
+                        <Button disabled variant="outline" className="flex-1 border-green-500/30 text-green-500 bg-green-500/5">
+                            <CheckCircle2 className="mr-2 h-4 w-4" /> Concluída
+                        </Button>
+                    </div>
+                ) : (
+                    <Button disabled variant="outline" className="w-full border-green-500/30 text-green-500 bg-green-500/5">
+                        <CheckCircle2 className="mr-2 h-4 w-4" /> Missão Concluída
+                    </Button>
+                )
             )}
         </DialogFooter>
       </DialogContent>

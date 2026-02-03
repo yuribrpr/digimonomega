@@ -150,7 +150,7 @@ exports.startBattle = async (req, res) => {
       userDigimonRow = anyRows && anyRows[0];
     }
     if (!userDigimonRow) return res.status(400).json({ message: 'Usuário não possui digimon' });
-    const [digRows] = await db.execute('SELECT id, name, base_hp, base_attack, base_defense, base_attack_speed, sprite_path FROM digidex WHERE id=?', [userDigimonRow.digimon_id]);
+    const [digRows] = await db.execute('SELECT id, name, type, base_hp, base_attack, base_defense, base_attack_speed, sprite_path FROM digidex WHERE id=?', [userDigimonRow.digimon_id]);
     const userDigimon = digRows && digRows[0];
     if (!userDigimon) return res.status(404).json({ message: 'Digimon não encontrado' });
     
@@ -208,7 +208,7 @@ exports.startBattle = async (req, res) => {
     }
     
     // Enemy selection logic
-    let enemyQuery = 'SELECT id, name, hp, attack, defense, attack_speed, difficulty, sprite_path FROM enemydex';
+    let enemyQuery = 'SELECT id, name, type, hp, attack, defense, attack_speed, difficulty, sprite_path FROM enemydex';
     let enemyParams = [];
 
     if (map_id) {
@@ -240,6 +240,10 @@ exports.startBattle = async (req, res) => {
     let effSpd = Number(userDigimon.base_attack_speed || 2.0);
     let effXp = 0;
     let level = Number(userDigimon.base_level || 1);
+    let userDisplayName = userDigimon.name;
+    let bonusHp = 0;
+    let bonusAtk = 0;
+    let bonusDef = 0;
 
     const [mapRows] = await db.execute(`SELECT * FROM ${table} WHERE id=? LIMIT 1`, [userDigimonRow.id]);
     const m = mapRows && mapRows[0];
@@ -250,15 +254,16 @@ exports.startBattle = async (req, res) => {
     if (m) {
       // Somar atributos da Digidex + Atributos do Usuário (UserDigimons)
       // Usando extra_hp, extra_attack, extra_defense como bonus
-      const bonusHp = Number(m.extra_hp ?? 0);
-      const bonusAtk = getAttackBonus(m);
-      const bonusDef = Number(m.extra_defense ?? 0);
+      bonusHp = Number(m.extra_hp ?? 0);
+      bonusAtk = getAttackBonus(m);
+      bonusDef = Number(m.extra_defense ?? 0);
       
       const userCols = await getColumns(table);
       const hpCol = pick(userCols, ['max_hp', 'hp', 'vida']);
       const atkCol = pick(userCols, ['attack', 'atk', 'ataque', 'forca']);
       const defCol = pick(userCols, ['defense', 'def', 'defesa']);
       const spdCol = pick(userCols, ['attack_speed', 'speed', 'velocidade']);
+      const nicknameCol = pick(userCols, ['nickname', 'apelido', 'digimon_name', 'custom_name']);
 
       effHp = (hpCol ? Number(m[hpCol] || Number(userDigimon.base_hp || 0)) : Number(userDigimon.base_hp || 0)) + bonusHp;
       effAtk = (atkCol ? Number(m[atkCol] || 0) : Number(userDigimon.base_attack || 0)) + bonusAtk;
@@ -273,6 +278,11 @@ exports.startBattle = async (req, res) => {
       
       effXp = Number(m.xp ?? m.experience ?? m.exp ?? 0);
       level = Number(m.base_level ?? m.level ?? level);
+
+      if (nicknameCol) {
+        const candidate = String(m[nicknameCol] ?? '').trim();
+        if (candidate) userDisplayName = candidate;
+      }
     }
     
     // Validar e persistir HP atual
@@ -303,12 +313,16 @@ exports.startBattle = async (req, res) => {
       id: result.insertId,
       user: {
         id: userDigimon.id,
-        name: userDigimon.name,
+        name: userDisplayName,
+        type: userDigimon.type || null,
         hp: currentHp,
         max_hp: effHp,
         attack: effAtk,
+        extra_attack: bonusAtk,
         defense: effDef,
+        extra_defense: bonusDef,
         attack_speed: effSpd,
+        extra_hp: bonusHp,
         xp: effXp,
         max_xp: nextLevelXp,
         level: level,
@@ -317,6 +331,7 @@ exports.startBattle = async (req, res) => {
       enemy: {
         id: enemy.id,
         name: enemy.name,
+        type: enemy.type || null,
         hp: enemyHp,
         max_hp: enemyHp,
         attack: enemyAtk,
@@ -360,15 +375,16 @@ exports.attack = async (req, res) => {
     if (!map) return res.status(404).json({ message: 'Digimon do usuário não encontrado' });
     // Use the correct column for digimon_id based on mapping
     const digimonId = map[digiIdCol];
-    const [digRows] = await db.execute('SELECT id, name, base_hp, base_attack, base_defense, base_attack_speed, sprite_path FROM digidex WHERE id=?', [digimonId]);
+    const [digRows] = await db.execute('SELECT id, name, type, base_hp, base_attack, base_defense, base_attack_speed, sprite_path FROM digidex WHERE id=?', [digimonId]);
     const userDigimon = digRows && digRows[0];
-    const [enemyRows] = await db.execute('SELECT id, name, hp, attack, defense, difficulty, sprite_path, exp_reward, bits_reward FROM enemydex WHERE id=?', [battle.enemy_id]);
+    const [enemyRows] = await db.execute('SELECT id, name, type, hp, attack, defense, attack_speed, difficulty, sprite_path, exp_reward, bits_reward FROM enemydex WHERE id=?', [battle.enemy_id]);
     const enemy = enemyRows && enemyRows[0];
 
     // Calculate effective stats (prefer stored columns; fallback base + extras)
     const userCols = await getColumns(table);
     const atkCol = pick(userCols, ['attack', 'atk', 'ataque', 'forca']);
     const defCol = pick(userCols, ['defense', 'def', 'defesa']);
+    const bonusHp = Number(map.extra_hp ?? 0);
     const bonusAtk = getAttackBonus(map);
     const bonusDef = Number(map.extra_defense ?? 0);
     
@@ -756,11 +772,15 @@ exports.attack = async (req, res) => {
       user: {
         id: userDigimon?.id,
         name: userName,
+        type: userDigimon?.type || null,
         hp: newUserHp,
         max_hp: effHp,
         attack: userAtk,
+        extra_attack: bonusAtk,
         defense: userDef,
+        extra_defense: bonusDef,
         attack_speed: effSpd,
+        extra_hp: bonusHp,
         xp: effXp + (win ? (rewards?.xp || 0) : 0),
         max_xp: nextLevelXp,
         level: level,
@@ -769,10 +789,12 @@ exports.attack = async (req, res) => {
       enemy: {
         id: enemy?.id,
         name: enemy?.name,
+        type: enemy?.type || null,
         hp: newEnemyHp,
         max_hp: Number(battle.enemy_max_hp ?? enemy.hp ?? 0),
         attack: enemyAtk,
         defense: enemyDef,
+        attack_speed: Number(enemy?.attack_speed) || 2.0,
         difficulty: enemy?.difficulty || 'Normal',
         sprite_path: enemy?.sprite_path || null
       },
@@ -856,7 +878,7 @@ exports.flee = async (req, res) => {
         }
     }
 
-    let enemyQuery = 'SELECT id, name, hp, attack, defense, difficulty, sprite_path FROM enemydex';
+    let enemyQuery = 'SELECT id, name, type, hp, attack, defense, attack_speed, difficulty, sprite_path FROM enemydex';
     let enemyParams = [];
 
     if (map_id) {
@@ -889,9 +911,11 @@ exports.flee = async (req, res) => {
       enemy: {
         id: enemy.id,
         name: enemy.name,
+        type: enemy.type || null,
         hp: enemyHp,
         attack: enemyAtk,
         defense: enemyDef,
+        attack_speed: Number(enemy.attack_speed) || 2.0,
         difficulty: enemy.difficulty || 'Normal',
         sprite_path: enemy.sprite_path || null
       },

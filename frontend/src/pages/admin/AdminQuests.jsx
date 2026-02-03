@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Edit, Loader2 } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Copy, Edit, Loader2, Plus, Search, Trash2 } from 'lucide-react';
 
 const Textarea = (props) => (
   <textarea
@@ -15,9 +18,61 @@ const Textarea = (props) => (
   />
 );
 
+function SearchableSelect({
+  value,
+  onValueChange,
+  placeholder,
+  options,
+  contentPlaceholder = "Buscar...",
+  disabled,
+}) {
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, query]);
+
+  return (
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+      <SelectTrigger>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        <div className="p-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              placeholder={contentPlaceholder}
+              className="h-9 pl-9"
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+        {filtered.length > 0 ? (
+          filtered.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))
+        ) : (
+          <div className="px-3 pb-2 text-xs text-muted-foreground">Nenhum resultado</div>
+        )}
+      </SelectContent>
+    </Select>
+  );
+}
+
 export default function AdminQuests() {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCampaignId, setSelectedCampaignId] = useState('ALL');
+  const [campaignQuery, setCampaignQuery] = useState('');
+  const [questQuery, setQuestQuery] = useState('');
   
   // Modals
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
@@ -34,6 +89,7 @@ export default function AdminQuests() {
     description: '',
     npc_digimon_id: '',
     order: 0,
+    restartable: false,
     objectives: [],
     rewards: []
   });
@@ -52,7 +108,15 @@ export default function AdminQuests() {
     setLoading(true);
     try {
       const res = await api.get('/api/quests/campaigns');
-      setCampaigns(res.data);
+      const next = res.data || [];
+      setCampaigns(next);
+      setSelectedCampaignId((prev) => {
+        if (prev && prev !== 'ALL') {
+          const exists = next.some((c) => String(c.id) === String(prev));
+          if (exists) return prev;
+        }
+        return next.length > 0 ? String(next[0].id) : 'ALL';
+      });
     } catch (error) {
       console.error("Error fetching campaigns:", error);
     } finally {
@@ -139,6 +203,33 @@ export default function AdminQuests() {
     }
   };
 
+  const handleSaveQuestAndContinue = async () => {
+    try {
+      if (editingQuest) {
+        await api.put(`/api/quests/admin/quest/${editingQuest.id}`, questForm);
+        setIsQuestModalOpen(false);
+        resetQuestForm();
+        fetchData();
+        return;
+      }
+
+      await api.post('/api/quests/admin/quest', questForm);
+      fetchData();
+
+      setQuestForm((prev) => ({
+        ...prev,
+        title: '',
+        description: '',
+        order: Number.isFinite(Number(prev.order)) ? Number(prev.order) + 1 : 0,
+        objectives: [],
+        rewards: [],
+      }));
+    } catch (error) {
+      console.error("Error saving quest:", error);
+      alert("Erro ao salvar missão");
+    }
+  };
+
   const handleDeleteQuest = async (id) => {
     if (!window.confirm("Tem certeza que deseja excluir esta missão?")) return;
     try {
@@ -161,6 +252,7 @@ export default function AdminQuests() {
             description: q.description,
             npc_digimon_id: q.npc_digimon_id ? q.npc_digimon_id.toString() : '',
             order: q.order,
+            restartable: !!q.restartable,
             objectives: q.objectives.map(o => ({
                 ...o, 
                 target_item_id: o.target_item_id ? o.target_item_id.toString() : '', 
@@ -178,8 +270,46 @@ export default function AdminQuests() {
     }
   };
 
+  const handleDuplicateQuest = async (questId) => {
+    try {
+      const res = await api.get(`/api/quests/${questId}`);
+      const q = res.data;
+
+      setEditingQuest(null);
+      setQuestForm({
+        campaign_id: q.campaign_id?.toString() || '',
+        title: `${q.title} (Cópia)`,
+        description: q.description,
+        npc_digimon_id: q.npc_digimon_id ? q.npc_digimon_id.toString() : '',
+        order: Number.isFinite(Number(q.order)) ? Number(q.order) + 1 : 0,
+        restartable: !!q.restartable,
+        objectives: (q.objectives || []).map((o) => ({
+          ...o,
+          id: undefined,
+          quest_id: undefined,
+          target_item_id: o.target_item_id ? o.target_item_id.toString() : '',
+          target_enemy_id: o.target_enemy_id ? o.target_enemy_id.toString() : '',
+        })),
+        rewards: (q.rewards || []).map((r) => ({
+          ...r,
+          id: undefined,
+          quest_id: undefined,
+          item_id: r.item_id ? r.item_id.toString() : '',
+          digimon_id: r.digimon_id ? r.digimon_id.toString() : '',
+        })),
+      });
+      setIsQuestModalOpen(true);
+    } catch (error) {
+      console.error("Error duplicating quest:", error);
+      alert("Erro ao duplicar missão");
+    }
+  };
+
   const handleNewQuest = () => {
     resetQuestForm();
+    if (selectedCampaignId && selectedCampaignId !== 'ALL') {
+      setQuestForm((prev) => ({ ...prev, campaign_id: String(selectedCampaignId) }));
+    }
     setIsQuestModalOpen(true);
   };
 
@@ -190,6 +320,7 @@ export default function AdminQuests() {
       description: '',
       npc_digimon_id: '',
       order: 0,
+      restartable: false,
       objectives: [],
       rewards: []
     });
@@ -236,56 +367,218 @@ export default function AdminQuests() {
     setQuestForm({ ...questForm, rewards: newRewards });
   };
 
+  const allQuests = useMemo(() => {
+    const rows = [];
+    for (const c of campaigns) {
+      for (const q of c.quests || []) {
+        rows.push({ ...q, campaign: { id: c.id, title: c.title, order: c.order } });
+      }
+    }
+    rows.sort((a, b) => {
+      const ao = Number(a.campaign?.order ?? 0) - Number(b.campaign?.order ?? 0);
+      if (ao !== 0) return ao;
+      const qo = Number(a.order ?? 0) - Number(b.order ?? 0);
+      if (qo !== 0) return qo;
+      return String(a.title || '').localeCompare(String(b.title || ''));
+    });
+    return rows;
+  }, [campaigns]);
+
+  const questsForView = useMemo(() => {
+    const base = selectedCampaignId === 'ALL'
+      ? allQuests
+      : allQuests.filter((q) => String(q.campaign_id) === String(selectedCampaignId) || String(q.campaign?.id) === String(selectedCampaignId));
+    const q = questQuery.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter((row) => {
+      const title = String(row.title || '').toLowerCase();
+      const desc = String(row.description || '').toLowerCase();
+      const camp = String(row.campaign?.title || '').toLowerCase();
+      return title.includes(q) || desc.includes(q) || camp.includes(q);
+    });
+  }, [allQuests, questQuery, selectedCampaignId]);
+
   if (loading) return <div className="p-8 text-white"><Loader2 className="animate-spin" /> Carregando...</div>;
 
+  const filteredCampaigns = campaigns.filter((c) => {
+    const q = campaignQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (c.title || '').toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q);
+  });
+
+  const selectedCampaign = campaigns.find((c) => String(c.id) === String(selectedCampaignId)) || null;
+
+  const campaignOptions = campaigns.map((c) => ({ value: String(c.id), label: c.title }));
+  const digimonOptions = digimons.map((d) => ({ value: String(d.id), label: d.name }));
+  const itemOptions = items.map((i) => ({ value: String(i.id), label: i.name }));
+  const enemyOptions = enemies.map((e) => ({ value: String(e.id), label: e.name }));
+
   return (
-    <div className="min-h-screen text-slate-100 p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Admin: Missões e Campanhas</h1>
-        <div className="flex gap-2">
-            <Button onClick={handleNewCampaign} variant="outline" className="border-primary/50 text-primary hover:bg-primary/10">
-                <Plus className="mr-2 h-4 w-4" /> Nova Campanha
-            </Button>
-            <Button onClick={handleNewQuest} variant="secondary">
-                <Plus className="mr-2 h-4 w-4" /> Nova Missão
-            </Button>
+    <div className="min-h-screen p-6 md:p-8 space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Admin: Missões e Campanhas</h1>
+          <p className="text-muted-foreground text-sm">Crie, edite e duplique missões com mais rapidez.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={handleNewCampaign} variant="outline" className="border-primary/50 text-primary hover:bg-primary/10">
+            <Plus className="mr-2 h-4 w-4" /> Nova Campanha
+          </Button>
+          <Button onClick={handleNewQuest} variant="secondary">
+            <Plus className="mr-2 h-4 w-4" /> Nova Missão
+          </Button>
         </div>
       </div>
 
-      <div className="space-y-6">
-        {campaigns.map(campaign => (
-          <Card key={campaign.id} className="bg-slate-900 border-slate-800">
-            <CardHeader>
-              <CardTitle className="flex justify-between items-center text-lg">
-                <span>{campaign.title} (Ordem: {campaign.order})</span>
-                <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => handleEditCampaign(campaign)}><Edit className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDeleteCampaign(campaign.id)} className="text-red-500 hover:text-red-600 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-muted-foreground mb-2">Missões ({campaign.quests.length})</h4>
-                    <div className="space-y-2 pl-2 border-l-2 border-slate-800">
-                      {campaign.quests.map(quest => (
-                        <div key={quest.id} className="flex justify-between items-center p-3 bg-slate-800/50 hover:bg-slate-800 rounded transition-colors group">
-                          <div>
-                            <p className="font-bold">{quest.title}</p>
-                            <p className="text-sm text-slate-400">{quest.description}</p>
-                          </div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="sm" onClick={() => handleEditQuest(quest.id)}><Edit className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteQuest(quest.id)} className="text-red-500 hover:text-red-600 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /></Button>
-                          </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr] xl:grid-cols-[420px_1fr]">
+        <Card className="border-border min-w-0">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center justify-between gap-3">
+              <span>Campanhas</span>
+              <Badge variant="secondary">{campaigns.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={campaignQuery}
+                onChange={(e) => setCampaignQuery(e.target.value)}
+                placeholder="Buscar campanha..."
+                className="pl-9"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={selectedCampaignId === 'ALL' ? "secondary" : "outline"}
+                className="flex-1 justify-start"
+                onClick={() => setSelectedCampaignId('ALL')}
+              >
+                Todas
+              </Button>
+              {selectedCampaign ? (
+                <Button type="button" variant="outline" onClick={() => handleEditCampaign(selectedCampaign)}>
+                  <Edit className="h-4 w-4" />
+                </Button>
+              ) : null}
+            </div>
+
+            <ScrollArea className="h-[calc(100vh-18rem)]">
+              <div className="space-y-2 pr-3">
+                {filteredCampaigns.map((c) => {
+                  const isActive = String(selectedCampaignId) === String(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setSelectedCampaignId(String(c.id))}
+                      className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                        isActive ? "border-primary/50 bg-primary/10" : "border-border hover:bg-accent"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-semibold truncate">{c.title}</div>
+                          <div className="text-xs text-muted-foreground line-clamp-2">{c.description || "—"}</div>
                         </div>
-                      ))}
-                      {campaign.quests.length === 0 && <p className="text-slate-500 text-sm italic">Nenhuma missão nesta campanha.</p>}
-                    </div>
+                        <Badge variant="outline" className="shrink-0">
+                          {(c.quests || []).length}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Ordem</span>
+                        <span className="font-mono">{c.order ?? 0}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {filteredCampaigns.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">Nenhuma campanha encontrada.</div>
+                ) : null}
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border min-w-0">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center justify-between gap-3">
+              <span>
+                {selectedCampaignId === 'ALL'
+                  ? "Todas as Missões"
+                  : (selectedCampaign?.title || "Missões")}
+              </span>
+              <Badge variant="secondary">{questsForView.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="sticky top-3 z-10 -mx-6 bg-card/95 px-6 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={questQuery}
+                    onChange={(e) => setQuestQuery(e.target.value)}
+                    placeholder="Buscar missão por título, descrição ou campanha..."
+                    className="pl-9"
+                  />
+                </div>
+                <Button type="button" variant="secondary" onClick={handleNewQuest} className="md:shrink-0">
+                  <Plus className="mr-2 h-4 w-4" /> Nova Missão
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {questsForView.map((q) => (
+                <div
+                  key={q.id}
+                  className="rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent/30"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="font-semibold truncate">{q.title}</div>
+                        <Badge variant="outline" className="font-mono">#{q.order ?? 0}</Badge>
+                        {q.restartable ? <Badge variant="secondary">Refazível</Badge> : null}
+                        {selectedCampaignId === 'ALL' ? (
+                          <Badge variant="outline" className="max-w-[240px] truncate">
+                            {q.campaign?.title || "Campanha"}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <div className="mt-1 text-sm text-muted-foreground line-clamp-2">{q.description}</div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => handleEditQuest(q.id)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => handleDuplicateQuest(q.id)} title="Duplicar">
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteQuest(q.id)}
+                        className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {questsForView.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">Nenhuma missão encontrada.</div>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Create/Edit Campaign Modal */}
@@ -307,7 +600,22 @@ export default function AdminQuests() {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleSaveCampaign}>{editingCampaign ? 'Salvar' : 'Criar'}</Button>
+            <div className="flex w-full gap-2">
+              {editingCampaign ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="mr-auto"
+                  onClick={() => handleDeleteCampaign(editingCampaign.id)}
+                >
+                  Excluir
+                </Button>
+              ) : null}
+              <Button type="button" variant="outline" onClick={() => setIsCampaignModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="button" onClick={handleSaveCampaign}>{editingCampaign ? 'Salvar' : 'Criar'}</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -321,12 +629,12 @@ export default function AdminQuests() {
                 <h3 className="font-bold border-b pb-2">Informações Básicas</h3>
                 <div>
                     <Label>Campanha</Label>
-                    <Select value={questForm.campaign_id} onValueChange={val => setQuestForm({...questForm, campaign_id: val})}>
-                        <SelectTrigger><SelectValue placeholder="Selecione a Campanha" /></SelectTrigger>
-                        <SelectContent>
-                            {campaigns.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.title}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={questForm.campaign_id}
+                      onValueChange={(val) => setQuestForm({ ...questForm, campaign_id: val })}
+                      placeholder="Selecione a Campanha"
+                      options={campaignOptions}
+                    />
                 </div>
                 <div>
                     <Label>Título</Label>
@@ -338,16 +646,27 @@ export default function AdminQuests() {
                 </div>
                 <div>
                     <Label>Digimon NPC (ID)</Label>
-                    <Select value={questForm.npc_digimon_id} onValueChange={val => setQuestForm({...questForm, npc_digimon_id: val})}>
-                        <SelectTrigger><SelectValue placeholder="Selecione o NPC" /></SelectTrigger>
-                        <SelectContent>
-                            {digimons.map(d => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={questForm.npc_digimon_id}
+                      onValueChange={(val) => setQuestForm({ ...questForm, npc_digimon_id: val })}
+                      placeholder="Selecione o NPC"
+                      options={digimonOptions}
+                      contentPlaceholder="Buscar digimon..."
+                    />
                 </div>
                 <div>
                     <Label>Ordem</Label>
                     <Input type="number" value={questForm.order} onChange={e => setQuestForm({...questForm, order: parseInt(e.target.value)})} />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-950/40 p-3">
+                  <div>
+                    <div className="text-sm font-semibold">Permitir refazer</div>
+                    <div className="text-xs text-slate-300">Se habilitado, o jogador pode recomeçar após concluir.</div>
+                  </div>
+                  <Checkbox
+                    checked={!!questForm.restartable}
+                    onCheckedChange={(checked) => setQuestForm({ ...questForm, restartable: !!checked })}
+                  />
                 </div>
             </div>
 
@@ -378,19 +697,21 @@ export default function AdminQuests() {
                                 <Button size="icon" variant="destructive" onClick={() => removeObjective(idx)}><Trash2 className="h-4 w-4" /></Button>
                             </div>
                             {obj.type === 'COLLECT_ITEM' ? (
-                                <Select value={obj.target_item_id} onValueChange={v => updateObjective(idx, 'target_item_id', v)}>
-                                    <SelectTrigger><SelectValue placeholder="Selecione o Item" /></SelectTrigger>
-                                    <SelectContent>
-                                        {items.map(i => <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                  value={obj.target_item_id}
+                                  onValueChange={(v) => updateObjective(idx, 'target_item_id', v)}
+                                  placeholder="Selecione o Item"
+                                  options={itemOptions}
+                                  contentPlaceholder="Buscar item..."
+                                />
                             ) : (
-                                <Select value={obj.target_enemy_id} onValueChange={v => updateObjective(idx, 'target_enemy_id', v)}>
-                                    <SelectTrigger><SelectValue placeholder="Selecione o Inimigo" /></SelectTrigger>
-                                    <SelectContent>
-                                        {enemies.map(e => <SelectItem key={e.id} value={e.id.toString()}>{e.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                  value={obj.target_enemy_id}
+                                  onValueChange={(v) => updateObjective(idx, 'target_enemy_id', v)}
+                                  placeholder="Selecione o Inimigo"
+                                  options={enemyOptions}
+                                  contentPlaceholder="Buscar inimigo..."
+                                />
                             )}
                             <Input placeholder="Custom Description (Optional)" value={obj.description} onChange={e => updateObjective(idx, 'description', e.target.value)} />
                         </div>
@@ -425,20 +746,22 @@ export default function AdminQuests() {
                                 <Button size="icon" variant="destructive" onClick={() => removeReward(idx)}><Trash2 className="h-4 w-4" /></Button>
                             </div>
                             {rw.type === 'ITEM' && (
-                                <Select value={rw.item_id} onValueChange={v => updateReward(idx, 'item_id', v)}>
-                                    <SelectTrigger><SelectValue placeholder="Select Item" /></SelectTrigger>
-                                    <SelectContent>
-                                        {items.map(i => <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                  value={rw.item_id}
+                                  onValueChange={(v) => updateReward(idx, 'item_id', v)}
+                                  placeholder="Selecione o Item"
+                                  options={itemOptions}
+                                  contentPlaceholder="Buscar item..."
+                                />
                             )}
                             {rw.type === 'DIGIMON' && (
-                                <Select value={rw.digimon_id} onValueChange={v => updateReward(idx, 'digimon_id', v)}>
-                                    <SelectTrigger><SelectValue placeholder="Select Digimon" /></SelectTrigger>
-                                    <SelectContent>
-                                        {digimons.map(d => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                  value={rw.digimon_id}
+                                  onValueChange={(v) => updateReward(idx, 'digimon_id', v)}
+                                  placeholder="Selecione o Digimon"
+                                  options={digimonOptions}
+                                  contentPlaceholder="Buscar digimon..."
+                                />
                             )}
                         </div>
                     ))}
@@ -446,7 +769,17 @@ export default function AdminQuests() {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleSaveQuest}>{editingQuest ? 'Salvar' : 'Criar'}</Button>
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setIsQuestModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="button" variant="secondary" onClick={handleSaveQuestAndContinue}>
+                {editingQuest ? 'Salvar' : 'Criar e continuar'}
+              </Button>
+              <Button type="button" onClick={handleSaveQuest}>
+                {editingQuest ? 'Salvar e fechar' : 'Criar'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
