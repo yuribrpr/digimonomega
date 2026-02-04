@@ -473,11 +473,35 @@ exports.attack = async (req, res) => {
       const [drops] = await db.execute('SELECT ed.item_id, ed.drop_rate, i.name, i.icon, i.type, i.effect_target, i.effect_value, i.is_percent FROM enemy_drops ed JOIN items i ON ed.item_id = i.id WHERE ed.enemy_id = ?', [enemy.id]);
       
       const droppedItems = [];
+      let allowedQuestItemIds = null;
+      if (drops && drops.some(d => String(d.type || '').toLowerCase() === 'quest')) {
+          try {
+              const [reqRows] = await db.execute(
+                `
+                SELECT DISTINCT qo.target_item_id AS item_id
+                FROM user_quests uq
+                JOIN quest_objectives qo ON qo.quest_id = uq.quest_id
+                WHERE uq.user_id = ?
+                  AND uq.status = 'IN_PROGRESS'
+                  AND qo.type = 'COLLECT_ITEM'
+                  AND qo.target_item_id IS NOT NULL
+                `,
+                [battle.user_id]
+              );
+              allowedQuestItemIds = new Set((reqRows || []).map(r => Number(r.item_id)));
+          } catch (e) {
+              allowedQuestItemIds = null;
+          }
+      }
       if (drops && drops.length > 0) {
           for (const drop of drops) {
               const chance = Number(drop.drop_rate);
               const roll = Math.random() * 100;
               if (roll <= chance) {
+                  const isQuestItem = String(drop.type || '').toLowerCase() === 'quest';
+                  if (isQuestItem && allowedQuestItemIds && !allowedQuestItemIds.has(Number(drop.item_id))) {
+                      continue;
+                  }
                   droppedItems.push(drop);
                   
                   // Add to inventory
