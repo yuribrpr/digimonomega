@@ -31,7 +31,7 @@ services:
     build:
       context: ./frontend
       args:
-        - VITE_API_URL=http://76.13.69.121:3000
+        - VITE_API_URL=https://digimon.kubelabs.online
     container_name: digimon_frontend
     restart: always
     expose:
@@ -39,17 +39,22 @@ services:
     depends_on:
       - backend
 
-  # --- O PORTEIRO (Novo Dono da Porta 80) ---
-  nginx_proxy:
-    image: nginx:alpine
+  # --- O PORTEIRO (HTTPS + Proxy reverso) ---
+  proxy:
+    image: caddy:2-alpine
     container_name: main_proxy
     restart: always
     ports:
-      - "80:80" # Ele recebe todo o tráfego da internet
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf # Usando arquivo completo em vez de include
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       - frontend
 
 volumes:
   db_data:
+  caddy_data:
+  caddy_config:

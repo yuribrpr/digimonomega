@@ -1,0 +1,19 @@
+digimon.kubelabs.online, kubelabs.online {
+  encode zstd gzip
+
+  handle /api/* {
+    reverse_proxy backend:3000
+  }
+
+  handle /assets/* {
+    reverse_proxy backend:3000
+  }
+
+  handle /socket.io/* {
+    reverse_proxy backend:3000
+  }
+
+  handle {
+    reverse_proxy frontend:80
+  }
+}
