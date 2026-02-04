@@ -52,3 +52,14 @@ jobs:
           docker network rm digimonomega_default || true
           docker compose build
           docker compose up -d --remove-orphans
+          i=0
+          until docker compose exec -T db sh -lc 'mysqladmin ping -uroot -p"$MYSQL_ROOT_PASSWORD" --silent' >/dev/null 2>&1; do
+            i=$((i+1))
+            if [ "$i" -ge 30 ]; then
+              echo "Banco não ficou pronto a tempo para rodar migrations."
+              docker compose logs --no-color db | tail -n 200 || true
+              exit 1
+            fi
+            sleep 2
+          done
+          docker compose exec -T backend npm run migrate

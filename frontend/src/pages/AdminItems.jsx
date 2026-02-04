@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Plus, Search, Package, Zap, Shield, Heart, Info } from 'lucide-react';
 import api from '../services/api';
 export default function AdminItems() {
@@ -15,6 +16,7 @@ export default function AdminItems() {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [editingId, setEditingId] = useState(null);
   // Form State
   const [name, setName] = useState('');
@@ -25,16 +27,33 @@ export default function AdminItems() {
   const [isPercent, setIsPercent] = useState(false);
   const [recoveryType, setRecoveryType] = useState('max'); // 'max' or 'current'
   const [file, setFile] = useState(null);
+
+  const typeLabels = {
+    consumable: 'Consumível',
+    object: 'Objeto (Key Item)',
+    equipable: 'Equipável',
+    quest: 'Quest',
+  };
+
+  const typeBadges = {
+    consumable: 'Consum',
+    object: 'Obj',
+    equipable: 'Equip',
+    quest: 'Quest',
+  };
+
   useEffect(() => {
     fetchItems();
   }, []);
   useEffect(() => {
-    if (searchTerm) {
-      setFilteredItems(items.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase())));
-    } else {
-      setFilteredItems(items);
-    }
-  }, [searchTerm, items]);
+    const normalized = searchTerm.trim().toLowerCase();
+    const result = items.filter(i => {
+      const matchesText = !normalized || String(i.name || '').toLowerCase().includes(normalized);
+      const matchesType = typeFilter === 'all' || i.type === typeFilter;
+      return matchesText && matchesType;
+    });
+    setFilteredItems(result);
+  }, [searchTerm, typeFilter, items]);
   const fetchItems = async () => {
     try {
       const response = await api.get('/api/items');
@@ -92,6 +111,7 @@ export default function AdminItems() {
     setEffectTarget('none');
     setEffectValue('');
     setIsPercent(false);
+    setRecoveryType('max');
     setFile(null);
     setEditingId(null);
   };
@@ -118,7 +138,7 @@ export default function AdminItems() {
           <DialogTrigger asChild>
             <Button onClick={resetForm}><Plus className="mr-2 h-4 w-4" /> Novo Item</Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingId ? 'Editar Item' : 'Criar Novo Item'}</DialogTitle>
               <DialogDescription>
@@ -126,86 +146,114 @@ export default function AdminItems() {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome do Item</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Descrição</Label>
-                <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="icon">Ícone</Label>
-                <Input id="icon" type="file" onChange={(e) => setFile(e.target.files[0])} accept="image/*" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="type">Tipo</Label>
-                <Select value={type} onValueChange={setType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="consumable">Consumível</SelectItem>
-                    <SelectItem value="object">Objeto (Key Item)</SelectItem>
-                    <SelectItem value="equipable">Equipável</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {type === 'consumable' && (
-                <div className="space-y-4 border p-4 rounded-md bg-secondary/20">
+              <Tabs defaultValue="geral">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="geral">Geral</TabsTrigger>
+                  <TabsTrigger value="efeito" disabled={type !== 'consumable'}>Efeito</TabsTrigger>
+                </TabsList>
+                <TabsContent value="geral" className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Nome do Item</Label>
+                      <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="type">Tipo</Label>
+                      <Select value={type} onValueChange={setType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="consumable">{typeLabels.consumable}</SelectItem>
+                          <SelectItem value="object">{typeLabels.object}</SelectItem>
+                          <SelectItem value="equipable">{typeLabels.equipable}</SelectItem>
+                          <SelectItem value="quest">{typeLabels.quest}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Descrição</Label>
+                    <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="icon">Ícone</Label>
+                    <Input id="icon" type="file" onChange={(e) => setFile(e.target.files[0])} accept="image/*" />
+                  </div>
+
+                  <div className="rounded-md border bg-secondary/15 p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold truncate">{name || 'Pré-visualização'}</div>
+                          <div className="text-xs text-muted-foreground truncate">{description || 'Sem descrição'}</div>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="uppercase text-[10px]">{typeBadges[type] || String(type || '').toUpperCase()}</Badge>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="efeito" className="space-y-4">
+                  <div className="space-y-4 border p-4 rounded-md bg-secondary/20">
                     <h4 className="font-semibold text-sm">Efeitos do Consumível</h4>
                     <div className="space-y-2">
-                        <Label>Atributo Afetado</Label>
-                        <Select value={effectTarget} onValueChange={setEffectTarget}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Nenhum</SelectItem>
-                                <SelectItem value="hp">Vida (HP)</SelectItem>
-                                <SelectItem value="attack">Ataque</SelectItem>
-                                <SelectItem value="defense">Defesa</SelectItem>
-                                <SelectItem value="xp">Experiência (XP)</SelectItem>
-                            </SelectContent>
-                        </Select>
+                      <Label>Atributo Afetado</Label>
+                      <Select value={effectTarget} onValueChange={setEffectTarget}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhum</SelectItem>
+                          <SelectItem value="hp">Vida (HP)</SelectItem>
+                          <SelectItem value="attack">Ataque</SelectItem>
+                          <SelectItem value="defense">Defesa</SelectItem>
+                          <SelectItem value="xp">Experiência (XP)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {effectTarget === 'hp' && (
-                        <div className="space-y-2">
-                            <Label>Tipo de Recuperação</Label>
-                            <Select value={recoveryType} onValueChange={setRecoveryType}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="max">Aumentar HP Máximo (Permanente)</SelectItem>
-                                    <SelectItem value="current">Recuperar HP Atual (Batalha)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                      <div className="space-y-2">
+                        <Label>Tipo de Recuperação</Label>
+                        <Select value={recoveryType} onValueChange={setRecoveryType}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="max">Aumentar HP Máximo (Permanente)</SelectItem>
+                            <SelectItem value="current">Recuperar HP Atual (Batalha)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     )}
 
                     <div className="flex gap-4 items-end">
-                        <div className="space-y-2 flex-1">
-                            <Label>Valor</Label>
-                            <Input 
-                                type="number" 
-                                value={effectValue} 
-                                onChange={(e) => setEffectValue(e.target.value)} 
-                                placeholder="Ex: 500"
-                            />
-                        </div>
-                        <div className="flex items-center space-x-2 pb-3">
-                            <Checkbox 
-                                id="is_percent" 
-                                checked={isPercent} 
-                                onCheckedChange={setIsPercent}
-                            />
-                            <Label htmlFor="is_percent" className="cursor-pointer">É Porcentagem?</Label>
-                        </div>
+                      <div className="space-y-2 flex-1">
+                        <Label>Valor</Label>
+                        <Input
+                          type="number"
+                          value={effectValue}
+                          onChange={(e) => setEffectValue(e.target.value)}
+                          placeholder="Ex: 500"
+                          min="0"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2 pb-3">
+                        <Checkbox
+                          id="is_percent"
+                          checked={isPercent}
+                          onCheckedChange={setIsPercent}
+                        />
+                        <Label htmlFor="is_percent" className="cursor-pointer">É Porcentagem?</Label>
+                      </div>
                     </div>
-                </div>
-              )}
+                  </div>
+                </TabsContent>
+              </Tabs>
               <DialogFooter>
                 <Button type="submit">{editingId ? 'Salvar' : 'Criar Item'}</Button>
               </DialogFooter>
@@ -213,14 +261,30 @@ export default function AdminItems() {
           </DialogContent>
         </Dialog>
       </div>
-      <div className="flex items-center space-x-2 bg-secondary/30 p-2 rounded-md border w-full max-w-sm">
-        <Search className="h-4 w-4 text-muted-foreground" />
-        <Input 
-          placeholder="Buscar item..." 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-        />
+      <div className="flex flex-col md:flex-row md:items-center gap-3">
+        <div className="flex items-center space-x-2 bg-secondary/30 p-2 rounded-md border w-full max-w-sm">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Buscar item..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+          />
+        </div>
+        <div className="w-full md:w-[260px]">
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filtrar por tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os tipos</SelectItem>
+              <SelectItem value="consumable">{typeLabels.consumable}</SelectItem>
+              <SelectItem value="object">{typeLabels.object}</SelectItem>
+              <SelectItem value="equipable">{typeLabels.equipable}</SelectItem>
+              <SelectItem value="quest">{typeLabels.quest}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {filteredItems.map((item) => (
@@ -238,7 +302,7 @@ export default function AdminItems() {
                         <Package className="w-8 h-8 text-muted-foreground/50" />
                     )}
                     <Badge variant="secondary" className="absolute -top-2 -right-2 text-[10px] uppercase">
-                        {item.type === 'consumable' ? 'Consum' : item.type === 'object' ? 'Obj' : 'Equip'}
+                        {typeBadges[item.type] || String(item.type || '').toUpperCase()}
                     </Badge>
                 </div>
                 <div>

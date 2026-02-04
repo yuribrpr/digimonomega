@@ -1,7 +1,53 @@
 const db = require('../config/db');
 
+let ensuredQuestType = false;
+
+async function ensureQuestTypeOnItems() {
+  if (ensuredQuestType) return;
+  ensuredQuestType = true;
+
+  try {
+    const [rows] = await db.execute(
+      `
+      SELECT COLUMN_TYPE, IS_NULLABLE
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'items'
+        AND COLUMN_NAME = 'type'
+      LIMIT 1
+      `
+    );
+
+    const row = rows && rows[0];
+    const columnType = row && (row.COLUMN_TYPE || row.column_type);
+    if (typeof columnType !== 'string') return;
+
+    const lower = columnType.toLowerCase();
+    if (!lower.startsWith('enum(')) return;
+
+    const match = columnType.match(/^enum\((.*)\)$/i);
+    if (!match) return;
+
+    const inner = match[1];
+    const parts = inner.split(/,(?=(?:[^']*'[^']*')*[^']*$)/g).map(p => p.trim());
+    const values = parts.map(p => p.replace(/^'/, '').replace(/'$/, '').replace(/''/g, "'"));
+
+    if (values.includes('quest')) return;
+
+    const newValues = [...values, 'quest'];
+    const enumSql = newValues.map(v => `'${String(v).replace(/'/g, "''")}'`).join(',');
+    const nullable = row && String(row.IS_NULLABLE || row.is_nullable).toUpperCase() === 'YES';
+    const nullSql = nullable ? 'NULL' : 'NOT NULL';
+
+    await db.execute(`ALTER TABLE items MODIFY COLUMN type ENUM(${enumSql}) ${nullSql}`);
+  } catch (error) {
+    ensuredQuestType = false;
+  }
+}
+
 exports.createItem = async (req, res) => {
   try {
+    await ensureQuestTypeOnItems();
     const { 
       name, description, type, 
       effect_target, effect_value, is_percent,
@@ -75,6 +121,7 @@ exports.deleteItem = async (req, res) => {
 
 exports.updateItem = async (req, res) => {
   try {
+    await ensureQuestTypeOnItems();
     const { id } = req.params;
     const {
       name,
