@@ -47,6 +47,8 @@ jobs:
           cd ~/digimonomega
           git fetch origin
           git reset --hard origin/main
-          docker compose down
+          docker rm -f main_proxy || true
+          docker compose down --remove-orphans || true
+          docker network rm digimonomega_default || true
           docker compose build
-          docker compose up -d
+          docker compose up -d --remove-orphans
