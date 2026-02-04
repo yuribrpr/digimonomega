@@ -217,13 +217,9 @@ exports.updateEnemy = async (req, res) => {
 exports.deleteEnemy = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // First check if enemy is used in map_enemies or battles
-    const [mapUsage] = await db.execute('SELECT COUNT(*) as count FROM map_enemies WHERE enemy_id = ?', [id]);
-    if (mapUsage[0].count > 0) {
-        return res.status(400).json({ message: 'Não é possível excluir: Este inimigo está alocado em mapas.' });
-    }
-
+    await db.execute('DELETE FROM map_enemies WHERE enemy_id = ?', [id]);
+    await db.execute('DELETE FROM battles WHERE enemy_id = ?', [id]);
+    await db.execute('DELETE FROM enemy_drops WHERE enemy_id = ?', [id]);
     const [result] = await db.execute(`DELETE FROM ${enemyTable} WHERE id = ?`, [id]);
     
     if (result.affectedRows === 0) {

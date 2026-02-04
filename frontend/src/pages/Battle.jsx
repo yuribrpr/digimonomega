@@ -70,75 +70,55 @@ function QuestTracker({ quests, onSelectQuest, className = "", contentClassName 
                         const progressLabel = total === 1 && primaryObjective
                           ? `(${primaryCurrent}/${primaryRequired}) ${primarySuffix}`
                           : `(${completed}/${total}) objetivos`;
-
-                        const tooltip = (
-                          <div className="space-y-3">
-                            <div className="space-y-1">
-                              <div className="text-sm font-semibold text-slate-50">{q.title}</div>
-                              <div className="text-[11px] text-slate-300">Progresso: {completed}/{total}</div>
-                            </div>
-                            <div className="space-y-2">
-                              {objectives.map((obj, i) => {
-                                const current = q.progress?.[obj.id] || 0;
-                                const isComplete = current >= obj.quantity_required;
-                                const label = obj.description || (obj.type === 'COLLECT_ITEM'
-                                  ? `Coletar ${obj.target_name || 'Item'}`
-                                  : `Derrotar ${obj.target_name || 'Inimigo'}`
-                                );
-                                return (
-                                  <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-2.5 py-2">
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      {isComplete ? (
-                                        <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />
-                                      ) : (
-                                        <Circle className="h-4 w-4 text-slate-400 shrink-0" />
-                                      )}
-                                      {obj.target_image ? (
-                                        <div className="h-8 w-8 rounded-md border border-white/10 bg-black/35 p-1 grid place-items-center overflow-hidden shrink-0">
-                                          <img
-                                            src={`${API_URL}/${obj.target_image}`}
-                                            alt={obj.target_name || 'Objetivo'}
-                                            className="h-full w-full object-contain"
-                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                          />
-                                        </div>
-                                      ) : null}
-                                      <div className="min-w-0">
-                                        <div className={`text-xs font-medium leading-tight ${isComplete ? 'text-green-300 line-through opacity-80' : 'text-slate-100'}`}>
-                                          {label}
-                                        </div>
-                                        <div className="text-[11px] text-slate-300">
-                                          {current} / {obj.quantity_required}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <Badge variant={isComplete ? "success" : "secondary"} className="shrink-0 h-5 px-2 text-[10px]">
-                                      {obj.quantity_required}x
-                                    </Badge>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
+                        const totalRequired = objectives.reduce((sum, obj) => sum + Number(obj.quantity_required || 0), 0);
+                        const totalCurrent = objectives.reduce((sum, obj) => {
+                          const current = Number(q.progress?.[obj.id] || 0);
+                          const required = Number(obj.quantity_required || 0);
+                          return sum + Math.min(current, required);
+                        }, 0);
+                        const completionPercent = totalRequired > 0 ? Math.round((totalCurrent / totalRequired) * 100) : (total > 0 ? Math.round((completed / total) * 100) : 0);
 
                         return (
-                          <GlobalTooltip key={q.id} content={tooltip}>
-                            <div
-                              className="flex items-center gap-2 px-2 py-2 -mx-2 cursor-pointer transition-colors hover:bg-white/5 group"
-                              onClick={() => (onSelectQuest ? onSelectQuest(q) : window.open('/quests', '_blank'))}
-                            >
-                              <div className={`h-1.5 w-1.5 rounded-full ${completed === total && total > 0 ? 'bg-green-400' : 'bg-yellow-400/80'}`} />
-                              <div className="min-w-0 flex-1">
+                          <div
+                            key={q.id}
+                            className="flex items-start gap-2 px-2 py-2 -mx-2 cursor-pointer transition-colors hover:bg-white/5 group"
+                            onClick={() => (onSelectQuest ? onSelectQuest(q) : window.open('/quests', '_blank'))}
+                          >
+                            <div className={`mt-1 h-1.5 w-1.5 rounded-full ${completed === total && total > 0 ? 'bg-green-400' : 'bg-yellow-400/80'}`} />
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex items-center justify-between gap-2">
                                 <div className="text-[12px] font-semibold text-slate-100 truncate group-hover:text-yellow-300 transition-colors">
                                   {q.title}
                                 </div>
+                                <span className="shrink-0 text-[10px] font-semibold text-slate-200/80 tabular-nums">
+                                  {completionPercent}%
+                                </span>
                               </div>
-                              <span className="shrink-0 text-[10px] font-semibold text-slate-200/80 tabular-nums">
-                                {progressLabel}
-                              </span>
+                              {q.description ? (
+                                <div className="max-h-10 overflow-y-auto pr-1 text-[10px] text-slate-400/90 scrollbar-thin">
+                                  {q.description}
+                                </div>
+                              ) : null}
+                              <div className="space-y-0.5 text-[11px] text-slate-200/80">
+                                {objectives.length === 0 ? (
+                                  <div className="text-slate-400/80">- Sem objetivos</div>
+                                ) : (
+                                  objectives.map((obj) => {
+                                    const current = q.progress?.[obj.id] || 0;
+                                    const label = obj.description || obj.target_name || (obj.type === 'COLLECT_ITEM' ? 'Item' : 'Inimigo');
+                                    return (
+                                      <div key={obj.id} className="flex items-center gap-1 min-w-0">
+                                        <span className="text-slate-500">-</span>
+                                        <span className="tabular-nums">({current}/{obj.quantity_required})</span>
+                                        <span className="truncate">{label}</span>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
                             </div>
-                          </GlobalTooltip>
+                            <span className="sr-only">{progressLabel}</span>
+                          </div>
                         );
                       })}
                     </div>
@@ -210,6 +190,8 @@ export default function Battle() {
   const [usingItemId, setUsingItemId] = useState(null);
   const [usedItemIds, setUsedItemIds] = useState(new Set());
   const [isLogExpanded, setIsLogExpanded] = useState(false);
+  const [showMobileLog, setShowMobileLog] = useState(false);
+  const [showMobileQuests, setShowMobileQuests] = useState(false);
 
   const [damageIndicators, setDamageIndicators] = useState([]);
   const [mapDetails, setMapDetails] = useState(null);
@@ -983,7 +965,7 @@ export default function Battle() {
       <div className="w-full">
         <Card className="border shadow-none rounded-2xl overflow-hidden bg-slate-950 text-slate-100">
           <CardContent className="p-0">
-            <div className="relative h-[460px] md:h-[640px] bg-slate-950 w-full overflow-hidden px-2 pb-6 md:px-24 md:pb-10">
+            <div className="relative h-[720px] md:h-[640px] bg-slate-950 w-full overflow-hidden px-2 pb-10 md:px-24 md:pb-10">
               {mapMediaUrl ? (
                 isMapVideo ? (
                   <video
@@ -1006,25 +988,52 @@ export default function Battle() {
               <div className="absolute inset-0 z-10 [background:radial-gradient(70%_55%_at_50%_45%,rgba(255,255,255,0.06),rgba(0,0,0,0.55))]" />
 
               <div className="absolute left-2 right-2 top-2 z-40 md:left-6 md:right-6 md:top-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/45 px-3 py-1.5 text-xs font-semibold tracking-tight text-slate-100 shadow-[0_14px_40px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md">
-                      <Map className="h-4 w-4 text-slate-200" />
-                      <span className="max-w-[48vw] truncate">{mapDetails ? mapDetails.name : 'Mapa de Batalha'}</span>
-                      {paused ? (
-                        <span className="ml-1 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold tracking-[0.24em] text-slate-200">
-                          PAUSADO
-                        </span>
-                      ) : null}
+                <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-2 shadow-[0_14px_40px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md md:border-transparent md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/45 px-3 py-1.5 text-xs font-semibold tracking-tight text-slate-100 shadow-[0_14px_40px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md md:shadow-none">
+                        <Map className="h-4 w-4 text-slate-200" />
+                        <span className="max-w-[60vw] truncate">{mapDetails ? mapDetails.name : 'Mapa de Batalha'}</span>
+                        {paused ? (
+                          <span className="ml-1 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold tracking-[0.24em] text-slate-200">
+                            PAUSADO
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
+
+                    <div />
                   </div>
 
-                  <div />
-                </div>
-
-                <div className="mt-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="relative w-[46%] md:w-[40%]">
+                  <div className="mt-2">
+                    <div className="flex items-center gap-2 md:hidden">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-8 rounded-full border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-950/75"
+                        onClick={() => {
+                          setShowMobileLog((v) => !v);
+                          setShowMobileQuests(false);
+                        }}
+                      >
+                        <Activity className="mr-2 h-3.5 w-3.5" />
+                        Histórico
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-8 rounded-full border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-950/75"
+                        onClick={() => {
+                          setShowMobileQuests((v) => !v);
+                          setShowMobileLog(false);
+                        }}
+                      >
+                        <ScrollText className="mr-2 h-3.5 w-3.5" />
+                        Missões
+                      </Button>
+                    </div>
+                  <div className="flex flex-col items-center gap-3 md:flex-row md:items-start md:justify-between md:gap-2">
+                    <div className="relative w-full md:w-[40%]">
                       <div className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-md">
                         {showPlayerSkeleton ? (
                           <div className="space-y-2">
@@ -1076,7 +1085,7 @@ export default function Battle() {
                           </>
                         )}
                       </div>
-                      <div className="absolute left-0 top-full mt-2 z-50 w-[320px] max-w-[calc(100vw-16px)]">
+                      <div className={`${showMobileLog ? 'block' : 'hidden'} mt-3 w-full max-w-[calc(100vw-16px)] md:absolute md:left-0 md:top-full md:mt-2 md:w-[320px] md:block`}>
                         <div className="rounded-2xl border border-white/10 bg-slate-950/45 shadow-[0_24px_60px_-38px_rgba(0,0,0,0.95)] backdrop-blur-md overflow-hidden">
                           <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-white/10">
                             <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.24em] text-slate-200">
@@ -1113,13 +1122,13 @@ export default function Battle() {
                       </div>
                     </div>
 
-                    <div className="pt-2">
+                    <div className="pt-1 md:pt-2">
                       <div className="rounded-full border border-white/10 bg-slate-950/35 px-2.5 py-1 text-[10px] font-bold tracking-[0.32em] text-slate-200 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-md">
                         VS
                       </div>
                     </div>
 
-                    <div className="relative w-[46%] md:w-[40%]">
+                    <div className="relative w-full md:w-[40%]">
                       <div className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-right shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-md">
                         {showEnemySkeleton ? (
                           <div className="space-y-2">
@@ -1161,15 +1170,16 @@ export default function Battle() {
                           </>
                         )}
                       </div>
-                      <div className="absolute right-0 top-full mt-2 z-50 w-[260px] max-w-[calc(100vw-16px)] md:w-[280px]">
+                      <div className={`${showMobileQuests ? 'block' : 'hidden'} mt-3 w-full max-w-[calc(100vw-16px)] md:absolute md:right-0 md:top-full md:mt-2 md:w-[280px] md:block`}>
                         <QuestTracker
                           quests={activeQuests}
                           onSelectQuest={setSelectedQuestForDetails}
-                          className="w-full"
-                          contentClassName="max-h-[150px] overflow-auto pr-1"
+                          className="w-full md:bg-slate-950/55 md:opacity-100"
+                          contentClassName="max-h-[180px] overflow-auto pr-1 scrollbar-thin"
                         />
                       </div>
                     </div>
+                  </div>
                   </div>
                 </div>
               </div>
