@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Verificar conexão SSH (porta 22)
+    - name: Verificar conexão SSH (porta configurável)
       shell: bash
       env:
         HOST: ${{ secrets.HOST }}
-        PORT: "22"
+        PORT: ${{ secrets.SSH_PORT || '22' }}
       run: |
         python - <<'PY'
         import os, socket, sys
@@ -38,7 +38,7 @@ jobs:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_KEY }}
-        port: 22
+        port: ${{ secrets.SSH_PORT || '22' }}
         timeout: 120s
         command_timeout: 30m
         debug: true
