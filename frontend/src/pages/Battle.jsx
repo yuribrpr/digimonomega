@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +25,7 @@ import {
   Trophy,
   Play,
   Pause,
-  ChevronRight,
+  Loader2,
   XCircle,
   AlertCircle,
   Backpack,
@@ -40,89 +40,109 @@ import { QuestDetailDialog } from './Quests';
 
 
 
-function QuestTracker({ quests, onSelectQuest }) {
+function QuestTracker({ quests, onSelectQuest, className = "", contentClassName = "" }) {
     const API_URL = api.defaults.baseURL;
 
     return (
-        <Card className="w-full lg:w-1/3 bg-slate-900/50 border-slate-800 backdrop-blur-sm h-fit shrink-0">
-            <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-bold flex items-center gap-2 text-yellow-500">
-                    <ScrollText className="w-4 h-4" /> Missões Ativas
+        <Card className={`bg-slate-950/55 border-white/10 backdrop-blur-md shadow-[0_24px_60px_-38px_rgba(0,0,0,0.95)] ${className}`}>
+            <CardHeader className="pb-2 pt-3 px-3">
+                <CardTitle className="text-xs font-bold flex items-center gap-2 text-yellow-500">
+                    <ScrollText className="w-4 h-4" /> Missões
                 </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 px-4 pb-4">
+            <CardContent className={`px-3 pb-3 ${contentClassName}`}>
                 {(!quests || quests.length === 0) ? (
                     <div className="text-xs text-slate-500 text-center py-4 italic">
                         Nenhuma missão em andamento.
                     </div>
                 ) : (
-                    quests.map(q => (
-                    <div 
-                        key={q.id} 
-                        className="p-3 bg-slate-950/50 rounded-lg border border-slate-800 hover:border-yellow-500/30 cursor-pointer transition-colors group"
-                        onClick={() => (onSelectQuest ? onSelectQuest(q) : window.open('/quests', '_blank'))}
-                        title="Clique para ver detalhes"
-                    >
-                        <div className="flex items-start justify-between gap-3">
-                            <p className="font-bold text-xs text-slate-200 truncate group-hover:text-yellow-400 transition-colors flex-1 min-w-0">
-                                {q.title}
-                            </p>
-                            <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-slate-800 text-slate-200 border border-slate-700">
-                                {q.objectives?.filter(obj => (q.progress?.[obj.id] || 0) >= obj.quantity_required).length || 0}/{q.objectives?.length || 0}
-                            </Badge>
-                        </div>
+                    <div className="divide-y divide-white/10">
+                      {quests.map((q) => {
+                        const objectives = q.objectives || [];
+                        const completed = objectives.filter(obj => (q.progress?.[obj.id] || 0) >= obj.quantity_required).length;
+                        const total = objectives.length;
+                        const primaryObjective = objectives[0] || null;
+                        const primaryCurrent = primaryObjective ? (q.progress?.[primaryObjective.id] || 0) : 0;
+                        const primaryRequired = primaryObjective ? primaryObjective.quantity_required : 0;
+                        const primarySuffix = primaryObjective
+                          ? (primaryObjective.target_name || (primaryObjective.type === 'COLLECT_ITEM' ? 'Item' : 'Inimigo'))
+                          : '';
+                        const progressLabel = total === 1 && primaryObjective
+                          ? `(${primaryCurrent}/${primaryRequired}) ${primarySuffix}`
+                          : `(${completed}/${total}) objetivos`;
 
-                        <div className="grid gap-2 mt-2">
-                            {(q.objectives || []).map((obj, i) => {
+                        const tooltip = (
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <div className="text-sm font-semibold text-slate-50">{q.title}</div>
+                              <div className="text-[11px] text-slate-300">Progresso: {completed}/{total}</div>
+                            </div>
+                            <div className="space-y-2">
+                              {objectives.map((obj, i) => {
                                 const current = q.progress?.[obj.id] || 0;
                                 const isComplete = current >= obj.quantity_required;
                                 const label = obj.description || (obj.type === 'COLLECT_ITEM'
-                                    ? `Coletar ${obj.target_name || 'Item'}`
-                                    : `Derrotar ${obj.target_name || 'Inimigo'}`
+                                  ? `Coletar ${obj.target_name || 'Item'}`
+                                  : `Derrotar ${obj.target_name || 'Inimigo'}`
                                 );
-
                                 return (
-                                    <div
-                                        key={i}
-                                        className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${isComplete ? 'bg-green-500/10 border-green-500/20' : 'bg-secondary/50 border-transparent'}`}
-                                    >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            {isComplete ? (
-                                                <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                                            ) : (
-                                                <Circle className="h-5 w-5 text-muted-foreground shrink-0" />
-                                            )}
-
-                                            {obj.target_image && (
-                                                <div className="w-10 h-10 rounded-md bg-secondary/50 p-1 border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
-                                                    <img
-                                                        src={`${API_URL}/${obj.target_image}`}
-                                                        alt={obj.target_name || 'Objetivo'}
-                                                        className="w-full h-full object-contain"
-                                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                                    />
-                                                </div>
-                                            )}
-
-                                            <div className="flex flex-col min-w-0">
-                                                <span className={`text-sm font-medium leading-tight ${isComplete ? 'text-green-500 line-through opacity-70' : 'text-foreground'}`}>
-                                                    {label}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground">
-                                                    Progresso: {current} / {obj.quantity_required}
-                                                </span>
-                                            </div>
+                                  <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-2.5 py-2">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      {isComplete ? (
+                                        <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />
+                                      ) : (
+                                        <Circle className="h-4 w-4 text-slate-400 shrink-0" />
+                                      )}
+                                      {obj.target_image ? (
+                                        <div className="h-8 w-8 rounded-md border border-white/10 bg-black/35 p-1 grid place-items-center overflow-hidden shrink-0">
+                                          <img
+                                            src={`${API_URL}/${obj.target_image}`}
+                                            alt={obj.target_name || 'Objetivo'}
+                                            className="h-full w-full object-contain"
+                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                          />
                                         </div>
-
-                                        <Badge variant={isComplete ? "success" : "secondary"} className="shrink-0">
-                                            {obj.quantity_required}x
-                                        </Badge>
+                                      ) : null}
+                                      <div className="min-w-0">
+                                        <div className={`text-xs font-medium leading-tight ${isComplete ? 'text-green-300 line-through opacity-80' : 'text-slate-100'}`}>
+                                          {label}
+                                        </div>
+                                        <div className="text-[11px] text-slate-300">
+                                          {current} / {obj.quantity_required}
+                                        </div>
+                                      </div>
                                     </div>
+                                    <Badge variant={isComplete ? "success" : "secondary"} className="shrink-0 h-5 px-2 text-[10px]">
+                                      {obj.quantity_required}x
+                                    </Badge>
+                                  </div>
                                 );
-                            })}
-                        </div>
+                              })}
+                            </div>
+                          </div>
+                        );
+
+                        return (
+                          <GlobalTooltip key={q.id} content={tooltip}>
+                            <div
+                              className="flex items-center gap-2 px-2 py-2 -mx-2 cursor-pointer transition-colors hover:bg-white/5 group"
+                              onClick={() => (onSelectQuest ? onSelectQuest(q) : window.open('/quests', '_blank'))}
+                            >
+                              <div className={`h-1.5 w-1.5 rounded-full ${completed === total && total > 0 ? 'bg-green-400' : 'bg-yellow-400/80'}`} />
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[12px] font-semibold text-slate-100 truncate group-hover:text-yellow-300 transition-colors">
+                                  {q.title}
+                                </div>
+                              </div>
+                              <span className="shrink-0 text-[10px] font-semibold text-slate-200/80 tabular-nums">
+                                {progressLabel}
+                              </span>
+                            </div>
+                          </GlobalTooltip>
+                        );
+                      })}
                     </div>
-                )))}
+                )}
             </CardContent>
         </Card>
     );
@@ -187,12 +207,15 @@ export default function Battle() {
   const [paused, setPaused] = useState(false);
   const [showBag, setShowBag] = useState(false);
   const [inventory, setInventory] = useState([]);
+  const [usingItemId, setUsingItemId] = useState(null);
   const [usedItemIds, setUsedItemIds] = useState(new Set());
+  const [isLogExpanded, setIsLogExpanded] = useState(false);
 
   const [damageIndicators, setDamageIndicators] = useState([]);
   const [mapDetails, setMapDetails] = useState(null);
   const [lastCrit, setLastCrit] = useState(false);
   const audioCtxRef = useRef(null);
+
   const ensureAudio = () => {
     if (!audioCtxRef.current) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -556,32 +579,24 @@ export default function Battle() {
        if (!user?.id) return;
        try {
            const res = await api.get(`/api/items/user/${user.id}`);
-           // Filter only consumable items and sort: HP first, then others
-           const consumables = res.data.filter(i => i.type === 'consumable').sort((a, b) => {
-               // HP items first
-               if (a.effect_target === 'hp' && b.effect_target !== 'hp') return -1;
-               if (a.effect_target !== 'hp' && b.effect_target === 'hp') return 1;
-               // Then by name
-               return a.name.localeCompare(b.name);
-           });
-           setInventory(consumables);
+           const hpConsumables = (res.data || []).filter(i => i.type === 'consumable' && i.effect_target === 'hp')
+             .sort((a, b) => a.name.localeCompare(b.name));
+           setInventory(hpConsumables);
        } catch (error) {
            console.error('Erro ao buscar inventário:', error);
        }
    };
 
   const handleOpenBag = () => {
-      setPaused(true);
       fetchInventory();
       setShowBag(true);
   };
 
   const handleCloseBag = () => {
       setShowBag(false);
-      setPaused(false);
   };
 
-  const handleUseItem = async (item) => {
+  async function handleUseItem(item) {
       try {
           const res = await api.post('/api/items/use', {
               userId: user.id,
@@ -616,26 +631,138 @@ export default function Battle() {
               return true; // Success signal for UI
           }
       } catch (error) {
-          console.error('Erro ao usar item:', error);
-          const msg = error.response?.data?.message || 'Erro ao usar item.';
+          const status = error?.response?.status;
+          const msg = error?.response?.data?.message || 'Erro ao usar item.';
+          if (status !== 400) {
+            console.error('Erro ao usar item:', error);
+          }
           setLogs(prev => [msg, ...prev]);
           return false;
       }
+  }
+
+  async function handleUseItemWithFeedback(item) {
+      if (usingItemId) return;
+      const startedAt = Date.now();
+      setUsingItemId(item.inventory_id);
+      try {
+        const success = await handleUseItem(item);
+        if (success) {
+            setUsedItemIds(prev => new Set(prev).add(item.inventory_id));
+            setTimeout(() => {
+                setUsedItemIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(item.inventory_id);
+                    return next;
+                });
+            }, 500);
+        }
+      } finally {
+        const elapsed = Date.now() - startedAt;
+        const remaining = 500 - elapsed;
+        if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
+        setUsingItemId(null);
+      }
+  }
+
+  useEffect(() => {
+    setPaused(showBag || showWinModal || showQuestCompletionDialog || showNoItemsModal || !!selectedQuestForDetails);
+  }, [selectedQuestForDetails, showBag, showNoItemsModal, showQuestCompletionDialog, showWinModal]);
+
+  const continuingAfterWinRef = useRef(false);
+  const handleContinueAfterWin = async () => {
+    if (continuingAfterWinRef.current) return;
+    continuingAfterWinRef.current = true;
+    if (mapDetails && mapDetails.require_item === 1 && mapDetails.consume_on_enter === 1 && Number(mapDetails.required_item_id)) {
+      try {
+        const res = await api.get(`/api/items/user/${user?.id}`);
+        const inv = res.data || [];
+        const hasItem = inv.some(x => Number(x.id) === Number(mapDetails.required_item_id) && Number(x.quantity) > 0);
+        if (!hasItem) {
+          setShowNoItemsModal(true);
+          continuingAfterWinRef.current = false;
+          return;
+        }
+      } catch (e) {
+        console.error('Erro ao verificar inventário:', e);
+      }
+    }
+    try {
+      await startBattle(false);
+    } finally {
+      continuingAfterWinRef.current = false;
+    }
   };
 
-  const handleUseItemWithFeedback = async (item) => {
-      const success = await handleUseItem(item);
-      if (success) {
-          setUsedItemIds(prev => new Set(prev).add(item.inventory_id));
-          setTimeout(() => {
-              setUsedItemIds(prev => {
-                  const next = new Set(prev);
-                  next.delete(item.inventory_id);
-                  return next;
-              });
-          }, 1500);
+  useEffect(() => {
+    if (!showWinModal || showNoItemsModal) return;
+
+    const onKeyDown = (e) => {
+      if (e.defaultPrevented) return;
+      if (e.repeat) return;
+
+      const target = e.target;
+      const tagName = target?.tagName ? String(target.tagName).toUpperCase() : '';
+      const isTypingTarget = tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target?.isContentEditable;
+      if (isTypingTarget) return;
+
+      if (e.key === 'Enter' || e.code === 'Space') {
+        e.preventDefault();
+        handleContinueAfterWin();
       }
-  };
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleContinueAfterWin, showNoItemsModal, showWinModal]);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.defaultPrevented) return;
+      if (e.repeat) return;
+
+      const target = e.target;
+      const tagName = target?.tagName ? String(target.tagName).toUpperCase() : '';
+      const isTypingTarget = tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target?.isContentEditable;
+      if (isTypingTarget) return;
+
+      if (showBag) {
+        if (e.key === 'Escape' || e.key === 'Enter' || e.code === 'Space') {
+          e.preventDefault();
+          handleCloseBag();
+          return;
+        }
+
+        const keyNum = Number.parseInt(e.key, 10);
+        if (!Number.isFinite(keyNum) || keyNum < 1) return;
+        const idx = keyNum - 1;
+        const item = inventory[idx];
+        if (!item) return;
+        if (usingItemId) return;
+        e.preventDefault();
+        handleUseItemWithFeedback(item);
+        return;
+      }
+
+      const hasBlockingDialog = showWinModal || showQuestCompletionDialog || showNoItemsModal || !!selectedQuestForDetails;
+      if (hasBlockingDialog) return;
+      if (!battle || battle.win) return;
+
+      if (e.key === '1') {
+        e.preventDefault();
+        executeAttack();
+      } else if (e.key === '2') {
+        e.preventDefault();
+        handleOpenBag();
+      } else if (e.key === '3') {
+        e.preventDefault();
+        onFlee();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [battle, executeAttack, handleCloseBag, handleOpenBag, handleUseItemWithFeedback, inventory, onFlee, selectedQuestForDetails, showBag, showNoItemsModal, showQuestCompletionDialog, showWinModal, usingItemId]);
 
   const myDigimon = battle?.user;
   const enemy = battle?.enemy;
@@ -644,6 +771,11 @@ export default function Battle() {
   const isBoss = enemy?.difficulty === 'Boss';
   const playerDisplayName = myDigimon?.display_name || myDigimon?.nickname || myDigimon?.name;
   const enemyDisplayName = enemy?.display_name || enemy?.name;
+  const mapMediaPath = mapDetails?.video_path || mapDetails?.image_path;
+  const mapMediaUrl = mapMediaPath
+    ? `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${String(mapMediaPath).replace(/\\/g, '/')}`
+    : null;
+  const isMapVideo = !!(mapMediaPath && String(mapMediaPath).toLowerCase().endsWith('.mp4'));
   const getAttributeBadgeMeta = (rawType) => {
     const t = String(rawType || 'unknown').toLowerCase();
     if (t === 'vaccine' || t === 'vacina') {
@@ -672,12 +804,12 @@ export default function Battle() {
 
   // Helper styles for animations
   const getPlayerStyle = () => {
-    if (animState === 'player-attack') return "translate-x-64 scale-110 z-20 transition-transform duration-300 ease-in";
+    if (animState === 'player-attack') return "translate-x-40 scale-110 z-20 transition-transform duration-300 ease-in";
     if (animState === 'player-hit') return "animate-shake text-red-500 brightness-150 saturate-0";
     return "transition-all duration-300";
   };
   const getEnemyStyle = () => {
-    if (animState === 'enemy-attack') return "-translate-x-64 scale-110 z-20 transition-transform duration-300 ease-in";
+    if (animState === 'enemy-attack') return "-translate-x-40 scale-110 z-20 transition-transform duration-300 ease-in";
     if (animState === 'enemy-hit') return "animate-shake text-red-500 brightness-150 saturate-0";
     return "transition-all duration-300";
   };
@@ -813,7 +945,7 @@ export default function Battle() {
   ) : null;
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
+    <div className="container mx-auto py-6 md:py-8 space-y-6">
       {/* Custom Keyframes for Shake Effect */}
       <style>{`
         @keyframes shake {
@@ -848,138 +980,319 @@ export default function Battle() {
             animation: float-up 0.8s ease-out forwards;
         }
       `}</style>
-      <div className="flex flex-col lg:flex-row gap-4 items-start">
-        <div className="flex-1 w-full min-w-0">
-          <Card className="border shadow-none rounded-xl overflow-hidden bg-white dark:bg-slate-950">
-        <CardHeader className="border-b bg-white dark:bg-slate-950 py-4">
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-lg font-medium tracking-tight flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              {mapDetails ? mapDetails.name : 'Simulação de Combate'}
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {/* Battle Arena - Tech Grid */}
-          <div className="relative h-[300px] md:h-[400px] bg-slate-950 w-full overflow-hidden flex justify-between items-end px-2 pb-6 md:px-24 md:pb-10">
-            {/* Map Background */}
-            {mapDetails?.image_path && (
-                <div 
+      <div className="w-full">
+        <Card className="border shadow-none rounded-2xl overflow-hidden bg-slate-950 text-slate-100">
+          <CardContent className="p-0">
+            <div className="relative h-[460px] md:h-[640px] bg-slate-950 w-full overflow-hidden px-2 pb-6 md:px-24 md:pb-10">
+              {mapMediaUrl ? (
+                isMapVideo ? (
+                  <video
+                    className="absolute inset-0 z-0 h-full w-full object-cover"
+                    src={mapMediaUrl}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                  />
+                ) : (
+                  <div
                     className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0"
-                    style={{ 
-                        backgroundImage: `url(${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${mapDetails.image_path.replace(/\\/g, '/')})`
-                    }}
-                ></div>
-            )}
-            <div className="absolute left-2 right-2 top-2 z-30 pointer-events-none md:left-6 md:right-6 md:top-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="w-[46%] md:w-[40%]">
-                  <div className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-md">
-                    {showPlayerSkeleton ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-4 w-32 bg-white/10" />
-                          <Skeleton className="h-4 w-14 rounded-full bg-white/10" />
-                        </div>
-                        <Skeleton className="h-2.5 w-full rounded-full bg-white/10" />
-                        <Skeleton className="h-1.5 w-[86%] rounded-full bg-white/10" />
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-1.5">
-                          <span className="min-w-0 truncate text-xs font-semibold text-slate-100">
-                            {playerDisplayName || '—'}
-                          </span>
-                          {myDigimon?.level !== undefined && myDigimon?.level !== null ? (
-                            <span className="shrink-0 text-[10px] font-semibold text-slate-200/80">
-                              (Lv. {myDigimon.level})
-                            </span>
-                          ) : null}
-                          {(() => {
-                            const meta = getAttributeBadgeMeta(myDigimon?.type ?? myDigimon?.attribute);
-                            return (
-                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.className}`}>
-                                {meta.label}
-                              </span>
-                            );
-                          })()}
-                        </div>
-                        <div
-                          className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-black/35 ring-1 ring-white/10"
-                          role="progressbar"
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          aria-valuenow={Math.round(hpPercent)}
-                        >
-                          <div className="h-full bg-gradient-to-r from-red-500 to-red-400 shadow-[inset_0_-1px_0_rgba(0,0,0,0.4)]" style={{ width: `${hpPercent}%` }} />
-                        </div>
-                        <div
-                          className="mt-1 h-1.5 w-[86%] overflow-hidden rounded-full bg-black/35 ring-1 ring-white/10"
-                          role="progressbar"
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          aria-valuenow={Math.round(xpPercent)}
-                        >
-                          <div className="h-full bg-gradient-to-r from-amber-400 to-yellow-200 shadow-[inset_0_-1px_0_rgba(0,0,0,0.35)]" style={{ width: `${xpPercent}%` }} />
-                        </div>
-                      </>
-                    )}
+                    style={{ backgroundImage: `url(${mapMediaUrl})` }}
+                  />
+                )
+              ) : null}
+              <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/30 via-black/10 to-black/60" />
+              <div className="absolute inset-0 z-10 [background:radial-gradient(70%_55%_at_50%_45%,rgba(255,255,255,0.06),rgba(0,0,0,0.55))]" />
+
+              <div className="absolute left-2 right-2 top-2 z-40 md:left-6 md:right-6 md:top-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/45 px-3 py-1.5 text-xs font-semibold tracking-tight text-slate-100 shadow-[0_14px_40px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md">
+                      <Map className="h-4 w-4 text-slate-200" />
+                      <span className="max-w-[48vw] truncate">{mapDetails ? mapDetails.name : 'Mapa de Batalha'}</span>
+                      {paused ? (
+                        <span className="ml-1 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold tracking-[0.24em] text-slate-200">
+                          PAUSADO
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
+
+                  <div />
                 </div>
 
-                <div className="pt-2">
-                  <div className="rounded-full border border-white/10 bg-slate-950/35 px-2.5 py-1 text-[10px] font-bold tracking-[0.32em] text-slate-200 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-md">
-                    VS
-                  </div>
-                </div>
-
-                <div className="w-[46%] md:w-[40%]">
-                  <div className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-right shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-md">
-                    {showEnemySkeleton ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-end gap-2">
-                          <Skeleton className="h-4 w-20 bg-white/10" />
-                          <Skeleton className="h-4 w-12 rounded-full bg-white/10" />
-                        </div>
-                        <Skeleton className="h-2.5 w-full rounded-full bg-white/10" />
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-end gap-2">
-                          {isBoss ? (
-                            <span className="inline-flex items-center rounded-full border border-red-500/30 bg-red-600/25 px-2 py-0.5 text-[10px] font-semibold text-red-200">
-                              BOSS
-                            </span>
-                          ) : null}
-                          <span className="min-w-0 truncate text-xs font-semibold text-slate-100">
-                            {enemyDisplayName || '—'}
-                          </span>
-                          {(() => {
-                            const meta = getAttributeBadgeMeta(enemy?.type ?? enemy?.attribute);
-                            return (
-                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.className}`}>
-                                {meta.label}
+                <div className="mt-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="relative w-[46%] md:w-[40%]">
+                      <div className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-md">
+                        {showPlayerSkeleton ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Skeleton className="h-4 w-32 bg-white/10" />
+                              <Skeleton className="h-4 w-14 rounded-full bg-white/10" />
+                            </div>
+                            <Skeleton className="h-2.5 w-full rounded-full bg-white/10" />
+                            <Skeleton className="h-1.5 w-[86%] rounded-full bg-white/10" />
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-1.5">
+                              <span className="min-w-0 truncate text-xs font-semibold text-slate-100">
+                                {playerDisplayName || '—'}
                               </span>
-                            );
-                          })()}
+                              {myDigimon?.level !== undefined && myDigimon?.level !== null ? (
+                                <span className="shrink-0 text-[10px] font-semibold text-slate-200/80">
+                                  (Lv. {myDigimon.level})
+                                </span>
+                              ) : null}
+                              {(() => {
+                                const meta = getAttributeBadgeMeta(myDigimon?.type ?? myDigimon?.attribute);
+                                return (
+                                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.className}`}>
+                                    {meta.label}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                            <div
+                              className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-black/35 ring-1 ring-white/10"
+                              role="progressbar"
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={Math.round(hpPercent)}
+                            >
+                              <div className="h-full bg-gradient-to-r from-red-500 to-red-400 shadow-[inset_0_-1px_0_rgba(0,0,0,0.4)]" style={{ width: `${hpPercent}%` }} />
+                            </div>
+                            <div
+                              className="mt-1 h-1.5 w-[86%] overflow-hidden rounded-full bg-black/35 ring-1 ring-white/10"
+                              role="progressbar"
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={Math.round(xpPercent)}
+                            >
+                              <div className="h-full bg-gradient-to-r from-amber-400 to-yellow-200 shadow-[inset_0_-1px_0_rgba(0,0,0,0.35)]" style={{ width: `${xpPercent}%` }} />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div className="absolute left-0 top-full mt-2 z-50 w-[320px] max-w-[calc(100vw-16px)]">
+                        <div className="rounded-2xl border border-white/10 bg-slate-950/45 shadow-[0_24px_60px_-38px_rgba(0,0,0,0.95)] backdrop-blur-md overflow-hidden">
+                          <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-white/10">
+                            <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.24em] text-slate-200">
+                              <Activity className="h-4 w-4 text-slate-200" />
+                              HISTÓRICO
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="h-8 rounded-full border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-950/75"
+                              onClick={() => setIsLogExpanded((v) => !v)}
+                            >
+                              {isLogExpanded ? 'Menos' : 'Mais'}
+                            </Button>
+                          </div>
+                          <div
+                            ref={logContainerRef}
+                            className={`px-3 py-2.5 font-mono text-xs overflow-y-auto ${isLogExpanded ? 'max-h-[220px]' : 'max-h-[120px]'}`}
+                          >
+                            <div className="space-y-1.5">
+                              {logs.length === 0 ? (
+                                <div className="text-slate-400 text-xs">Aguardando ações...</div>
+                              ) : (
+                                logs.map((l, i) => (
+                                  <div key={i} className="flex gap-3 text-slate-200/90 text-xs animate-in fade-in slide-in-from-top-1 py-1 border-b border-white/10 last:border-0">
+                                    <span className="text-slate-400 min-w-[24px] text-right font-mono opacity-60">{String(logs.length - i).padStart(2, '0')}</span>
+                                    <span className="min-w-0 break-words">{l}</span>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div
-                          className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-black/35 ring-1 ring-white/10"
-                          role="progressbar"
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          aria-valuenow={Math.round(enemyHpPercent)}
-                        >
-                          <div className="ml-auto h-full bg-gradient-to-l from-red-500 to-red-400 shadow-[inset_0_-1px_0_rgba(0,0,0,0.4)]" style={{ width: `${enemyHpPercent}%` }} />
-                        </div>
-                      </>
-                    )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <div className="rounded-full border border-white/10 bg-slate-950/35 px-2.5 py-1 text-[10px] font-bold tracking-[0.32em] text-slate-200 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-md">
+                        VS
+                      </div>
+                    </div>
+
+                    <div className="relative w-[46%] md:w-[40%]">
+                      <div className="rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-right shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] backdrop-blur-md">
+                        {showEnemySkeleton ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-end gap-2">
+                              <Skeleton className="h-4 w-20 bg-white/10" />
+                              <Skeleton className="h-4 w-12 rounded-full bg-white/10" />
+                            </div>
+                            <Skeleton className="h-2.5 w-full rounded-full bg-white/10" />
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-end gap-2">
+                              {isBoss ? (
+                                <span className="inline-flex items-center rounded-full border border-red-500/30 bg-red-600/25 px-2 py-0.5 text-[10px] font-semibold text-red-200">
+                                  BOSS
+                                </span>
+                              ) : null}
+                              <span className="min-w-0 truncate text-xs font-semibold text-slate-100">
+                                {enemyDisplayName || '—'}
+                              </span>
+                              {(() => {
+                                const meta = getAttributeBadgeMeta(enemy?.type ?? enemy?.attribute);
+                                return (
+                                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.className}`}>
+                                    {meta.label}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                            <div
+                              className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-black/35 ring-1 ring-white/10"
+                              role="progressbar"
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={Math.round(enemyHpPercent)}
+                            >
+                              <div className="ml-auto h-full bg-gradient-to-l from-red-500 to-red-400 shadow-[inset_0_-1px_0_rgba(0,0,0,0.4)]" style={{ width: `${enemyHpPercent}%` }} />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div className="absolute right-0 top-full mt-2 z-50 w-[260px] max-w-[calc(100vw-16px)] md:w-[280px]">
+                        <QuestTracker
+                          quests={activeQuests}
+                          onSelectQuest={setSelectedQuestForDetails}
+                          className="w-full"
+                          contentClassName="max-h-[150px] overflow-auto pr-1"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+
+              {showWinModal ? (
+                <>
+                  <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-[2px]" />
+                  <div className="absolute left-1/2 top-1/2 z-50 w-[min(520px,calc(100%-16px))] -translate-x-1/2 -translate-y-1/2">
+                    <div className="rounded-2xl border border-white/10 bg-slate-950/45 shadow-[0_24px_60px_-38px_rgba(0,0,0,0.95)] backdrop-blur-md overflow-hidden">
+                      <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-white/10">
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-10 w-10 place-items-center rounded-2xl border border-yellow-400/20 bg-yellow-500/10">
+                            <Trophy className="h-5 w-5 text-yellow-300" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-base font-bold tracking-tight text-slate-100">Vitória</div>
+                            <div className="text-xs text-slate-300 truncate">
+                              {enemyDisplayName ? `Você derrotou ${enemyDisplayName}.` : 'Você derrotou o inimigo com sucesso.'}
+                            </div>
+                          </div>
+                        </div>
+                        {isBoss ? (
+                          <span className="mt-0.5 inline-flex items-center rounded-full border border-red-500/30 bg-red-600/20 px-2.5 py-1 text-[11px] font-semibold text-red-200">
+                            BOSS
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="max-h-[52vh] overflow-auto px-4 py-3 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                            <div className="text-[11px] font-semibold tracking-wide text-slate-300">Experiência</div>
+                            <div className="mt-1 flex items-baseline gap-2">
+                              <span className="text-2xl font-extrabold text-white">+{rewards?.xp ?? 0}</span>
+                              <span className="text-sm font-semibold text-slate-300">XP</span>
+                            </div>
+                          </div>
+                          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                            <div className="text-[11px] font-semibold tracking-wide text-slate-300">Bits</div>
+                            <div className="mt-1 flex items-baseline gap-2">
+                              <span className="text-2xl font-extrabold text-white">+{rewards?.bits ?? 0}</span>
+                              <span className="text-sm font-semibold text-slate-300">Bits</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {rewards?.drops && rewards.drops.length > 0 ? (
+                          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-semibold tracking-wide text-slate-300">Drops</span>
+                              <span className="text-[11px] font-semibold text-slate-400">{rewards.drops.length}</span>
+                            </div>
+                            <div className="mt-3 grid grid-cols-4 gap-2">
+                              {rewards.drops.map((drop, idx) => (
+                                <GlobalTooltip
+                                  key={idx}
+                                  content={
+                                    <div className="space-y-1">
+                                      <p className="font-bold text-sm text-yellow-400">{drop.name}</p>
+                                      <p className="text-slate-300">Tipo: {drop.type === 'consumable' ? 'Consumível' : 'Outro'}</p>
+                                      {drop.type === 'consumable' && drop.effect_target && drop.effect_target !== 'none' ? (
+                                        <p className="text-green-400 text-xs">
+                                          Efeito: +{drop.effect_value}{drop.is_percent ? '%' : ''} {drop.effect_target.toUpperCase()}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                  }
+                                >
+                                  <div className="group flex flex-col items-center rounded-lg border border-white/10 bg-black/20 p-2 transition-colors hover:bg-black/30 cursor-help">
+                                    {drop.icon ? (
+                                      <img
+                                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.icon}`}
+                                        alt={drop.name}
+                                        className="w-8 h-8 object-contain mb-1"
+                                      />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full mb-1 bg-white/10 ring-1 ring-white/10 flex items-center justify-center text-[9px] text-slate-300">
+                                        ?
+                                      </div>
+                                    )}
+                                    <span className="text-[10px] text-center leading-tight truncate w-full text-slate-200">{drop.name}</span>
+                                  </div>
+                                </GlobalTooltip>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {levelUpInfo?.leveledUp ? (
+                          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-[11px] font-semibold tracking-wide text-slate-300">Subiu de nível</span>
+                              <span className="text-xs font-semibold text-slate-200">Nível {levelUpInfo.prevLevel} → {levelUpInfo.newLevel}</span>
+                            </div>
+                            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                              <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1">
+                                <span className="text-slate-300">HP</span>
+                                <span className="font-semibold text-emerald-300">+{levelUpInfo.hpGain}</span>
+                              </div>
+                              <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1">
+                                <span className="text-slate-300">ATK</span>
+                                <span className="font-semibold text-emerald-300">+{levelUpInfo.atkGain}</span>
+                              </div>
+                              <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1">
+                                <span className="text-slate-300">DEF</span>
+                                <span className="font-semibold text-emerald-300">+{levelUpInfo.defGain}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="px-4 pb-4">
+                        <Button className="w-full" onClick={handleContinueAfterWin}>
+                          Continuar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : null}
             {/* Player Side */}
-            <div className={`relative z-10 flex flex-col items-center gap-2 ${getPlayerStyle()}`}>
+            <div className={`absolute bottom-[120px] left-[30%] z-30 -ml-20 flex flex-col items-center gap-2 md:bottom-[150px] md:left-[34%] ${getPlayerStyle()}`}>
                <div className="relative">
                   {/* Impact Effect Overlay */}
                   {showImpact === 'player' && (
@@ -1024,9 +1337,9 @@ export default function Battle() {
                </div>
             </div>
             {/* VS Divider - Fades out during combat action */}
-            <div className={`h-32 w-px bg-gradient-to-b from-transparent via-slate-800 to-transparent transition-opacity duration-300 ${animState !== 'idle' ? 'opacity-0' : 'opacity-100'}`}></div>
+            <div className={`absolute bottom-[130px] left-1/2 z-20 h-40 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-slate-800 to-transparent transition-opacity duration-300 md:bottom-[165px] ${animState !== 'idle' ? 'opacity-0' : 'opacity-100'}`}></div>
             {/* Enemy Side */}
-            <div className={`relative z-10 flex flex-col items-center gap-2 ${getEnemyStyle()}`}>
+            <div className={`absolute bottom-[120px] left-[70%] z-30 -ml-20 flex flex-col items-center gap-2 md:bottom-[150px] md:left-[66%] ${getEnemyStyle()}`}>
                <div className="relative">
                   {/* Impact Effect Overlay */}
                   {showImpact === 'enemy' && (
@@ -1084,81 +1397,195 @@ export default function Battle() {
                  ))}
                </div>
             </div>
-          </div>
-          {/* Control Bar */}
-          <div className="p-4 md:p-6 bg-white dark:bg-slate-950 border-t grid grid-cols-2 gap-3 md:flex md:items-center md:justify-center md:gap-4">
-             <Button 
-                size="lg" 
-                className="w-full md:w-32 relative overflow-hidden select-none"
-                onClick={executeAttack}
-                disabled={!canAttack || battle?.win || (battle?.user?.hp ?? 0) <= 0 || loading || animState !== 'idle'}
-             >
-                {/* Cooldown Overlay */}
-                {!canAttack && playerMaxCooldown > 0 && (
-                    <div 
-                        className="absolute inset-0 bg-slate-900/50 z-10 transition-all duration-75"
-                        style={{ height: `${(playerCooldown / playerMaxCooldown) * 100}%` }}
-                    ></div>
-                )}
-                <div className="relative z-20 flex items-center">
-                    <Swords className="mr-2 h-4 w-4" /> 
-                    {!canAttack && playerCooldown > 0 
-                        ? `${(playerCooldown / 1000).toFixed(1)}s` 
-                        : 'Atacar'
-                    }
-                </div>
-             </Button>
-             <Button 
-                size="lg" 
-                variant="secondary"
-                className="w-full md:w-32 select-none"
-                onClick={handleOpenBag}
-                disabled={loading || battle?.win}
-             >
-                <Backpack className="mr-2 h-4 w-4" /> Itens
-             </Button>
-             <Button 
-                size="lg" 
-                variant="destructive"
-                className="w-full md:w-32 select-none"
-                onClick={() => {
-                    onFlee();
-                }} 
-                disabled={fleeCooldownMs > 0}
-             >
-                {fleeCooldownMs > 0 ? `Fugir (${(fleeCooldownMs/1000).toFixed(2)}s)` : 'Fugir'}
-             </Button>
-             <Button 
-                size="lg" 
-                variant="outline"
-                className="w-full md:w-32"
-                onClick={() => navigate('/exploration')} 
-             >
-                <Map className="mr-2 h-4 w-4" /> Explorar
-             </Button>
-          </div>
-          {/* Battle Log */}
-          <div ref={logContainerRef} className="bg-slate-50 dark:bg-slate-900 border-t p-4 h-40 overflow-y-auto font-mono text-sm flex flex-col">
-             <div className="flex items-center gap-2 mb-3 text-slate-400 text-xs uppercase tracking-wider font-semibold pb-2 border-b border-slate-800 sticky top-0 bg-slate-50 dark:bg-slate-900 z-10">
-               <Activity size={14} /> Histórico Recente
-             </div>
-             <div className="space-y-1.5">
-              {logs.length === 0 ? (
-                <div className="text-slate-400 text-xs">Aguardando ações...</div>
-              ) : (
-                logs.map((l, i) => (
-                  <div key={i} className="flex gap-3 text-slate-600 dark:text-slate-300 text-xs animate-in fade-in slide-in-from-top-1 py-1 border-b border-slate-800/50 last:border-0">
-                    <span className="text-slate-500 min-w-[24px] text-right font-mono opacity-50">{String(logs.length - i).padStart(2, '0')}</span>
-                    <span>{l}</span>
+              <div className="absolute bottom-4 left-1/2 z-40 w-[min(720px,calc(100%-16px))] -translate-x-1/2 md:bottom-6">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-2 shadow-[0_24px_60px_-38px_rgba(0,0,0,0.95)] backdrop-blur-md">
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                    <Button
+                      size="lg"
+                      className="h-12 w-full relative overflow-hidden select-none rounded-xl bg-white text-slate-950 hover:bg-white/90"
+                      onClick={executeAttack}
+                      disabled={!canAttack || battle?.win || (battle?.user?.hp ?? 0) <= 0 || loading || animState !== 'idle'}
+                    >
+                      {!canAttack && playerMaxCooldown > 0 && (
+                        <div
+                          className="absolute inset-0 bg-slate-900/45 z-10 transition-all duration-75"
+                          style={{ height: `${(playerCooldown / playerMaxCooldown) * 100}%` }}
+                        />
+                      )}
+                      <div className="relative z-20 flex w-full items-center justify-between">
+                        <span className="inline-flex items-center">
+                          <Swords className="mr-2 h-4 w-4" />
+                          {!canAttack && playerCooldown > 0 ? `${(playerCooldown / 1000).toFixed(1)}s` : 'Atacar'}
+                        </span>
+                        <span className="rounded-md bg-black/10 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-900/80">
+                          1
+                        </span>
+                      </div>
+                    </Button>
+
+                    <Button
+                      size="lg"
+                      variant="secondary"
+                      className="h-12 w-full select-none rounded-xl border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-950/75"
+                      onClick={handleOpenBag}
+                      disabled={loading || battle?.win}
+                    >
+                      <div className="flex w-full items-center justify-between">
+                        <span className="inline-flex items-center">
+                          <Backpack className="mr-2 h-4 w-4" /> Itens
+                        </span>
+                        <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-200">
+                          2
+                        </span>
+                      </div>
+                    </Button>
+
+                    <Button
+                      size="lg"
+                      variant="destructive"
+                      className="h-12 w-full select-none rounded-xl"
+                      onClick={onFlee}
+                      disabled={fleeCooldownMs > 0}
+                    >
+                      <div className="flex w-full items-center justify-between">
+                        <span className="inline-flex items-center">
+                          <XCircle className="mr-2 h-4 w-4" />
+                          {fleeCooldownMs > 0 ? `Fugir (${(fleeCooldownMs / 1000).toFixed(2)}s)` : 'Fugir'}
+                        </span>
+                        <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-white/90">
+                          3
+                        </span>
+                      </div>
+                    </Button>
+
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="h-12 w-full rounded-xl border-white/10 bg-slate-950/45 text-slate-100 hover:bg-slate-950/60"
+                      onClick={() => navigate('/exploration')}
+                    >
+                      <div className="flex w-full items-center justify-between">
+                        <span className="inline-flex items-center">
+                          <Map className="mr-2 h-4 w-4" /> Explorar
+                        </span>
+                        <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-200">
+                          4
+                        </span>
+                      </div>
+                    </Button>
                   </div>
-                ))
-              )}
-             </div>
-          </div>
-        </CardContent>
-      </Card>
-        </div>
-        <QuestTracker quests={activeQuests} onSelectQuest={setSelectedQuestForDetails} />
+                </div>
+              </div>
+
+              {showBag ? (
+                <div className="absolute left-1/2 top-1/2 z-50 w-[min(420px,calc(100%-16px))] -translate-x-1/2 -translate-y-1/2">
+                  <div className="rounded-2xl border border-white/10 bg-slate-950/55 shadow-[0_24px_60px_-38px_rgba(0,0,0,0.95)] backdrop-blur-md overflow-hidden">
+                    <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2.5">
+                      <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.24em] text-slate-200">
+                        <Backpack className="h-4 w-4 text-slate-200" />
+                        ITENS
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-8 w-8 rounded-full border border-white/10 bg-slate-950/60 p-0 text-slate-100 hover:bg-slate-950/75"
+                        onClick={handleCloseBag}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 px-3 py-2 text-[10px] font-semibold text-slate-200/70">
+                      <span className="tracking-[0.18em]">1–9 USAR</span>
+                      <span className="tracking-[0.18em]">ENTER/ESPAÇO/ESC FECHA</span>
+                    </div>
+
+                    <div className="max-h-[60vh] overflow-y-auto px-2 pb-2">
+                      {inventory.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-2 py-10 text-slate-300/60">
+                          <Backpack className="h-10 w-10 opacity-60" />
+                          <div className="text-xs font-semibold">Mochila vazia.</div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {inventory.map((item, idx) => {
+                            const isUsing = usingItemId === item.inventory_id;
+                            const isUsed = usedItemIds.has(item.inventory_id);
+                            const effectValue = item.effect_value ?? 0;
+                            const isPercent = item.is_percent === 1 || item.is_percent === true;
+                            const hotkeyLabel = idx < 9 ? String(idx + 1) : null;
+
+                            return (
+                              <button
+                                key={item.inventory_id}
+                                type="button"
+                                className={`group flex w-full items-center justify-between gap-2 rounded-xl border px-2.5 py-2 text-left transition-colors ${
+                                  isUsed ? 'border-emerald-400/40 bg-emerald-500/10' : 'border-white/10 bg-black/25 hover:bg-black/35'
+                                } ${isUsing ? 'cursor-not-allowed opacity-80' : ''}`}
+                                onClick={() => !isUsing && handleUseItemWithFeedback(item)}
+                                disabled={isUsing}
+                              >
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <div className="relative grid h-9 w-9 place-items-center overflow-hidden rounded-lg border border-white/10 bg-white/5">
+                                    {item.icon ? (
+                                      <img
+                                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${item.icon}`}
+                                        alt={item.name}
+                                        className="h-7 w-7 object-contain"
+                                      />
+                                    ) : (
+                                      <Backpack className="h-5 w-5 text-slate-200/40" />
+                                    )}
+                                    {isUsing ? (
+                                      <div className="absolute inset-0 grid place-items-center bg-black/55">
+                                        <Loader2 className="h-4 w-4 animate-spin text-slate-100/80" />
+                                      </div>
+                                    ) : null}
+                                    {isUsed ? (
+                                      <div className="absolute inset-0 grid place-items-center bg-emerald-500/10">
+                                        <CheckCircle2 className="h-5 w-5 text-emerald-300 drop-shadow-[0_0_12px_rgba(52,211,153,0.45)]" />
+                                      </div>
+                                    ) : null}
+                                  </div>
+
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <div className="min-w-0 truncate text-[11px] font-semibold text-slate-100">
+                                        {item.name}
+                                      </div>
+                                      <div className="shrink-0 rounded-md border border-white/10 bg-slate-950/60 px-1.5 py-0.5 text-[10px] font-bold text-slate-100 tabular-nums">
+                                        x{item.quantity}
+                                      </div>
+                                    </div>
+                                    <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-semibold text-emerald-200">
+                                      <Heart className="h-3.5 w-3.5 text-emerald-300" />
+                                      +{effectValue}{isPercent ? '%' : ''} HP
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {hotkeyLabel ? (
+                                  <div className="shrink-0 rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-200">
+                                    {hotkeyLabel}
+                                  </div>
+                                ) : (
+                                  <div className="shrink-0 rounded-md bg-white/0 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-200/40">
+                                    —
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <QuestDetailDialog
@@ -1179,6 +1606,8 @@ export default function Battle() {
       <QuestDetailDialog
         quest={activeQuestCompletion}
         open={showQuestCompletionDialog}
+        requireClickToClose
+        disableKeyboardActions
         onOpenChange={(open) => {
           if (open) return;
           const [next, ...rest] = questCompletionQueue;
@@ -1221,208 +1650,6 @@ export default function Battle() {
         onCancel={() => {}}
       />
 
-      <Dialog open={showBag} onOpenChange={(open) => !open && handleCloseBag()}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl flex items-center gap-2">
-                <Backpack className="w-6 h-6" /> Inventário de Batalha
-            </DialogTitle>
-            <DialogDescription>
-              Selecione um item para usar instantaneamente.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
-             {inventory.length === 0 ? (
-                 <div className="flex flex-col items-center justify-center py-10 text-muted-foreground opacity-50">
-                    <Backpack className="w-12 h-12 mb-2" />
-                    <p>Mochila vazia.</p>
-                 </div>
-             ) : (
-                 inventory.map(item => (
-                     <div 
-                        key={item.inventory_id} 
-                        className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors group"
-                     >
-                         <div className="w-12 h-12 shrink-0 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center">
-                             {item.icon ? (
-                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${item.icon}`} className="w-8 h-8 object-contain" />
-                             ) : (
-                                <Package className="w-6 h-6 opacity-50"/>
-                             )}
-                         </div>
-                         
-                         <div className="flex-1 min-w-0">
-                             <div className="flex items-center gap-2 mb-0.5">
-                                <h4 className="font-medium text-sm truncate text-slate-900 dark:text-slate-100">{item.name}</h4>
-                                <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-normal text-slate-500 bg-slate-100 dark:bg-slate-800">x{item.quantity}</Badge>
-                                {item.effect_target === 'hp' && <Heart className="w-3 h-3 text-green-500 fill-green-500/20" />}
-                             </div>
-                             
-                             <p className="text-xs text-slate-500 truncate">
-                                {item.description}
-                             </p>
-                         </div>
-
-                         <Button 
-                            size="sm" 
-                            variant={usedItemIds.has(item.inventory_id) ? "outline" : "ghost"}
-                            className={`h-9 min-w-[80px] text-xs font-medium transition-all ${
-                                usedItemIds.has(item.inventory_id) 
-                                ? 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900' 
-                                : 'hover:bg-slate-200 dark:hover:bg-slate-800'
-                            }`}
-                            onClick={() => handleUseItemWithFeedback(item)}
-                            disabled={usedItemIds.has(item.inventory_id)}
-                         >
-                            {usedItemIds.has(item.inventory_id) ? 'USADO!' : 'USAR'}
-                         </Button>
-                     </div>
-                 ))
-             )}
-          </div>
-          <DialogFooter>
-             <Button variant="outline" onClick={handleCloseBag}>Fechar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showWinModal} onOpenChange={() => {}}>
-        <DialogContent
-          overlayClassName="bg-black/90 backdrop-blur-md"
-          className="sm:max-w-md sm:min-h-[620px] max-h-[85vh] overflow-hidden border-white/10 bg-gradient-to-b from-slate-950/95 to-slate-950/90 text-slate-100 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.95)] flex flex-col [&>button]:hidden"
-          onInteractOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => e.preventDefault()}
-        >
-          <div className="relative z-10 flex flex-1 flex-col gap-4 overflow-hidden">
-            <DialogHeader className="space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-11 w-11 place-items-center rounded-2xl border border-yellow-400/20 bg-yellow-500/10">
-                    <Trophy className="h-6 w-6 text-yellow-300" />
-                  </div>
-                  <div>
-                    <DialogTitle className="text-xl font-bold tracking-tight">Vitória</DialogTitle>
-                    <DialogDescription className="text-slate-300">
-                      {enemyDisplayName ? `Você derrotou ${enemyDisplayName}.` : 'Você derrotou o inimigo com sucesso.'}
-                    </DialogDescription>
-                  </div>
-                </div>
-                {isBoss ? (
-                  <span className="mt-1 inline-flex items-center rounded-full border border-red-500/30 bg-red-600/20 px-2.5 py-1 text-[11px] font-semibold text-red-200">
-                    BOSS
-                  </span>
-                ) : null}
-              </div>
-            </DialogHeader>
-
-            <div className="flex-1 space-y-4 overflow-auto pr-1">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div className="text-[11px] font-semibold tracking-wide text-slate-300">Experiência</div>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-extrabold text-white">+{rewards?.xp ?? 0}</span>
-                    <span className="text-sm font-semibold text-slate-300">XP</span>
-                  </div>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div className="text-[11px] font-semibold tracking-wide text-slate-300">Bits</div>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-extrabold text-white">+{rewards?.bits ?? 0}</span>
-                    <span className="text-sm font-semibold text-slate-300">Bits</span>
-                  </div>
-                </div>
-              </div>
-
-              {rewards?.drops && rewards.drops.length > 0 ? (
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold tracking-wide text-slate-300">Drops</span>
-                    <span className="text-[11px] font-semibold text-slate-400">{rewards.drops.length}</span>
-                  </div>
-                  <div className="mt-3 grid grid-cols-4 gap-2">
-                    {rewards.drops.map((drop, idx) => (
-                      <GlobalTooltip
-                        key={idx}
-                        content={
-                          <div className="space-y-1">
-                            <p className="font-bold text-sm text-yellow-400">{drop.name}</p>
-                            <p className="text-slate-300">Tipo: {drop.type === 'consumable' ? 'Consumível' : 'Outro'}</p>
-                            {drop.type === 'consumable' && drop.effect_target && drop.effect_target !== 'none' ? (
-                              <p className="text-green-400 text-xs">
-                                Efeito: +{drop.effect_value}{drop.is_percent ? '%' : ''} {drop.effect_target.toUpperCase()}
-                              </p>
-                            ) : null}
-                          </div>
-                        }
-                      >
-                        <div className="group flex flex-col items-center rounded-lg border border-white/10 bg-black/20 p-2 transition-colors hover:bg-black/30 cursor-help">
-                          {drop.icon ? (
-                            <img
-                              src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.icon}`}
-                              alt={drop.name}
-                              className="w-8 h-8 object-contain mb-1"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full mb-1 bg-white/10 ring-1 ring-white/10 flex items-center justify-center text-[9px] text-slate-300">
-                              ?
-                            </div>
-                          )}
-                          <span className="text-[10px] text-center leading-tight truncate w-full text-slate-200">{drop.name}</span>
-                        </div>
-                      </GlobalTooltip>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {levelUpInfo?.leveledUp ? (
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[11px] font-semibold tracking-wide text-slate-300">Subiu de nível</span>
-                    <span className="text-xs font-semibold text-slate-200">Nível {levelUpInfo.prevLevel} → {levelUpInfo.newLevel}</span>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                    <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1">
-                      <span className="text-slate-300">HP</span>
-                      <span className="font-semibold text-emerald-300">+{levelUpInfo.hpGain}</span>
-                    </div>
-                    <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1">
-                      <span className="text-slate-300">ATK</span>
-                      <span className="font-semibold text-emerald-300">+{levelUpInfo.atkGain}</span>
-                    </div>
-                    <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1">
-                      <span className="text-slate-300">DEF</span>
-                      <span className="font-semibold text-emerald-300">+{levelUpInfo.defGain}</span>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <DialogFooter className="mt-auto">
-              <Button className="w-full" onClick={async () => {
-                if (mapDetails && mapDetails.require_item === 1 && mapDetails.consume_on_enter === 1 && Number(mapDetails.required_item_id)) {
-                  try {
-                    const res = await api.get(`/api/items/user/${user?.id}`);
-                    const inv = res.data || [];
-                    const hasItem = inv.some(x => Number(x.id) === Number(mapDetails.required_item_id) && Number(x.quantity) > 0);
-                    if (!hasItem) {
-                      setShowNoItemsModal(true);
-                      return;
-                    }
-                  } catch (e) {
-                    console.error('Erro ao verificar inventário:', e);
-                  }
-                }
-                startBattle(false);
-              }}>
-                Continuar
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
       <Dialog open={showNoItemsModal} onOpenChange={setShowNoItemsModal}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>

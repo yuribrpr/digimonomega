@@ -1,4 +1,3 @@
-import { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -40,7 +39,7 @@ function AdminRoute({ children }) {
     return user && (user.username === 'clovis' || user.role === 'admin' || hasPermissions) ? children : <Navigate to="/" />;
 }
 
-function Layout({ children, isPlaying, toggleMusic, audioRef, BGM_URL, isAutoplayBlocked }) {
+function Layout({ children }) {
   const location = useLocation();
   const hostname = window.location.hostname;
   const isLandingDomain = hostname === 'kubelabs.online' || hostname === 'www.kubelabs.online';
@@ -51,20 +50,7 @@ function Layout({ children, isPlaying, toggleMusic, audioRef, BGM_URL, isAutopla
   return (
     <>
       <PageTitleUpdater />
-      {!isLanding && <audio ref={audioRef} src={BGM_URL} preload="auto" />}
-      {!isLanding && <Navbar isPlaying={isPlaying} toggleMusic={toggleMusic} />}
-      
-      {!isLanding && isAutoplayBlocked && (
-        <div className="fixed bottom-24 right-4 z-50 bg-black/80 text-white p-3 rounded-lg shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom-5 fade-in duration-500 border border-yellow-500/50">
-           <span className="text-xs">🔇 Autoplay bloqueado</span>
-           <button 
-               onClick={toggleMusic}
-               className="bg-yellow-500 hover:bg-yellow-600 text-black px-3 py-1 rounded text-xs font-bold transition-colors"
-           >
-               Ativar Som
-           </button>
-        </div>
-      )}
+      {!isLanding && <Navbar />}
 
       <div className={!isLanding ? "md:pb-0 pb-20" : ""}>
         {children}
@@ -75,55 +61,14 @@ function Layout({ children, isPlaying, toggleMusic, audioRef, BGM_URL, isAutopla
 }
 
 function App() {
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(false);
-  const audioRef = useRef(null);
-  
   // Check domain for default routing
   const hostname = window.location.hostname;
   const isLandingDomain = hostname === 'kubelabs.online' || hostname === 'www.kubelabs.online';
-  
-  // URL substituída por uma de teste confiável (SoundHelix) para evitar erro 403.
-  // Você pode substituir por qualquer link direto (ex: arquivo no GitHub, S3, ou local na pasta public)
-  const BGM_URL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"; 
-
-  const toggleMusic = () => {
-    setIsPlaying(!isPlaying);
-    if (!isPlaying) setIsAutoplayBlocked(false);
-  };
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = 0.3; // Volume aumentado para 30%
-      audioRef.current.loop = true;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isPlaying) {
-      if (!audioRef.current) return;
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(e => {
-            // Auto-play was prevented
-            if (e.name === 'NotAllowedError' || e.name === 'AutoplayError') {
-                console.log("Autoplay blocked by browser policy. Music paused.");
-                setIsPlaying(false);
-                setIsAutoplayBlocked(true);
-            } else {
-                console.error("Audio play failed:", e);
-            }
-        });
-      }
-    } else {
-      if (audioRef.current) audioRef.current.pause();
-    }
-  }, [isPlaying]);
 
   return (
     <ChatProvider>
       <Router>
-        <Layout isPlaying={isPlaying} toggleMusic={toggleMusic} audioRef={audioRef} BGM_URL={BGM_URL} isAutoplayBlocked={isAutoplayBlocked}>
+        <Layout>
         <Routes>
           <Route path="/kubelabs" element={<KubelabsLanding />} />
           <Route path="/login" element={<Login />} />

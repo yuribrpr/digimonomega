@@ -21,7 +21,22 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 1024 * 1024 * 50 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isImage = file.mimetype && file.mimetype.startsWith('image/');
+    const isMp4 = file.mimetype === 'video/mp4' || ext === '.mp4';
+
+    if (isImage || isMp4) {
+      cb(null, true);
+      return;
+    }
+
+    cb(new Error('Apenas imagens ou vídeo mp4 são permitidos!'));
+  }
+});
 
 router.get('/', mapController.getAllMaps);
 router.get('/:id', mapController.getMapById);

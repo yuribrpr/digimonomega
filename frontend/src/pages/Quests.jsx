@@ -317,7 +317,7 @@ function QuestCard({ quest, status, index, onSelect }) {
   );
 }
 
-export function QuestDetailDialog({ quest, open, onOpenChange, userProgress, onStart = () => {}, onClaim = () => {}, onCancel = () => {}, onRestart = () => {}, showActions = true }) {
+export function QuestDetailDialog({ quest, open, onOpenChange, userProgress, onStart = () => {}, onClaim = () => {}, onCancel = () => {}, onRestart = () => {}, showActions = true, requireClickToClose = false, disableKeyboardActions = false }) {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -356,7 +356,18 @@ export function QuestDetailDialog({ quest, open, onOpenChange, userProgress, onS
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg bg-card border-border">
+      <DialogContent
+        className="max-w-lg bg-card border-border"
+        onEscapeKeyDown={requireClickToClose ? (e) => e.preventDefault() : undefined}
+        onPointerDownOutside={requireClickToClose ? (e) => e.preventDefault() : undefined}
+        onInteractOutside={requireClickToClose ? (e) => e.preventDefault() : undefined}
+        onKeyDownCapture={disableKeyboardActions ? (e) => {
+          if (e.key === 'Enter' || e.code === 'Space' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        } : undefined}
+      >
         <DialogHeader className="space-y-4">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -442,7 +453,7 @@ export function QuestDetailDialog({ quest, open, onOpenChange, userProgress, onS
                                                 </span>
                                                 {status === 'IN_PROGRESS' && (
                                                     <span className="text-xs text-muted-foreground">
-                                                        Progresso: {current} / {obj.quantity_required}
+                                                        ({current}/{obj.quantity_required}) {obj.target_name || (obj.type === 'COLLECT_ITEM' ? 'Item' : 'Inimigo')}
                                                     </span>
                                                 )}
                                             </div>

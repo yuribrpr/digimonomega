@@ -198,8 +198,8 @@ export default function AdminMaps() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="image">Thumbnail</Label>
-                <Input id="image" type="file" onChange={(e) => setFile(e.target.files[0])} accept="image/*" />
+                <Label htmlFor="image">Mídia do Mapa (imagem ou mp4)</Label>
+                <Input id="image" type="file" onChange={(e) => setFile(e.target.files[0])} accept="image/*,video/mp4" />
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox id="isActive" checked={isActive} onCheckedChange={setIsActive} />
@@ -290,11 +290,27 @@ export default function AdminMaps() {
           <Card key={map.id} className="group overflow-hidden">
             <div className="aspect-video bg-slate-900 relative">
                 {map.image_path ? (
-                    <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${map.image_path}`} alt={map.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                  String(map.image_path).toLowerCase().endsWith('.mp4') ? (
+                    <video
+                      className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${String(map.image_path).replace(/\\/g, '/')}`}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
+                  ) : (
+                    <img
+                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${String(map.image_path).replace(/\\/g, '/')}`}
+                      alt={map.name}
+                      className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                    />
+                  )
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-500">
-                        <MapIcon className="w-12 h-12 opacity-20" />
-                    </div>
+                  <div className="w-full h-full flex items-center justify-center text-slate-500">
+                    <MapIcon className="w-12 h-12 opacity-20" />
+                  </div>
                 )}
                 <div className="absolute top-2 right-2 flex gap-1">
                     <Badge variant={map.is_active ? "default" : "destructive"} className="shadow-md">

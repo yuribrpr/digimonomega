@@ -99,11 +99,23 @@ export default function Exploration() {
         <Card key={map.id} className={`group overflow-hidden border-2 transition-all hover:border-primary/50 ${isLocked ? 'opacity-75 grayscale' : ''}`}>
             <div className="aspect-video bg-slate-950 relative overflow-hidden">
                 {map.image_path ? (
-                    <img 
-                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${map.image_path.replace(/\\/g, '/')}`} 
-                        alt={map.name} 
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                    />
+                    String(map.image_path).toLowerCase().endsWith('.mp4') ? (
+                        <video
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${String(map.image_path).replace(/\\/g, '/')}`}
+                            autoPlay
+                            loop
+                            muted
+                            playsInline
+                            preload="metadata"
+                        />
+                    ) : (
+                        <img 
+                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${String(map.image_path).replace(/\\/g, '/')}`} 
+                            alt={map.name} 
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                        />
+                    )
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-500 bg-slate-900">
                         <MapIcon className="w-12 h-12 opacity-20" />
