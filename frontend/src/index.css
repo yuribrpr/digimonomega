@@ -131,4 +131,23 @@
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/40;
   }
+
+  @media (max-width: 767px) {
+    .flex.flex-col.items-center.gap-3.md\:flex-row.md\:items-start.md\:justify-between.md\:gap-2 {
+      flex-direction: row;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .flex.flex-col.items-center.gap-3.md\:flex-row.md\:items-start.md\:justify-between.md\:gap-2
+      > .relative.w-full.md\:w-\[40\%\] {
+      width: 50%;
+    }
+
+    .flex.flex-col.items-center.gap-3.md\:flex-row.md\:items-start.md\:justify-between.md\:gap-2
+      > .pt-1.md\:pt-2 {
+      display: none;
+    }
+  }
 }
