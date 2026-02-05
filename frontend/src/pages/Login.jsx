@@ -7,12 +7,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2, User, Lock, ArrowRight } from 'lucide-react';
 import NewsList from '@/components/NewsList';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -22,8 +26,8 @@ export default function Login() {
         username,
         password
       });
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      
+      login(response.data.user, response.data.token);
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Falha no login');
