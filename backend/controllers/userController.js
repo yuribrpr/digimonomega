@@ -266,7 +266,7 @@ exports.getAllUsers = async (req, res) => {
   try {
     // Admin check should be middleware, but for now assuming route protection or checking here if needed.
     // The prompt says "exceto senha".
-    const [rows] = await db.execute('SELECT id, username, email, bits, level, role, created_at, last_seen_at FROM users ORDER BY id DESC');
+    const [rows] = await db.execute('SELECT id, username, email, bits, level, role, created_at FROM users ORDER BY id DESC');
     res.json(rows);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching all users', error: error.message });

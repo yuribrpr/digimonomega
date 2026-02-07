@@ -20,8 +20,7 @@ import {
   VolumeX,
   MoreHorizontal,
   ScrollText,
-  Menu,
-  Users
+  Menu
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -33,13 +32,10 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
-import { io } from 'socket.io-client';
-
 export default function Navbar({ isPlaying, toggleMusic }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const user = JSON.parse(localStorage.getItem('user'));
   
   // Define user-specific nav items including admin ones if applicable
   const getNavItems = () => {
@@ -69,7 +65,6 @@ export default function Navbar({ isPlaying, toggleMusic }) {
       exp_m: 1000,
       profile_image: null
   });
-  const [onlineUsersCount, setOnlineUsersCount] = useState(0);
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -118,28 +113,16 @@ export default function Navbar({ isPlaying, toggleMusic }) {
   
   // URL base para imagens
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-  const SOCKET_URL = API_URL;
   
   useEffect(() => {
     fetchUserStats();
     // Refresh every 30 seconds
     const interval = setInterval(fetchUserStats, 30000);
     return () => clearInterval(interval);
-  }, [user?.id]);
-  useEffect(() => {
-    if (!user?.id || !SOCKET_URL) return;
-    const socket = io(SOCKET_URL);
-    socket.on('connect', () => {
-      socket.emit('join_user_room', user.id);
-    });
-    socket.on('online_users_update', (usersOnline) => {
-      setOnlineUsersCount(usersOnline.length);
-    });
-    return () => socket.close();
-  }, [user?.id, SOCKET_URL]);
-
+  }, []);
   const handleLogout = () => {
-    logout();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     navigate('/login');
   };
   // Don't show navbar on login or register pages
@@ -283,10 +266,6 @@ export default function Navbar({ isPlaying, toggleMusic }) {
            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary/20 rounded-full border border-border/50">
               <Coins className="h-4 w-4 text-yellow-500" />
               <span className="font-mono text-sm font-bold">{userStats.bits.toLocaleString()}</span>
-           </div>
-           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary/20 rounded-full border border-border/50">
-              <Users className="h-4 w-4 text-green-500" />
-              <span className="font-mono text-sm font-bold">{onlineUsersCount}</span>
            </div>
            {toggleMusic && (
              <Button variant="ghost" size="icon" onClick={toggleMusic}>
