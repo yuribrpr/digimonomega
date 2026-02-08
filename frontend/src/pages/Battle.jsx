@@ -136,6 +136,7 @@ export default function Battle() {
   const [isFetchingBattleData, setIsFetchingBattleData] = useState(false);
   const [isFetchingEnemyData, setIsFetchingEnemyData] = useState(false);
   const [showWinModal, setShowWinModal] = useState(false);
+  const [winInteractionReady, setWinInteractionReady] = useState(false);
   const [rewards, setRewards] = useState(null);
   const [levelUpInfo, setLevelUpInfo] = useState(null);
   
@@ -468,9 +469,11 @@ export default function Battle() {
            setQuestCompletionQueue(newlyCompleted.slice(1));
            setShowQuestCompletionDialog(true);
            setShowWinModal(false);
-         } else {
-           setShowWinModal(true);
-         }
+        } else {
+          setShowWinModal(true);
+          setWinInteractionReady(false);
+          setTimeout(() => setWinInteractionReady(true), 500);
+        }
          setAnimState('idle');
          return;
     }
@@ -653,6 +656,7 @@ export default function Battle() {
 
   const continuingAfterWinRef = useRef(false);
   const handleContinueAfterWin = async () => {
+    if (!winInteractionReady) return;
     if (continuingAfterWinRef.current) return;
     continuingAfterWinRef.current = true;
     if (mapDetails && mapDetails.require_item === 1 && mapDetails.consume_on_enter === 1 && Number(mapDetails.required_item_id)) {
@@ -677,6 +681,7 @@ export default function Battle() {
   };
 
   const handleLeave = () => {
+    if (!winInteractionReady) return;
     navigate('/exploration');
   };
 
@@ -1296,10 +1301,10 @@ export default function Battle() {
                    ) : enemy ? (
                      <div className="relative">
                         {/* Win State: Drops */}
-                        {battle?.win && (
-                             <div className="absolute inset-x-0 bottom-0 z-50 flex flex-wrap items-end justify-center gap-2 pb-2">
-                                {/* XP Drop */}
-                                {rewards?.xp > 0 && (
+                       {battle?.win && (
+                            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-50 flex flex-wrap items-center justify-center gap-2">
+                               {/* XP Drop */}
+                               {rewards?.xp > 0 && (
                                     <GlobalTooltip content={<span className="text-xs font-bold text-blue-300">+{rewards.xp} XP</span>}>
                                         <div className="flex h-10 w-10 animate-in fade-in slide-in-from-bottom-4 items-center justify-center rounded-full border border-blue-400/40 bg-blue-900/60 shadow-[0_0_15px_rgba(59,130,246,0.5)] backdrop-blur-sm transition-transform hover:scale-110 duration-700">
                                             <span className="text-[10px] font-extrabold text-blue-100">XP</span>
@@ -1342,12 +1347,12 @@ export default function Battle() {
                                     </GlobalTooltip>
                                 ))}
                              </div>
-                        )}
-                     <GlobalTooltip content={enemyTooltipContent}>
-                       <div
-                         className={`w-40 h-40 flex items-center justify-center transition-all duration-1000 ${battle?.win ? 'opacity-0 filter grayscale blur-sm scale-90' : ''}`}
-                         style={{ width: `${160 * enemyStageScale}px`, height: `${160 * enemyStageScale}px` }}
-                       >
+                       )}
+                    <GlobalTooltip content={battle?.win ? null : enemyTooltipContent}>
+                      <div
+                        className={`w-40 h-40 flex items-center justify-center transition-all duration-1000 ${battle?.win ? 'opacity-0 filter grayscale blur-sm scale-90' : ''}`}
+                        style={{ width: `${160 * enemyStageScale}px`, height: `${160 * enemyStageScale}px` }}
+                      >
                         {enemy?.sprite_path ? (
                           <img
                             src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`}
