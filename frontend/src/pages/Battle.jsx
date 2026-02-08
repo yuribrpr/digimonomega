@@ -676,6 +676,10 @@ export default function Battle() {
     }
   };
 
+  const handleLeave = () => {
+    navigate('/exploration');
+  };
+
   useEffect(() => {
     if (!showWinModal || showNoItemsModal) return;
 
@@ -691,6 +695,9 @@ export default function Battle() {
       if (e.key === 'Enter' || e.code === 'Space') {
         e.preventDefault();
         handleContinueAfterWin();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        handleLeave();
       }
     };
 
@@ -1218,125 +1225,9 @@ export default function Battle() {
                 </div>
               </div>
 
-              {showWinModal ? (
-                <>
-                  <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-[2px]" />
-                  <div className="absolute left-1/2 top-1/2 z-50 w-[min(520px,calc(100%-16px))] -translate-x-1/2 -translate-y-1/2">
-                    <div className="rounded-2xl border border-white/10 bg-slate-950/45 shadow-[0_24px_60px_-38px_rgba(0,0,0,0.95)] backdrop-blur-md overflow-hidden">
-                      <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-white/10">
-                        <div className="flex items-center gap-3">
-                          <div className="grid h-10 w-10 place-items-center rounded-2xl border border-yellow-400/20 bg-yellow-500/10">
-                            <Trophy className="h-5 w-5 text-yellow-300" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-base font-bold tracking-tight text-slate-100">Vitória</div>
-                            <div className="text-xs text-slate-300 truncate">
-                              {enemyDisplayName ? `Você derrotou ${enemyDisplayName}.` : 'Você derrotou o inimigo com sucesso.'}
-                            </div>
-                          </div>
-                        </div>
-                        {isBoss ? (
-                          <span className="mt-0.5 inline-flex items-center rounded-full border border-red-500/30 bg-red-600/20 px-2.5 py-1 text-[11px] font-semibold text-red-200">
-                            BOSS
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div className="max-h-[52vh] overflow-auto px-4 py-3 space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                            <div className="text-[11px] font-semibold tracking-wide text-slate-300">Experiência</div>
-                            <div className="mt-1 flex items-baseline gap-2">
-                              <span className="text-2xl font-extrabold text-white">+{rewards?.xp ?? 0}</span>
-                              <span className="text-sm font-semibold text-slate-300">XP</span>
-                            </div>
-                          </div>
-                          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                            <div className="text-[11px] font-semibold tracking-wide text-slate-300">Bits</div>
-                            <div className="mt-1 flex items-baseline gap-2">
-                              <span className="text-2xl font-extrabold text-white">+{rewards?.bits ?? 0}</span>
-                              <span className="text-sm font-semibold text-slate-300">Bits</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {rewards?.drops && rewards.drops.length > 0 ? (
-                          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-semibold tracking-wide text-slate-300">Drops</span>
-                              <span className="text-[11px] font-semibold text-slate-400">{rewards.drops.length}</span>
-                            </div>
-                            <div className="mt-3 grid grid-cols-4 gap-2">
-                              {rewards.drops.map((drop, idx) => (
-                                <GlobalTooltip
-                                  key={idx}
-                                  content={
-                                    <div className="space-y-1">
-                                      <p className="font-bold text-sm text-yellow-400">{drop.name}</p>
-                                      <p className="text-slate-300">Tipo: {drop.type === 'consumable' ? 'Consumível' : 'Outro'}</p>
-                                      {drop.type === 'consumable' && drop.effect_target && drop.effect_target !== 'none' ? (
-                                        <p className="text-green-400 text-xs">
-                                          Efeito: +{drop.effect_value}{drop.is_percent ? '%' : ''} {drop.effect_target.toUpperCase()}
-                                        </p>
-                                      ) : null}
-                                    </div>
-                                  }
-                                >
-                                  <div className="group flex flex-col items-center rounded-lg border border-white/10 bg-black/20 p-2 transition-colors hover:bg-black/30 cursor-help">
-                                    {drop.icon ? (
-                                      <img
-                                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.icon}`}
-                                        alt={drop.name}
-                                        className="w-8 h-8 object-contain mb-1"
-                                      />
-                                    ) : (
-                                      <div className="w-8 h-8 rounded-full mb-1 bg-white/10 ring-1 ring-white/10 flex items-center justify-center text-[9px] text-slate-300">
-                                        ?
-                                      </div>
-                                    )}
-                                    <span className="text-[10px] text-center leading-tight truncate w-full text-slate-200">{drop.name}</span>
-                                  </div>
-                                </GlobalTooltip>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-
-                        {levelUpInfo?.leveledUp ? (
-                          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-[11px] font-semibold tracking-wide text-slate-300">Subiu de nível</span>
-                              <span className="text-xs font-semibold text-slate-200">Nível {levelUpInfo.prevLevel} → {levelUpInfo.newLevel}</span>
-                            </div>
-                            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                              <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1">
-                                <span className="text-slate-300">HP</span>
-                                <span className="font-semibold text-emerald-300">+{levelUpInfo.hpGain}</span>
-                              </div>
-                              <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1">
-                                <span className="text-slate-300">ATK</span>
-                                <span className="font-semibold text-emerald-300">+{levelUpInfo.atkGain}</span>
-                              </div>
-                              <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-2 py-1">
-                                <span className="text-slate-300">DEF</span>
-                                <span className="font-semibold text-emerald-300">+{levelUpInfo.defGain}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <div className="px-4 pb-4">
-                        <Button className="w-full" onClick={handleContinueAfterWin}>
-                          Continuar
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : null}
+{/* Modal de Vitória removido para imersão */}
             {/* Player Side */}
-            <div className={`absolute bottom-[120px] left-[30%] z-30 -ml-20 flex flex-col items-center gap-2 md:bottom-[150px] md:left-[34%] ${getPlayerStyle()}`}>
+            <div className={`absolute bottom-[40px] left-[20%] z-30 -ml-20 flex flex-col items-center gap-2 md:bottom-[80px] md:left-[25%] ${getPlayerStyle()}`}>
                <div className="relative">
                   {/* Impact Effect Overlay */}
                   {showImpact === 'player' && (
@@ -1386,7 +1277,7 @@ export default function Battle() {
             {/* VS Divider - Fades out during combat action */}
             <div className={`absolute bottom-[130px] left-1/2 z-20 h-40 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-slate-800 to-transparent transition-opacity duration-300 md:bottom-[165px] ${animState !== 'idle' ? 'opacity-0' : 'opacity-100'}`}></div>
             {/* Enemy Side */}
-            <div className={`absolute bottom-[120px] left-[70%] z-30 -ml-20 flex flex-col items-center gap-2 md:bottom-[150px] md:left-[66%] ${getEnemyStyle()}`}>
+            <div className={`absolute bottom-[40px] left-[80%] z-30 -ml-20 flex flex-col items-center gap-2 md:bottom-[80px] md:left-[75%] ${getEnemyStyle()}`}>
                <div className="relative">
                   {/* Impact Effect Overlay */}
                   {showImpact === 'enemy' && (
@@ -1403,9 +1294,58 @@ export default function Battle() {
                        <Skeleton className="h-32 w-32 rounded-full bg-white/10" />
                      </div>
                    ) : enemy ? (
+                     <div className="relative">
+                        {/* Win State: Drops */}
+                        {battle?.win && (
+                             <div className="absolute inset-x-0 bottom-0 z-50 flex flex-wrap items-end justify-center gap-2 pb-2">
+                                {/* XP Drop */}
+                                {rewards?.xp > 0 && (
+                                    <GlobalTooltip content={<span className="text-xs font-bold text-blue-300">+{rewards.xp} XP</span>}>
+                                        <div className="flex h-10 w-10 animate-in fade-in slide-in-from-bottom-4 items-center justify-center rounded-full border border-blue-400/40 bg-blue-900/60 shadow-[0_0_15px_rgba(59,130,246,0.5)] backdrop-blur-sm transition-transform hover:scale-110 duration-700">
+                                            <span className="text-[10px] font-extrabold text-blue-100">XP</span>
+                                        </div>
+                                    </GlobalTooltip>
+                                )}
+                                {/* Bits Drop */}
+                                {rewards?.bits > 0 && (
+                                    <GlobalTooltip content={<span className="text-xs font-bold text-yellow-300">+{rewards.bits} Bits</span>}>
+                                        <div className="flex h-10 w-10 animate-in fade-in slide-in-from-bottom-4 items-center justify-center rounded-full border border-yellow-400/40 bg-yellow-900/60 shadow-[0_0_15px_rgba(234,179,8,0.5)] backdrop-blur-sm transition-transform hover:scale-110 duration-700 delay-100">
+                                            <span className="text-[10px] font-extrabold text-yellow-100">B</span>
+                                        </div>
+                                    </GlobalTooltip>
+                                )}
+                                {/* Item Drops */}
+                                {rewards?.drops?.map((drop, idx) => (
+                                    <GlobalTooltip 
+                                        key={idx} 
+                                        content={
+                                            <div className="space-y-1">
+                                                <p className="font-bold text-sm text-yellow-400">{drop.name}</p>
+                                                <p className="text-slate-300 text-[10px]">{drop.type === 'consumable' ? 'Consumível' : 'Item'}</p>
+                                            </div>
+                                        }
+                                    >
+                                        <div 
+                                            className="flex h-10 w-10 animate-in fade-in slide-in-from-bottom-8 items-center justify-center rounded-lg border border-white/20 bg-black/60 shadow-[0_0_10px_rgba(255,255,255,0.2)] backdrop-blur-sm transition-transform hover:scale-110 duration-500"
+                                            style={{ animationDelay: `${200 + (idx * 100)}ms` }}
+                                        >
+                                            {drop.icon ? (
+                                                <img 
+                                                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.icon}`} 
+                                                    alt={drop.name} 
+                                                    className="h-7 w-7 object-contain" 
+                                                />
+                                            ) : (
+                                                <div className="h-4 w-4 rounded-full bg-white/20" />
+                                            )}
+                                        </div>
+                                    </GlobalTooltip>
+                                ))}
+                             </div>
+                        )}
                      <GlobalTooltip content={enemyTooltipContent}>
                        <div
-                         className="w-40 h-40 flex items-center justify-center"
+                         className={`w-40 h-40 flex items-center justify-center transition-all duration-1000 ${battle?.win ? 'opacity-0 filter grayscale blur-sm scale-90' : ''}`}
                          style={{ width: `${160 * enemyStageScale}px`, height: `${160 * enemyStageScale}px` }}
                        >
                         {enemy?.sprite_path ? (
@@ -1424,9 +1364,10 @@ export default function Battle() {
                         )}
                        </div>
                      </GlobalTooltip>
-                   ) : (
-                     <div className="w-40 h-40 flex items-center justify-center">
-                       <div className="w-16 h-16 bg-red-500 rounded-full animate-pulse"></div>
+                      </div>
+                  ) : (
+                    <div className="w-40 h-40 flex items-center justify-center">
+                      <div className="w-16 h-16 bg-red-500 rounded-full animate-pulse"></div>
                      </div>
                    )}
                 {/* Damage Indicators */}
@@ -1449,81 +1390,116 @@ export default function Battle() {
             </div>
               <div className="absolute bottom-4 left-1/2 z-40 w-[min(720px,calc(100%-16px))] -translate-x-1/2 md:bottom-6">
                 <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-2 shadow-[0_24px_60px_-38px_rgba(0,0,0,0.95)] backdrop-blur-md">
-                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                    <Button
-                      size="lg"
-                      className="h-12 w-full relative overflow-hidden select-none rounded-xl bg-white text-slate-950 hover:bg-white/90"
-                      onClick={executeAttack}
-                      disabled={!canAttack || battle?.win || (battle?.user?.hp ?? 0) <= 0 || loading || animState !== 'idle'}
-                    >
-                      {!canAttack && playerMaxCooldown > 0 && (
-                        <div
-                          className="absolute inset-0 bg-slate-900/45 z-10 transition-all duration-75"
-                          style={{ height: `${(playerCooldown / playerMaxCooldown) * 100}%` }}
-                        />
-                      )}
-                      <div className="relative z-20 flex w-full items-center justify-between">
-                        <span className="inline-flex items-center">
-                          <Swords className="mr-2 h-4 w-4" />
-                          {!canAttack && playerCooldown > 0 ? `${(playerCooldown / 1000).toFixed(1)}s` : 'Atacar'}
-                        </span>
-                        <span className="rounded-md bg-black/10 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-900/80">
-                          1
-                        </span>
-                      </div>
-                    </Button>
+                  {showWinModal ? (
+                    <div className="grid grid-cols-2 gap-2 w-full">
+                      <Button
+                          size="lg"
+                          className="h-12 w-full select-none rounded-xl bg-green-600 hover:bg-green-500 text-white border border-green-400/30 shadow-[0_0_20px_rgba(34,197,94,0.3)] animate-in fade-in zoom-in duration-300"
+                          onClick={handleContinueAfterWin}
+                      >
+                          <div className="flex w-full items-center justify-between px-2">
+                              <span className="inline-flex items-center font-bold">
+                                  <Play className="mr-2 h-5 w-5 fill-current" /> Continuar
+                              </span>
+                              <span className="rounded-md bg-black/20 px-2 py-1 text-[10px] font-bold tracking-[0.15em] text-white/90 border border-white/10">
+                                  ENTER
+                              </span>
+                          </div>
+                      </Button>
 
-                    <Button
-                      size="lg"
-                      variant="secondary"
-                      className="h-12 w-full select-none rounded-xl border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-950/75"
-                      onClick={handleOpenBag}
-                      disabled={loading || battle?.win}
-                    >
-                      <div className="flex w-full items-center justify-between">
-                        <span className="inline-flex items-center">
-                          <Backpack className="mr-2 h-4 w-4" /> Itens
-                        </span>
-                        <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-200">
-                          2
-                        </span>
-                      </div>
-                    </Button>
+                      <Button
+                          size="lg"
+                          variant="destructive"
+                          className="h-12 w-full select-none rounded-xl bg-red-950/80 hover:bg-red-900/90 text-red-200 border border-red-500/30 animate-in fade-in zoom-in duration-300 delay-75"
+                          onClick={handleLeave}
+                      >
+                          <div className="flex w-full items-center justify-between px-2">
+                              <span className="inline-flex items-center font-semibold">
+                                  <XCircle className="mr-2 h-5 w-5" /> Sair
+                              </span>
+                              <span className="rounded-md bg-black/20 px-2 py-1 text-[10px] font-bold tracking-[0.15em] text-red-200/90 border border-white/10">
+                                  ESC
+                              </span>
+                          </div>
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                      <Button
+                        size="lg"
+                        className="h-12 w-full relative overflow-hidden select-none rounded-xl bg-white text-slate-950 hover:bg-white/90"
+                        onClick={executeAttack}
+                        disabled={!canAttack || battle?.win || (battle?.user?.hp ?? 0) <= 0 || loading || animState !== 'idle'}
+                      >
+                        {!canAttack && playerMaxCooldown > 0 && (
+                          <div
+                            className="absolute inset-0 bg-slate-900/45 z-10 transition-all duration-75"
+                            style={{ height: `${(playerCooldown / playerMaxCooldown) * 100}%` }}
+                          />
+                        )}
+                        <div className="relative z-20 flex w-full items-center justify-between">
+                          <span className="inline-flex items-center">
+                            <Swords className="mr-2 h-4 w-4" />
+                            {!canAttack && playerCooldown > 0 ? `${(playerCooldown / 1000).toFixed(1)}s` : 'Atacar'}
+                          </span>
+                          <span className="rounded-md bg-black/10 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-900/80">
+                            1
+                          </span>
+                        </div>
+                      </Button>
 
-                    <Button
-                      size="lg"
-                      variant="destructive"
-                      className="h-12 w-full select-none rounded-xl"
-                      onClick={onFlee}
-                      disabled={fleeCooldownMs > 0}
-                    >
-                      <div className="flex w-full items-center justify-between">
-                        <span className="inline-flex items-center">
-                          <XCircle className="mr-2 h-4 w-4" />
-                          {fleeCooldownMs > 0 ? `Fugir (${(fleeCooldownMs / 1000).toFixed(2)}s)` : 'Fugir'}
-                        </span>
-                        <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-white/90">
-                          3
-                        </span>
-                      </div>
-                    </Button>
+                      <Button
+                        size="lg"
+                        variant="secondary"
+                        className="h-12 w-full select-none rounded-xl border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-950/75"
+                        onClick={handleOpenBag}
+                        disabled={loading || battle?.win}
+                      >
+                        <div className="flex w-full items-center justify-between">
+                          <span className="inline-flex items-center">
+                            <Backpack className="mr-2 h-4 w-4" /> Itens
+                          </span>
+                          <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-200">
+                            2
+                          </span>
+                        </div>
+                      </Button>
 
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="h-12 w-full rounded-xl border-white/10 bg-slate-950/45 text-slate-100 hover:bg-slate-950/60"
-                      onClick={() => navigate('/exploration')}
-                    >
-                      <div className="flex w-full items-center justify-between">
-                        <span className="inline-flex items-center">
-                          <Map className="mr-2 h-4 w-4" /> Explorar
-                        </span>
-                        <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-200">
-                          4
-                        </span>
-                      </div>
-                    </Button>
-                  </div>
+                      <Button
+                        size="lg"
+                        variant="destructive"
+                        className="h-12 w-full select-none rounded-xl"
+                        onClick={onFlee}
+                        disabled={fleeCooldownMs > 0}
+                      >
+                        <div className="flex w-full items-center justify-between">
+                          <span className="inline-flex items-center">
+                            <XCircle className="mr-2 h-4 w-4" />
+                            {fleeCooldownMs > 0 ? `Fugir (${(fleeCooldownMs / 1000).toFixed(2)}s)` : 'Fugir'}
+                          </span>
+                          <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-white/90">
+                            3
+                          </span>
+                        </div>
+                      </Button>
+
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="h-12 w-full rounded-xl border-white/10 bg-slate-950/45 text-slate-100 hover:bg-slate-950/60"
+                        onClick={() => navigate('/exploration')}
+                      >
+                        <div className="flex w-full items-center justify-between">
+                          <span className="inline-flex items-center">
+                            <Map className="mr-2 h-4 w-4" /> Explorar
+                          </span>
+                          <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-200">
+                            4
+                          </span>
+                        </div>
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
 
