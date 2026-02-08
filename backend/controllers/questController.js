@@ -13,10 +13,28 @@ exports.getCampaigns = async (req, res) => {
       .select('quests.*', 'campaigns.id as campaign_id')
       .orderBy('quests.order', 'asc');
 
+    let depsMap = {};
+    try {
+      const hasDeps = await knex.schema.hasTable('quest_dependencies');
+      if (hasDeps && quests.length > 0) {
+        const questIds = quests.map(q => q.id);
+        const rows = await knex('quest_dependencies').whereIn('quest_id', questIds);
+        depsMap = rows.reduce((acc, r) => {
+          acc[r.quest_id] = acc[r.quest_id] || [];
+          acc[r.quest_id].push(r.depends_on_quest_id);
+          return acc;
+        }, {});
+      }
+    } catch (e) {
+      depsMap = {};
+    }
+
     // Attach quests to campaigns
     const campaignsWithQuests = campaigns.map(campaign => ({
       ...campaign,
-      quests: quests.filter(q => q.campaign_id === campaign.id)
+      quests: quests
+        .filter(q => q.campaign_id === campaign.id)
+        .map(q => ({ ...q, dependencies: depsMap[q.id] || [] }))
     }));
 
     res.json(campaignsWithQuests);
@@ -72,7 +90,18 @@ exports.getQuestDetails = async (req, res) => {
       ? await knex('digidex').where('id', quest.npc_digimon_id).first() 
       : null;
 
-    const responseData = { ...quest, objectives: enrichedObjectives, rewards: enrichedRewards, npc };
+    let dependencies = [];
+    try {
+      const hasDeps = await knex.schema.hasTable('quest_dependencies');
+      if (hasDeps) {
+        const rows = await knex('quest_dependencies').where('quest_id', id);
+        dependencies = rows.map(r => r.depends_on_quest_id);
+      }
+    } catch (e) {
+      dependencies = [];
+    }
+
+    const responseData = { ...quest, objectives: enrichedObjectives, rewards: enrichedRewards, npc, dependencies };
     // console.log('Quest Details Response:', JSON.stringify(responseData, null, 2)); // Debug log
     res.json(responseData);
   } catch (error) {
@@ -182,6 +211,30 @@ exports.startQuest = async (req, res) => {
 
     if (activeQuestsCount.count >= 3) {
         return res.status(400).json({ message: 'Você já possui 3 missões em andamento. Termine ou cancele alguma para aceitar novas.' });
+    }
+
+    try {
+      const hasDeps = await knex.schema.hasTable('quest_dependencies');
+      if (hasDeps) {
+        const deps = await knex('quest_dependencies').where('quest_id', questId);
+        if (deps && deps.length > 0) {
+          const depIds = deps.map(d => d.depends_on_quest_id);
+          const statuses = await knex('user_quests')
+            .where({ user_id: userId })
+            .whereIn('quest_id', depIds)
+            .select('quest_id', 'status');
+          const statusMap = new Map(statuses.map(s => [s.quest_id, s.status]));
+          const unmet = depIds.filter(id => {
+            const st = statusMap.get(id);
+            return st !== 'COMPLETED' && st !== 'CLAIMED';
+          });
+          if (unmet.length > 0) {
+            return res.status(400).json({ message: 'Missão bloqueada: complete as missões dependentes.' });
+          }
+        }
+      }
+    } catch (e) {
+      // ignore dependency checks if table not present
     }
 
     const existing = await knex('user_quests')
@@ -468,7 +521,7 @@ exports.updateCampaign = async (req, res) => {
 
 // Admin: Create Quest
 exports.createQuest = async (req, res) => {
-  const { campaign_id, title, description, npc_digimon_id, order, restartable, objectives, rewards } = req.body;
+  const { campaign_id, title, description, npc_digimon_id, order, restartable, objectives, rewards, dependencies } = req.body;
   
   const trx = await knex.transaction();
   try {
@@ -504,6 +557,20 @@ exports.createQuest = async (req, res) => {
       await trx('quest_rewards').insert(rewardsToInsert);
     }
 
+    try {
+      const hasDeps = await trx.schema.hasTable('quest_dependencies');
+      if (hasDeps && Array.isArray(dependencies) && dependencies.length > 0) {
+        const rows = dependencies
+          .filter(d => d && Number(d) > 0)
+          .map(depId => ({ quest_id: questId, depends_on_quest_id: Number(depId) }));
+        if (rows.length > 0) {
+          await trx('quest_dependencies').insert(rows);
+        }
+      }
+    } catch (e) {
+      // ignore if table doesn't exist
+    }
+
     await trx.commit();
     res.status(201).json({ message: 'Quest created', id: questId });
   } catch (error) {
@@ -516,7 +583,7 @@ exports.createQuest = async (req, res) => {
 // Admin: Update Quest
 exports.updateQuest = async (req, res) => {
     const { id } = req.params;
-    const { campaign_id, title, description, npc_digimon_id, order, restartable, objectives, rewards } = req.body;
+    const { campaign_id, title, description, npc_digimon_id, order, restartable, objectives, rewards, dependencies } = req.body;
     
     const trx = await knex.transaction();
     try {
@@ -557,6 +624,21 @@ exports.updateQuest = async (req, res) => {
               }));
               await trx('quest_rewards').insert(rewardsToInsert);
           }
+      }
+      
+      try {
+        const hasDeps = await trx.schema.hasTable('quest_dependencies');
+        if (hasDeps && Array.isArray(dependencies)) {
+          await trx('quest_dependencies').where('quest_id', id).del();
+          const rows = dependencies
+            .filter(d => d && Number(d) > 0)
+            .map(depId => ({ quest_id: Number(id), depends_on_quest_id: Number(depId) }));
+          if (rows.length > 0) {
+            await trx('quest_dependencies').insert(rows);
+          }
+        }
+      } catch (e) {
+        // ignore if table doesn't exist
       }
   
       await trx.commit();

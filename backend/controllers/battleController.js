@@ -581,6 +581,18 @@ exports.attack = async (req, res) => {
                             'COMPLETED',
                             quest.id
                         ]);
+                        try {
+                            for (const obj of objectives) {
+                                if (obj.type === 'COLLECT_ITEM' && obj.target_item_id && Number(obj.quantity_required) > 0) {
+                                    await db.execute(
+                                        'UPDATE inventory SET quantity = GREATEST(quantity - ?, 0) WHERE user_id = ? AND item_id = ?',
+                                        [Number(obj.quantity_required), battle.user_id, Number(obj.target_item_id)]
+                                    );
+                                }
+                            }
+                        } catch (consumeErr) {
+                            console.error('Erro ao consumir itens da missão ao finalizar:', consumeErr);
+                        }
                     } else if (updated) {
                         await db.execute('UPDATE user_quests SET progress = ? WHERE id = ?', [JSON.stringify(progress), quest.id]);
                     }

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../services/api';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +73,11 @@ export default function AdminQuests() {
   const [selectedCampaignId, setSelectedCampaignId] = useState('ALL');
   const [campaignQuery, setCampaignQuery] = useState('');
   const [questQuery, setQuestQuery] = useState('');
+  const [depsQuery, setDepsQuery] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const confirmActionRef = useRef(null);
+  const [errorModal, setErrorModal] = useState({ open: false, message: '' });
   
   // Modals
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
@@ -91,7 +96,8 @@ export default function AdminQuests() {
     order: 0,
     restartable: false,
     objectives: [],
-    rewards: []
+    rewards: [],
+    dependencies: []
   });
 
   // Resources for dropdowns
@@ -154,19 +160,21 @@ export default function AdminQuests() {
       fetchData();
     } catch (error) {
       console.error("Error saving campaign:", error);
-      alert("Erro ao salvar campanha");
+      setErrorModal({ open: true, message: "Erro ao salvar campanha" });
     }
   };
 
   const handleDeleteCampaign = async (id) => {
-    if (!window.confirm("Tem certeza? Isso excluirá todas as missões desta campanha.")) return;
-    try {
+    setConfirmMessage("Tem certeza? Isso excluirá todas as missões desta campanha.");
+    confirmActionRef.current = async () => {
+      try {
         await api.delete(`/api/quests/admin/campaign/${id}`);
         fetchData();
-    } catch (error) {
-        console.error("Error deleting campaign:", error);
-        alert("Erro ao excluir campanha");
-    }
+      } catch (error) {
+        setErrorModal({ open: true, message: "Erro ao excluir campanha" });
+      }
+    };
+    setConfirmOpen(true);
   };
 
   const handleEditCampaign = (campaign) => {
@@ -199,7 +207,7 @@ export default function AdminQuests() {
       fetchData();
     } catch (error) {
       console.error("Error saving quest:", error);
-      alert("Erro ao salvar missão");
+      setErrorModal({ open: true, message: "Erro ao salvar missão" });
     }
   };
 
@@ -223,22 +231,25 @@ export default function AdminQuests() {
         order: Number.isFinite(Number(prev.order)) ? Number(prev.order) + 1 : 0,
         objectives: [],
         rewards: [],
+        dependencies: []
       }));
     } catch (error) {
       console.error("Error saving quest:", error);
-      alert("Erro ao salvar missão");
+      setErrorModal({ open: true, message: "Erro ao salvar missão" });
     }
   };
 
   const handleDeleteQuest = async (id) => {
-    if (!window.confirm("Tem certeza que deseja excluir esta missão?")) return;
-    try {
+    setConfirmMessage("Tem certeza que deseja excluir esta missão?");
+    confirmActionRef.current = async () => {
+      try {
         await api.delete(`/api/quests/admin/quest/${id}`);
         fetchData();
-    } catch (error) {
-        console.error("Error deleting quest:", error);
-        alert("Erro ao excluir missão");
-    }
+      } catch (error) {
+        setErrorModal({ open: true, message: "Erro ao excluir missão" });
+      }
+    };
+    setConfirmOpen(true);
   };
 
   const handleEditQuest = async (questId) => {
@@ -262,7 +273,8 @@ export default function AdminQuests() {
                 ...r, 
                 item_id: r.item_id ? r.item_id.toString() : '', 
                 digimon_id: r.digimon_id ? r.digimon_id.toString() : ''
-            }))
+            })),
+            dependencies: (q.dependencies || []).map(d => String(d))
         });
         setIsQuestModalOpen(true);
     } catch (error) {
@@ -297,11 +309,12 @@ export default function AdminQuests() {
           item_id: r.item_id ? r.item_id.toString() : '',
           digimon_id: r.digimon_id ? r.digimon_id.toString() : '',
         })),
+        dependencies: (q.dependencies || []).map(d => String(d))
       });
       setIsQuestModalOpen(true);
     } catch (error) {
       console.error("Error duplicating quest:", error);
-      alert("Erro ao duplicar missão");
+      setErrorModal({ open: true, message: "Erro ao duplicar missão" });
     }
   };
 
@@ -322,7 +335,8 @@ export default function AdminQuests() {
       order: 0,
       restartable: false,
       objectives: [],
-      rewards: []
+      rewards: [],
+      dependencies: []
     });
     setEditingQuest(null);
   };
@@ -383,6 +397,23 @@ export default function AdminQuests() {
     });
     return rows;
   }, [campaigns]);
+
+  const dependencyOptions = useMemo(() => {
+    const same = [];
+    const other = [];
+    const currentCampaignId = String(questForm.campaign_id || '');
+    for (const q of allQuests) {
+      if (editingQuest && String(q.id) === String(editingQuest.id)) continue;
+      const obj = { id: String(q.id), label: q.title, campaignTitle: q.campaign?.title || '', campaignId: String(q.campaign?.id || '') };
+      if (currentCampaignId && obj.campaignId === currentCampaignId) same.push(obj); else other.push(obj);
+    }
+    const filter = (arr) => {
+      const t = depsQuery.trim().toLowerCase();
+      if (!t) return arr;
+      return arr.filter(o => o.label.toLowerCase().includes(t) || o.campaignTitle.toLowerCase().includes(t));
+    };
+    return { same: filter(same), other: filter(other) };
+  }, [allQuests, editingQuest, questForm.campaign_id, depsQuery]);
 
   const questsForView = useMemo(() => {
     const base = selectedCampaignId === 'ALL'
@@ -483,9 +514,22 @@ export default function AdminQuests() {
                           <div className="font-semibold truncate">{c.title}</div>
                           <div className="text-xs text-muted-foreground line-clamp-2">{c.description || "—"}</div>
                         </div>
-                        <Badge variant="outline" className="shrink-0">
-                          {(c.quests || []).length}
-                        </Badge>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="outline">
+                            {(c.quests || []).length}
+                          </Badge>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteCampaign(c.id); }}
+                            className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                            aria-label="Excluir campanha"
+                            title="Excluir campanha"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                         <span>Ordem</span>
@@ -622,7 +666,7 @@ export default function AdminQuests() {
 
       {/* Create/Edit Quest Modal */}
       <Dialog open={isQuestModalOpen} onOpenChange={setIsQuestModalOpen}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingQuest ? 'Editar Missão' : 'Criar Missão'}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -767,6 +811,134 @@ export default function AdminQuests() {
                     ))}
                 </div>
             </div>
+            <div className="md:col-span-2 space-y-2">
+              <div className="flex justify-between items-center border-b pb-2">
+                <h3 className="font-bold">Dependências</h3>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input value={depsQuery} onChange={(e) => setDepsQuery(e.target.value)} placeholder="Filtrar dependências por título ou campanha..." />
+                  <Button variant="outline" onClick={() => setDepsQuery('')}>Limpar</Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="rounded border border-slate-700 min-w-0">
+                    <div className="flex items-center justify-between p-2 gap-2 flex-wrap">
+                      <div className="text-sm font-semibold">Mesma campanha</div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">{dependencyOptions.same.length}</Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setQuestForm(prev => {
+                              const set = new Set(prev.dependencies || []);
+                              dependencyOptions.same.forEach(o => set.add(o.id));
+                              return { ...prev, dependencies: Array.from(set) };
+                            });
+                          }}
+                        >
+                          Selecionar todos
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setQuestForm(prev => {
+                              const set = new Set(prev.dependencies || []);
+                              dependencyOptions.same.forEach(o => set.delete(o.id));
+                              return { ...prev, dependencies: Array.from(set) };
+                            });
+                          }}
+                        >
+                          Limpar
+                        </Button>
+                      </div>
+                    </div>
+                    <ScrollArea className="max-h-48">
+                      <div className="p-2 space-y-2">
+                        {dependencyOptions.same.map((q) => {
+                          const checked = questForm.dependencies.includes(String(q.id));
+                          return (
+                            <label key={q.id} className="flex items-center gap-2 text-sm">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(val) => {
+                                  const s = String(q.id);
+                                  setQuestForm(prev => {
+                                    const set = new Set(prev.dependencies || []);
+                                    if (val) set.add(s); else set.delete(s);
+                                    return { ...prev, dependencies: Array.from(set) };
+                                  });
+                                }}
+                              />
+                              <span className="truncate">{q.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                  <div className="rounded border border-slate-700 min-w-0">
+                    <div className="flex items-center justify-between p-2 gap-2 flex-wrap">
+                      <div className="text-sm font-semibold">Outras campanhas</div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">{dependencyOptions.other.length}</Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setQuestForm(prev => {
+                              const set = new Set(prev.dependencies || []);
+                              dependencyOptions.other.forEach(o => set.add(o.id));
+                              return { ...prev, dependencies: Array.from(set) };
+                            });
+                          }}
+                        >
+                          Selecionar todos
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setQuestForm(prev => {
+                              const set = new Set(prev.dependencies || []);
+                              dependencyOptions.other.forEach(o => set.delete(o.id));
+                              return { ...prev, dependencies: Array.from(set) };
+                            });
+                          }}
+                        >
+                          Limpar
+                        </Button>
+                      </div>
+                    </div>
+                    <ScrollArea className="max-h-48">
+                      <div className="p-2 space-y-2">
+                        {dependencyOptions.other.map((q) => {
+                          const checked = questForm.dependencies.includes(String(q.id));
+                          return (
+                            <label key={q.id} className="flex items-center gap-2 text-sm">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(val) => {
+                                  const s = String(q.id);
+                                  setQuestForm(prev => {
+                                    const set = new Set(prev.dependencies || []);
+                                    if (val) set.add(s); else set.delete(s);
+                                    return { ...prev, dependencies: Array.from(set) };
+                                  });
+                                }}
+                              />
+                              <span className="truncate">{q.label}</span>
+                              <Badge variant="outline" className="ml-auto">{q.campaignTitle}</Badge>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
@@ -780,6 +952,36 @@ export default function AdminQuests() {
                 {editingQuest ? 'Salvar e fechar' : 'Criar'}
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white">
+          <DialogHeader><DialogTitle>Confirmar</DialogTitle></DialogHeader>
+          <div className="space-y-2">{confirmMessage}</div>
+          <DialogFooter>
+            <div className="flex w-full gap-2">
+              <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
+              <Button
+                type="button"
+                onClick={async () => {
+                  const fn = confirmActionRef.current;
+                  setConfirmOpen(false);
+                  if (fn) await fn();
+                }}
+              >
+                Confirmar
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={errorModal.open} onOpenChange={(open) => setErrorModal(prev => ({ ...prev, open }))}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white">
+          <DialogHeader><DialogTitle>Aviso</DialogTitle></DialogHeader>
+          <div className="space-y-2">{errorModal.message}</div>
+          <DialogFooter>
+            <Button type="button" onClick={() => setErrorModal({ open: false, message: '' })}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

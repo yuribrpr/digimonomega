@@ -1,16 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import api from '../services/api';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Loader2, ScrollText, CheckCircle2, Circle, Trophy, ChevronLeft, Map as MapIcon, Lock, Play, Gift, Backpack, Coins, Dna, ArrowUpCircle, RotateCcw, XCircle } from 'lucide-react';
 
 export default function Quests() {
   const [campaigns, setCampaigns] = useState([]);
   const [userProgress, setUserProgress] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [feedback, setFeedback] = useState({ open: false, message: '' });
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const confirmActionRef = useRef(null);
   
   // Navigation State
   const [view, setView] = useState('list'); // 'list' | 'details'
@@ -20,6 +25,16 @@ export default function Quests() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const questIndex = useMemo(() => {
+    const map = new Map();
+    for (const c of campaigns) {
+      for (const q of c.quests || []) {
+        map.set(q.id, { title: q.title, campaignTitle: c.title });
+      }
+    }
+    return map;
+  }, [campaigns]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -39,7 +54,19 @@ export default function Quests() {
 
   const getQuestStatus = (questId) => {
     const progress = userProgress.find(p => p.quest_id === questId);
-    return progress ? progress.status : 'AVAILABLE';
+    const status = progress ? progress.status : 'AVAILABLE';
+    if (status !== 'AVAILABLE') return status;
+    const quest = campaigns.flatMap(c => c.quests || []).find(q => q.id === questId);
+    const deps = quest?.dependencies || [];
+    if (deps.length > 0) {
+      const statuses = deps.map(id => {
+        const p = userProgress.find(up => up.quest_id === id);
+        return p ? p.status : 'AVAILABLE';
+      });
+      const unmet = statuses.some(st => st !== 'COMPLETED' && st !== 'CLAIMED');
+      if (unmet) return 'LOCKED';
+    }
+    return 'AVAILABLE';
   };
 
   const getCampaignProgress = (campaign) => {
@@ -60,21 +87,23 @@ export default function Quests() {
     } catch (error) {
       console.error("Error starting quest:", error);
       const msg = error.response?.data?.message || "Falha ao iniciar missão";
-      alert(msg);
+      setFeedback({ open: true, message: msg });
     }
   };
 
   const handleCancelQuest = async (questId) => {
-    if (!window.confirm("Tem certeza que deseja cancelar esta missão? Todo o progresso será perdido.")) return;
-    try {
-      await api.post('/api/quests/cancel', { questId });
-      fetchData();
-      setSelectedQuest(null);
-    } catch (error) {
-      console.error("Error cancelling quest:", error);
-      const msg = error.response?.data?.message || "Falha ao cancelar missão";
-      alert(msg);
-    }
+    setConfirmMessage("Tem certeza que deseja cancelar esta missão? Todo o progresso será perdido.");
+    confirmActionRef.current = async () => {
+      try {
+        await api.post('/api/quests/cancel', { questId });
+        fetchData();
+        setSelectedQuest(null);
+      } catch (error) {
+        const msg = error.response?.data?.message || "Falha ao cancelar missão";
+        setFeedback({ open: true, message: msg });
+      }
+    };
+    setConfirmOpen(true);
   };
 
   const handleClaimReward = async (questId) => {
@@ -84,21 +113,23 @@ export default function Quests() {
       setSelectedQuest(null);
     } catch (error) {
       console.error("Error claiming reward:", error);
-      alert("Falha ao resgatar recompensa");
+      setFeedback({ open: true, message: "Falha ao resgatar recompensa" });
     }
   };
 
   const handleRestartQuest = async (questId) => {
-    if (!window.confirm("Deseja refazer esta missão? Seu progresso atual será reiniciado.")) return;
-    try {
-      await api.post('/api/quests/restart', { questId });
-      fetchData();
-      setSelectedQuest(null);
-    } catch (error) {
-      console.error("Error restarting quest:", error);
-      const msg = error.response?.data?.message || "Falha ao reiniciar missão";
-      alert(msg);
-    }
+    setConfirmMessage("Deseja refazer esta missão? Seu progresso atual será reiniciado.");
+    confirmActionRef.current = async () => {
+      try {
+        await api.post('/api/quests/restart', { questId });
+        fetchData();
+        setSelectedQuest(null);
+      } catch (error) {
+        const msg = error.response?.data?.message || "Falha ao reiniciar missão";
+        setFeedback({ open: true, message: msg });
+      }
+    };
+    setConfirmOpen(true);
   };
 
   const handleSelectCampaign = (campaign) => {
@@ -147,6 +178,8 @@ export default function Quests() {
                 onBack={handleBackToCampaigns} 
                 getQuestStatus={getQuestStatus}
                 onSelectQuest={setSelectedQuest}
+                userProgress={userProgress}
+                questIndex={questIndex}
             />
         )}
       </div>
@@ -161,6 +194,29 @@ export default function Quests() {
         onCancel={handleCancelQuest}
         onRestart={handleRestartQuest}
       />
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Confirmar Ação</DialogTitle>
+            <DialogDescription>{confirmMessage}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
+            <Button onClick={async () => { const fn = confirmActionRef.current; setConfirmOpen(false); if (fn) await fn(); }}>Confirmar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={feedback.open} onOpenChange={(open) => setFeedback(prev => ({ ...prev, open }))}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Aviso</DialogTitle>
+            <DialogDescription>{feedback.message}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setFeedback({ open: false, message: '' })}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -225,7 +281,7 @@ function CampaignList({ campaigns, getProgress, onSelect }) {
     );
 }
 
-function CampaignDetails({ campaign, onBack, getQuestStatus, onSelectQuest }) {
+function CampaignDetails({ campaign, onBack, getQuestStatus, onSelectQuest, userProgress, questIndex }) {
     if (!campaign) return null;
 
     return (
@@ -243,9 +299,16 @@ function CampaignDetails({ campaign, onBack, getQuestStatus, onSelectQuest }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {campaign.quests.map((quest, index) => {
                     const status = getQuestStatus(quest.id);
-                    // Simple lock logic: if it's not the first quest and the previous one isn't completed/claimed
-                    // Actually, logic might be more complex, but for now let's just show status.
-                    // Assuming sequential order if needed, but let's stick to status.
+                    const deps = quest?.dependencies || [];
+                    const unmet = deps.filter(id => {
+                      const p = userProgress.find(up => up.quest_id === id);
+                      const st = p ? p.status : 'AVAILABLE';
+                      return st !== 'COMPLETED' && st !== 'CLAIMED';
+                    }).map(id => ({
+                      id,
+                      title: questIndex.get(id)?.title || `Quest #${id}`,
+                      campaign: questIndex.get(id)?.campaignTitle || 'Campanha'
+                    }));
                     
                     return (
                         <QuestCard 
@@ -254,6 +317,7 @@ function CampaignDetails({ campaign, onBack, getQuestStatus, onSelectQuest }) {
                             status={status} 
                             index={index + 1}
                             onSelect={() => onSelectQuest(quest)}
+                            lockedInfo={unmet}
                         />
                     );
                 })}
@@ -262,12 +326,13 @@ function CampaignDetails({ campaign, onBack, getQuestStatus, onSelectQuest }) {
     );
 }
 
-function QuestCard({ quest, status, index, onSelect }) {
+function QuestCard({ quest, status, index, onSelect, lockedInfo = [] }) {
   const getStatusStyles = () => {
     switch (status) {
       case 'COMPLETED': return 'border-green-500/30 bg-green-500/5 hover:bg-green-500/10';
       case 'CLAIMED': return 'border-slate-700 bg-slate-800/50 opacity-70';
       case 'IN_PROGRESS': return 'border-blue-500/50 bg-blue-500/5 hover:bg-blue-500/10 shadow-[0_0_15px_-5px_rgba(59,130,246,0.5)]';
+      case 'LOCKED': return 'border-red-500/30 bg-red-500/5';
       default: return 'border-muted/40 hover:border-yellow-500/50 hover:bg-yellow-500/5'; // AVAILABLE
     }
   };
@@ -277,6 +342,7 @@ function QuestCard({ quest, status, index, onSelect }) {
         case 'COMPLETED': return <Gift className="h-5 w-5 text-green-500" />;
         case 'CLAIMED': return <CheckCircle2 className="h-5 w-5 text-slate-500" />;
         case 'IN_PROGRESS': return <Play className="h-5 w-5 text-blue-500" />;
+        case 'LOCKED': return <Lock className="h-5 w-5 text-red-500" />;
         default: return <Circle className="h-5 w-5 text-muted-foreground" />;
     }
   };
@@ -286,6 +352,7 @@ function QuestCard({ quest, status, index, onSelect }) {
         case 'COMPLETED': return 'Concluída - Resgatar!';
         case 'CLAIMED': return 'Finalizada';
         case 'IN_PROGRESS': return 'Em Progresso';
+        case 'LOCKED': return 'Bloqueada';
         default: return 'Disponível';
     }
   };
@@ -308,9 +375,30 @@ function QuestCard({ quest, status, index, onSelect }) {
                     </CardDescription>
                 </div>
             </div>
-            <Badge variant="secondary" className="whitespace-nowrap text-[10px]">
-                {getStatusLabel()}
-            </Badge>
+            {status === 'LOCKED' && lockedInfo.length > 0 ? (
+              <HoverCard>
+                <HoverCardTrigger asChild>
+                  <Badge variant="secondary" className="whitespace-nowrap text-[10px]">Bloqueada</Badge>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-[96vw] max-w-[720px] p-3">
+                  <div className="text-xs font-semibold mb-2">Complete para desbloquear:</div>
+                  <ScrollArea className="max-h-60">
+                    <div className="space-y-1 pr-2">
+                      {lockedInfo.map((d) => (
+                        <div key={d.id} className="flex items-center gap-2">
+                          <span className="text-xs break-words whitespace-normal">{d.title}</span>
+                          <Badge variant="outline" className="ml-auto">{d.campaign}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </HoverCardContent>
+              </HoverCard>
+            ) : (
+              <Badge variant="secondary" className="whitespace-nowrap text-[10px]">
+                  {getStatusLabel()}
+              </Badge>
+            )}
         </div>
       </CardHeader>
     </Card>
