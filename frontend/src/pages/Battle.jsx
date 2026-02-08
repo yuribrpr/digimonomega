@@ -169,6 +169,14 @@ export default function Battle() {
     fetchActiveQuests({ detectCompletion: false });
   }, []);
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [healCooldownUntil, setHealCooldownUntil] = useState(0);
   const [healCooldownMs, setHealCooldownMs] = useState(0);
   const [fleeCooldownUntil, setFleeCooldownUntil] = useState(0);
@@ -279,9 +287,9 @@ export default function Battle() {
     return String(logEntry); 
   };
 
-  const addDamageIndicator = (value, target, crit = false, text = null) => {
+  const addDamageIndicator = (value, target, crit = false, text = null, type = 'damage') => {
       const id = Date.now() + Math.random();
-      setDamageIndicators(prev => [...prev, { id, value, target, crit, text }]);
+      setDamageIndicators(prev => [...prev, { id, value, target, crit, text, type }]);
       setTimeout(() => {
           setDamageIndicators(prev => prev.filter(i => i.id !== id));
       }, 1000);
@@ -379,7 +387,7 @@ export default function Battle() {
                     return enemyMaxCooldown; // Reset enemy CD
                 } else {
                      // Player is attacking, so we trigger Blocked logic here too if cooldown is ready
-                     addDamageIndicator(0, 'enemy', false, 'Blocked!');
+                     addDamageIndicator(0, 'enemy', false, 'Blocked!', 'blocked');
                      // Reset cooldown partially? Or full reset? 
                      // User said "cancel attack". So full reset.
                      return enemyMaxCooldown; 
@@ -399,7 +407,7 @@ export default function Battle() {
       // do NOT execute enemy attack yet. Wait for next cycle.
       if (animState === 'player-attack' || animState === 'enemy-hit' || isPlayerAttacking) {
           // Only show Blocked if we haven't shown it recently to avoid spam
-          addDamageIndicator(0, 'enemy', false, 'Blocked!');
+          addDamageIndicator(0, 'enemy', false, 'Blocked!', 'blocked');
           return;
       }
 
@@ -511,7 +519,7 @@ export default function Battle() {
     // If enemy cooldown is also 0 (or very close), we should force enemy reset and show blocked
     if (enemyCooldown <= 100) { // 100ms grace window
         setEnemyCooldown(enemyMaxCooldown);
-        addDamageIndicator(0, 'enemy', false, 'Blocked!');
+        addDamageIndicator(0, 'enemy', false, 'Blocked!', 'blocked');
     }
 
     try {
@@ -607,7 +615,7 @@ export default function Battle() {
                   // Show heal indicator
                   const healedAmount = res.data.newCurrentHp - battle.user.hp;
                   if (healedAmount > 0) {
-                      addDamageIndicator(healedAmount, 'player', false, `+${healedAmount}`);
+                      addDamageIndicator(healedAmount, 'player', false, `+${healedAmount}`, 'heal');
                   }
               }
 
@@ -973,8 +981,8 @@ export default function Battle() {
   ) : null;
 
   return (
-    <div className="container mx-auto py-6 md:py-8 space-y-6">
-      {/* Custom Keyframes for Shake Effect */}
+    <div className="fixed inset-0 z-[100] w-full h-[100dvh] md:static md:z-auto md:container md:mx-auto md:py-8 md:space-y-6 md:h-auto overflow-hidden md:overflow-visible flex flex-col justify-center bg-slate-950 md:bg-transparent">
+      {/* Custom Keyframes for Shake Effect & MMO Visuals */}
       <style>{`
         @keyframes shake {
           0% { transform: translate(1px, 1px) rotate(0deg); }
@@ -993,25 +1001,46 @@ export default function Battle() {
           animation: shake 0.5s;
         }
         @keyframes flash {
-            0% { opacity: 0; transform: scale(0.5); }
-            50% { opacity: 1; transform: scale(1.5); }
-            100% { opacity: 0; transform: scale(2); }
+            0% { opacity: 0; transform: scale(0.5); filter: brightness(2); }
+            20% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(1.5); }
         }
         .animate-impact {
             animation: flash 0.4s ease-out forwards;
         }
-        @keyframes float-up {
-            0% { transform: translate(-50%, 0) scale(1); opacity: 1; }
-            100% { transform: translate(-50%, -60px) scale(1.5); opacity: 0; }
+        @keyframes damage-pop {
+            0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
+            15% { transform: translate(-50%, -20px) scale(1.4); opacity: 1; }
+            100% { transform: translate(-50%, -80px) scale(1); opacity: 0; }
         }
-        .animate-float-up {
-            animation: float-up 0.8s ease-out forwards;
+        .animate-damage {
+            animation: damage-pop 0.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
         }
+        @keyframes heal-float {
+            0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
+            20% { transform: translate(-50%, -15px) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -60px) scale(1); opacity: 0; }
+        }
+        .animate-heal {
+            animation: heal-float 1.2s ease-out forwards;
+        }
+        @keyframes slash {
+            0% { clip-path: polygon(0 0, 0 0, 0 0, 0 0); opacity: 1; }
+            20% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); opacity: 1; }
+            100% { clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%); opacity: 0; }
+        }
+        @keyframes slide-in-right {
+            0% { transform: translateX(100%) scale(0.8); opacity: 0; }
+            100% { transform: translateX(0) scale(1); opacity: 1; }
+        }
+        .animate-slide-in-right {
+             animation: slide-in-right 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+         }
       `}</style>
-      <div className="w-full">
-        <Card className="border shadow-none rounded-2xl overflow-hidden bg-slate-950 text-slate-100">
-          <CardContent className="p-0">
-            <div className="relative h-[720px] md:h-[640px] bg-slate-950 w-full overflow-hidden px-2 pb-10 md:px-24 md:pb-10">
+      <div className="w-full h-full md:h-auto">
+        <Card className="border-0 md:border shadow-none rounded-none md:rounded-2xl overflow-hidden bg-slate-950 text-slate-100 h-full md:h-auto w-full">
+          <CardContent className="p-0 h-full md:h-auto">
+            <div className="relative h-full md:h-[640px] bg-slate-950 w-full overflow-hidden px-0 pb-0 md:px-24 md:pb-10">
               {mapMediaUrl ? (
                 isMapVideo ? (
                   <video
@@ -1054,28 +1083,28 @@ export default function Battle() {
                   <div className="mt-2">
                     <div className="flex items-center gap-2 md:hidden">
                       <Button
-                        size="sm"
+                        size={isMobile ? "icon" : "sm"}
                         variant="secondary"
-                        className="h-8 rounded-full border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-950/75"
+                        className={`${isMobile ? 'h-10 w-10 rounded-full bg-slate-950/60 border border-white/10' : 'h-8 rounded-full border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-950/75'}`}
                         onClick={() => {
                           setShowMobileLog((v) => !v);
                           setShowMobileQuests(false);
                         }}
                       >
-                        <Activity className="mr-2 h-3.5 w-3.5" />
-                        Histórico
+                        <Activity className={isMobile ? "h-5 w-5 text-slate-200" : "mr-2 h-3.5 w-3.5"} />
+                        {!isMobile && "Histórico"}
                       </Button>
                       <Button
-                        size="sm"
+                        size={isMobile ? "icon" : "sm"}
                         variant="secondary"
-                        className="h-8 rounded-full border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-950/75"
+                        className={`${isMobile ? 'h-10 w-10 rounded-full bg-slate-950/60 border border-white/10' : 'h-8 rounded-full border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-950/75'}`}
                         onClick={() => {
                           setShowMobileQuests((v) => !v);
                           setShowMobileLog(false);
                         }}
                       >
-                        <ScrollText className="mr-2 h-3.5 w-3.5" />
-                        Missões
+                        <ScrollText className={isMobile ? "h-5 w-5 text-slate-200" : "mr-2 h-3.5 w-3.5"} />
+                        {!isMobile && "Missões"}
                       </Button>
                     </div>
                   <div className="flex flex-col items-center gap-3 md:flex-row md:items-start md:justify-between md:gap-2">
@@ -1232,12 +1261,13 @@ export default function Battle() {
 
 {/* Modal de Vitória removido para imersão */}
             {/* Player Side */}
-            <div className={`absolute bottom-[40px] left-[20%] z-30 -ml-20 flex flex-col items-center gap-2 md:bottom-[80px] md:left-[25%] ${getPlayerStyle()}`}>
+            <div className={`absolute bottom-[140px] left-4 z-30 flex flex-col items-center gap-2 md:bottom-[80px] md:left-[25%] md:-ml-20 ${getPlayerStyle()}`}>
                <div className="relative">
                   {/* Impact Effect Overlay */}
                   {showImpact === 'player' && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center animate-impact pointer-events-none">
-                        <Skull className="w-24 h-24 text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]" />
+                        <div className="w-[140%] h-[6px] bg-red-100 shadow-[0_0_20px_rgba(239,68,68,1)] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-12 animate-[slash_0.2s_ease-out_forwards]" />
+                        <div className="absolute inset-0 bg-red-500/20 mix-blend-overlay rounded-full" />
                     </div>
                   )}
                   {showPlayerSkeleton ? (
@@ -1247,8 +1277,11 @@ export default function Battle() {
                   ) : myDigimon ? (
                     <GlobalTooltip content={playerTooltipContent}>
                       <div
-                        className="w-40 h-40 flex items-center justify-center"
-                        style={{ width: `${160 * playerStageScale}px`, height: `${160 * playerStageScale}px` }}
+                        className="flex items-center justify-center"
+                        style={{ 
+                            width: `${(isMobile ? 100 : 160) * playerStageScale}px`, 
+                            height: `${(isMobile ? 100 : 160) * playerStageScale}px` 
+                        }}
                       >
                         {myDigimon?.sprite_path ? (
                           <img
@@ -1273,24 +1306,25 @@ export default function Battle() {
                   )}
                   {/* Damage Indicators */}
                   {damageIndicators.filter(i => i.target === 'player').map(i => (
-                    <div key={i.id} className="absolute top-0 left-1/2 text-4xl font-bold text-red-500 animate-float-up z-50 pointer-events-none drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] font-mono">
-                        -{i.value}
+                    <div key={i.id} className={`absolute top-0 left-1/2 -translate-x-1/2 text-4xl font-black z-50 pointer-events-none whitespace-nowrap drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${i.type === 'heal' ? 'text-emerald-400 animate-heal' : 'text-red-500 animate-damage'}`}>
+                        {i.type === 'heal' && <Heart className="inline-block w-6 h-6 mr-1 fill-current" />}
+                        {i.text ? i.text : `-${i.value}${i.crit ? '!' : ''}`}
                     </div>
                   ))}
                </div>
             </div>
             {/* VS Divider - Fades out during combat action */}
-            <div className={`absolute bottom-[130px] left-1/2 z-20 h-40 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-slate-800 to-transparent transition-opacity duration-300 md:bottom-[165px] ${animState !== 'idle' ? 'opacity-0' : 'opacity-100'}`}></div>
+            <div className={`absolute bottom-[180px] left-1/2 z-20 h-40 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-slate-800 to-transparent transition-opacity duration-300 md:bottom-[165px] ${animState !== 'idle' ? 'opacity-0' : 'opacity-100'}`}></div>
             {/* Enemy Side */}
-            <div className={`absolute bottom-[40px] left-[80%] z-30 -ml-20 flex flex-col items-center gap-2 md:bottom-[80px] md:left-[75%] ${getEnemyStyle()}`}>
+            <div className={`absolute bottom-[220px] right-4 left-auto z-20 flex flex-col items-center gap-2 md:z-30 md:bottom-[80px] md:left-[75%] md:right-auto md:-ml-20 ${getEnemyStyle()} ${!isFetchingBattleData ? 'animate-slide-in-right' : ''}`}>
                <div className="relative">
                   {/* Impact Effect Overlay */}
                   {showImpact === 'enemy' && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center animate-impact pointer-events-none">
-                        {lastCrit ? (
-                          <Sparkles className="w-24 h-24 text-yellow-300 drop-shadow-[0_0_18px_rgba(250,204,21,0.9)]" />
-                        ) : (
-                          <Zap className="w-24 h-24 text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)] fill-yellow-200" />
+                        <div className="w-[140%] h-[8px] bg-white shadow-[0_0_20px_rgba(255,255,255,1)] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-45 animate-[slash_0.3s_ease-out_forwards]" />
+                        <div className="w-[140%] h-[8px] bg-white shadow-[0_0_20px_rgba(255,255,255,1)] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-45 animate-[slash_0.3s_ease-out_forwards_0.1s]" />
+                        {lastCrit && (
+                             <div className="absolute inset-0 bg-yellow-400/40 mix-blend-overlay animate-pulse rounded-full" />
                         )}
                     </div>
                    )}
@@ -1302,7 +1336,7 @@ export default function Battle() {
                      <div className="relative">
                         {/* Win State: Drops */}
                        {battle?.win && (
-                            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-50 flex flex-wrap items-center justify-center gap-2">
+                            <div className="absolute inset-x-0 top-[40%] -translate-y-1/2 z-50 flex flex-wrap items-center justify-center gap-2">
                                {/* XP Drop */}
                                {rewards?.xp > 0 && (
                                     <GlobalTooltip content={<span className="text-xs font-bold text-blue-300">+{rewards.xp} XP</span>}>
@@ -1350,8 +1384,11 @@ export default function Battle() {
                        )}
                     <GlobalTooltip content={battle?.win ? null : enemyTooltipContent}>
                       <div
-                        className={`w-40 h-40 flex items-center justify-center transition-all duration-1000 ${battle?.win ? 'opacity-0 filter grayscale blur-sm scale-90' : ''}`}
-                        style={{ width: `${160 * enemyStageScale}px`, height: `${160 * enemyStageScale}px` }}
+                        className={`flex items-center justify-center transition-all duration-1000 ${battle?.win ? 'opacity-0 filter grayscale blur-sm scale-90' : ''}`}
+                        style={{ 
+                            width: `${(isMobile ? 100 : 160) * enemyStageScale}px`, 
+                            height: `${(isMobile ? 100 : 160) * enemyStageScale}px` 
+                        }}
                       >
                         {enemy?.sprite_path ? (
                           <img
@@ -1379,60 +1416,80 @@ export default function Battle() {
                 {damageIndicators.filter(i => i.target === 'enemy').map(i => (
                   <div 
                     key={i.id} 
-                    className={`absolute top-0 left-1/2 text-4xl font-extrabold animate-float-up z-50 pointer-events-none font-mono ${
-                      i.text === 'Blocked!' 
-                        ? 'text-blue-400 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)]' 
+                    className={`absolute top-0 left-1/2 -translate-x-1/2 text-5xl font-black z-50 pointer-events-none whitespace-nowrap animate-damage ${
+                      i.type === 'blocked' 
+                        ? 'text-blue-400 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)] text-3xl' 
                         : (i.crit 
-                            ? 'text-yellow-300 drop-shadow-[0_0_12px_rgba(250,204,21,0.9)]'
-                            : 'text-red-500 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]'
+                            ? 'text-yellow-300 drop-shadow-[0_0_15px_rgba(250,204,21,1)] scale-125'
+                            : 'text-white drop-shadow-[0_2px_4px_rgba(220,38,38,0.8)]'
                           )
                     }`}
                   >
-                    {i.text ? i.text : `-${i.value}${i.crit ? '!' : ''}`}
+                    {i.type === 'blocked' && <Shield className="inline-block w-6 h-6 mr-1" />}
+                    {i.text ? i.text : <span>{i.value}{i.crit && <span className="text-3xl align-top">CRIT!</span>}</span>}
                   </div>
                  ))}
                </div>
             </div>
               <div className="absolute bottom-4 left-1/2 z-40 w-[min(720px,calc(100%-16px))] -translate-x-1/2 md:bottom-6">
-                <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-2 shadow-[0_24px_60px_-38px_rgba(0,0,0,0.95)] backdrop-blur-md">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-2 shadow-[0_24px_60px_-38px_rgba(0,0,0,0.95)] backdrop-blur-md">
                   {showWinModal ? (
-                    <div className="grid grid-cols-2 gap-2 w-full">
+                    <div className={isMobile ? "flex justify-center gap-6" : "grid grid-cols-2 gap-2 w-full"}>
                       <Button
-                          size="lg"
-                          className="h-12 w-full select-none rounded-xl bg-green-600 hover:bg-green-500 text-white border border-green-400/30 shadow-[0_0_20px_rgba(34,197,94,0.3)] animate-in fade-in zoom-in duration-300"
+                          size={isMobile ? "icon" : "lg"}
+                          disabled={!winInteractionReady}
+                          className={`${isMobile 
+                            ? 'h-16 w-16 rounded-full bg-green-600 hover:bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.3)]' 
+                            : 'h-12 w-full rounded-xl bg-green-600 hover:bg-green-500'
+                          } select-none text-white border border-green-400/30 animate-in fade-in zoom-in duration-300 disabled:opacity-50 disabled:cursor-not-allowed`}
                           onClick={handleContinueAfterWin}
                       >
-                          <div className="flex w-full items-center justify-between px-2">
-                              <span className="inline-flex items-center font-bold">
-                                  <Play className="mr-2 h-5 w-5 fill-current" /> Continuar
-                              </span>
-                              <span className="rounded-md bg-black/20 px-2 py-1 text-[10px] font-bold tracking-[0.15em] text-white/90 border border-white/10">
-                                  ENTER
-                              </span>
-                          </div>
+                          {isMobile ? (
+                            <Play className="h-8 w-8 fill-current" />
+                          ) : (
+                            <div className="flex w-full items-center justify-between px-2">
+                                <span className="inline-flex items-center font-bold">
+                                    <Play className="mr-2 h-5 w-5 fill-current" /> Continuar
+                                </span>
+                                <span className="rounded-md bg-black/20 px-2 py-1 text-[10px] font-bold tracking-[0.15em] text-white/90 border border-white/10">
+                                    ENTER
+                                </span>
+                            </div>
+                          )}
                       </Button>
 
                       <Button
-                          size="lg"
+                          size={isMobile ? "icon" : "lg"}
                           variant="destructive"
-                          className="h-12 w-full select-none rounded-xl bg-red-950/80 hover:bg-red-900/90 text-red-200 border border-red-500/30 animate-in fade-in zoom-in duration-300 delay-75"
+                          disabled={!winInteractionReady}
+                          className={`${isMobile 
+                            ? 'h-16 w-16 rounded-full bg-red-950/80 hover:bg-red-900/90' 
+                            : 'h-12 w-full rounded-xl bg-red-950/80 hover:bg-red-900/90'
+                          } select-none text-red-200 border border-red-500/30 animate-in fade-in zoom-in duration-300 delay-75 disabled:opacity-50 disabled:cursor-not-allowed`}
                           onClick={handleLeave}
                       >
-                          <div className="flex w-full items-center justify-between px-2">
-                              <span className="inline-flex items-center font-semibold">
-                                  <XCircle className="mr-2 h-5 w-5" /> Sair
-                              </span>
-                              <span className="rounded-md bg-black/20 px-2 py-1 text-[10px] font-bold tracking-[0.15em] text-red-200/90 border border-white/10">
-                                  ESC
-                              </span>
-                          </div>
+                          {isMobile ? (
+                            <XCircle className="h-8 w-8" />
+                          ) : (
+                            <div className="flex w-full items-center justify-between px-2">
+                                <span className="inline-flex items-center font-semibold">
+                                    <XCircle className="mr-2 h-5 w-5" /> Sair
+                                </span>
+                                <span className="rounded-md bg-black/20 px-2 py-1 text-[10px] font-bold tracking-[0.15em] text-red-200/90 border border-white/10">
+                                    ESC
+                                </span>
+                            </div>
+                          )}
                       </Button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                    <div className={isMobile ? "flex items-center justify-center gap-4" : "grid grid-cols-2 gap-2 md:grid-cols-4"}>
                       <Button
-                        size="lg"
-                        className="h-12 w-full relative overflow-hidden select-none rounded-xl bg-white text-slate-950 hover:bg-white/90"
+                        size={isMobile ? "icon" : "lg"}
+                        className={`${isMobile 
+                          ? 'h-14 w-14 rounded-full border border-white/20' 
+                          : 'h-12 w-full rounded-xl'
+                        } relative overflow-hidden select-none bg-white text-slate-950 hover:bg-white/90`}
                         onClick={executeAttack}
                         disabled={!canAttack || battle?.win || (battle?.user?.hp ?? 0) <= 0 || loading || animState !== 'idle'}
                       >
@@ -1442,66 +1499,94 @@ export default function Battle() {
                             style={{ height: `${(playerCooldown / playerMaxCooldown) * 100}%` }}
                           />
                         )}
-                        <div className="relative z-20 flex w-full items-center justify-between">
-                          <span className="inline-flex items-center">
-                            <Swords className="mr-2 h-4 w-4" />
-                            {!canAttack && playerCooldown > 0 ? `${(playerCooldown / 1000).toFixed(1)}s` : 'Atacar'}
-                          </span>
-                          <span className="rounded-md bg-black/10 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-900/80">
-                            1
-                          </span>
-                        </div>
+                        {isMobile ? (
+                          <div className="relative z-20 flex items-center justify-center">
+                            <Swords className="h-6 w-6" />
+                            {/* Cooldown overlay number if needed, but maybe distracting on icon. User said 'menos texto'. */}
+                          </div>
+                        ) : (
+                          <div className="relative z-20 flex w-full items-center justify-between">
+                            <span className="inline-flex items-center">
+                              <Swords className="mr-2 h-4 w-4" />
+                              {!canAttack && playerCooldown > 0 ? `${(playerCooldown / 1000).toFixed(1)}s` : 'Atacar'}
+                            </span>
+                            <span className="rounded-md bg-black/10 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-900/80">
+                              1
+                            </span>
+                          </div>
+                        )}
                       </Button>
 
                       <Button
-                        size="lg"
+                        size={isMobile ? "icon" : "lg"}
                         variant="secondary"
-                        className="h-12 w-full select-none rounded-xl border border-white/10 bg-slate-950/60 text-slate-100 hover:bg-slate-950/75"
+                        className={`${isMobile 
+                          ? 'h-14 w-14 rounded-full border border-white/20' 
+                          : 'h-12 w-full rounded-xl border border-white/10'
+                        } select-none bg-slate-950/60 text-slate-100 hover:bg-slate-950/75`}
                         onClick={handleOpenBag}
                         disabled={loading || battle?.win}
                       >
-                        <div className="flex w-full items-center justify-between">
-                          <span className="inline-flex items-center">
-                            <Backpack className="mr-2 h-4 w-4" /> Itens
-                          </span>
-                          <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-200">
-                            2
-                          </span>
-                        </div>
+                        {isMobile ? (
+                           <Backpack className="h-6 w-6" />
+                        ) : (
+                          <div className="flex w-full items-center justify-between">
+                            <span className="inline-flex items-center">
+                              <Backpack className="mr-2 h-4 w-4" /> Itens
+                            </span>
+                            <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-200">
+                              2
+                            </span>
+                          </div>
+                        )}
                       </Button>
 
                       <Button
-                        size="lg"
+                        size={isMobile ? "icon" : "lg"}
                         variant="destructive"
-                        className="h-12 w-full select-none rounded-xl"
+                        className={`${isMobile 
+                          ? 'h-14 w-14 rounded-full border border-white/20' 
+                          : 'h-12 w-full rounded-xl'
+                        } select-none`}
                         onClick={onFlee}
                         disabled={fleeCooldownMs > 0}
                       >
-                        <div className="flex w-full items-center justify-between">
-                          <span className="inline-flex items-center">
-                            <XCircle className="mr-2 h-4 w-4" />
-                            {fleeCooldownMs > 0 ? `Fugir (${(fleeCooldownMs / 1000).toFixed(2)}s)` : 'Fugir'}
-                          </span>
-                          <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-white/90">
-                            3
-                          </span>
-                        </div>
+                        {isMobile ? (
+                           <XCircle className="h-6 w-6" />
+                        ) : (
+                          <div className="flex w-full items-center justify-between">
+                            <span className="inline-flex items-center">
+                              <XCircle className="mr-2 h-4 w-4" />
+                              {fleeCooldownMs > 0 ? `Fugir (${(fleeCooldownMs / 1000).toFixed(2)}s)` : 'Fugir'}
+                            </span>
+                            <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-white/90">
+                              3
+                            </span>
+                          </div>
+                        )}
                       </Button>
 
                       <Button
-                        size="lg"
+                        size={isMobile ? "icon" : "lg"}
                         variant="outline"
-                        className="h-12 w-full rounded-xl border-white/10 bg-slate-950/45 text-slate-100 hover:bg-slate-950/60"
+                        className={`${isMobile 
+                          ? 'h-14 w-14 rounded-full border-white/20 bg-slate-950/45' 
+                          : 'h-12 w-full rounded-xl border-white/10 bg-slate-950/45'
+                        } text-slate-100 hover:bg-slate-950/60`}
                         onClick={() => navigate('/exploration')}
                       >
-                        <div className="flex w-full items-center justify-between">
-                          <span className="inline-flex items-center">
-                            <Map className="mr-2 h-4 w-4" /> Explorar
-                          </span>
-                          <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-200">
-                            4
-                          </span>
-                        </div>
+                        {isMobile ? (
+                           <Map className="h-6 w-6" />
+                        ) : (
+                          <div className="flex w-full items-center justify-between">
+                            <span className="inline-flex items-center">
+                              <Map className="mr-2 h-4 w-4" /> Explorar
+                            </span>
+                            <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.22em] text-slate-200">
+                              4
+                            </span>
+                          </div>
+                        )}
                       </Button>
                     </div>
                   )}

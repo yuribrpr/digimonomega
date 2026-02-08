@@ -48,11 +48,13 @@ export const GlobalTooltip = ({ children, content }) => {
       >
         {children}
       </div>
-      <TooltipPortal coords={coords} visible={visible}>
-        <div className="bg-slate-900 text-slate-50 text-xs px-3 py-2 rounded-md shadow-xl border border-slate-700 max-w-xs">
-          {content}
-        </div>
-      </TooltipPortal>
+      {content && (
+        <TooltipPortal coords={coords} visible={visible}>
+          <div className="bg-slate-900 text-slate-50 text-xs px-3 py-2 rounded-md shadow-xl border border-slate-700 max-w-xs">
+            {content}
+          </div>
+        </TooltipPortal>
+      )}
     </>
   );
 };
