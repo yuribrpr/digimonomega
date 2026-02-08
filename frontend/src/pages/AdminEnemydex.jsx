@@ -233,7 +233,8 @@ export default function AdminEnemydex() {
         if (hp !== '' && Number(hp) !== Number(originalHp || 0)) formData.append('base_hp', hp);
         if (atk !== '' && Number(atk) !== Number(originalAtk || 0)) formData.append('base_attack', atk);
         if (def !== '' && Number(def) !== Number(originalDef || 0)) formData.append('base_defense', def);
-        formData.append('attack_speed', atkSpeed || '2.0');
+        if (atkSpeed && atkSpeed !== (editingEnemy.attack_speed || '2.0')) formData.append('attack_speed', atkSpeed);
+        if (baseLevel !== '' && Number(baseLevel) !== Number(editingEnemy.base_level ?? editingEnemy.level ?? 0)) formData.append('base_level', baseLevel);
         if (expReward !== '' && Number(expReward) !== Number(originalExp || 0)) formData.append('exp_reward', expReward);
         if (bitsReward !== '' && Number(bitsReward) !== Number(originalBits || 0)) formData.append('bits_reward', bitsReward);
         if (file) formData.append('sprite', file);
@@ -259,6 +260,7 @@ export default function AdminEnemydex() {
         formData.append('base_attack', atk);
         formData.append('base_defense', def);
         formData.append('attack_speed', atkSpeed || '2.0');
+        formData.append('base_level', baseLevel);
         formData.append('exp_reward', expReward);
         formData.append('bits_reward', bitsReward);
         if (file) {

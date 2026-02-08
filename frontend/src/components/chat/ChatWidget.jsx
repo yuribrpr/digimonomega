@@ -8,7 +8,7 @@ import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useChat } from '../../context/ChatContext';
 import api from '../../services/api';
-const SOCKET_URL = import.meta.env.VITE_API_URL;
+const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const getAvatarUrl = (path) => {
     if (!path) return null;
     if (path.startsWith('http')) return path;

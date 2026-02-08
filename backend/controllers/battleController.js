@@ -24,6 +24,31 @@ function pick(colList, candidates) {
   return null;
 }
 
+function resolveStageLevel(row, colList) {
+  if (!row) return null;
+  if (has(colList, 'base_level')) {
+    const v = Number(row.base_level);
+    if (Number.isFinite(v) && v >= 1 && v <= 5) return v;
+  }
+  if (has(colList, 'stage')) {
+    const v = Number(row.stage);
+    if (Number.isFinite(v) && v >= 1 && v <= 5) return v;
+  }
+  if (has(colList, 'evolution_level')) {
+    const v = Number(row.evolution_level);
+    if (Number.isFinite(v) && v >= 1 && v <= 5) return v;
+  }
+  if (has(colList, 'level')) {
+    const v = Number(row.level);
+    if (Number.isFinite(v) && v >= 1 && v <= 5) return v;
+  }
+if (has(colList, 'next_evolution_id')) {
+    const v = row.next_evolution_id;
+    if (v === null || v === undefined || Number(v) === 0) return 4;
+  }
+  return null;
+}
+
 function sumProps(row, keys) {
   if (!row) return 0;
   let s = 0;
@@ -150,7 +175,14 @@ exports.startBattle = async (req, res) => {
       userDigimonRow = anyRows && anyRows[0];
     }
     if (!userDigimonRow) return res.status(400).json({ message: 'Usuário não possui digimon' });
-    const [digRows] = await db.execute('SELECT id, name, type, base_hp, base_attack, base_defense, base_attack_speed, sprite_path FROM digidex WHERE id=?', [userDigimonRow.digimon_id]);
+    const digidexCols = await getColumns('digidex');
+    const digimonSelectCols = ['id', 'name', 'type', 'base_hp', 'base_attack', 'base_defense', 'base_attack_speed', 'sprite_path'];
+    if (has(digidexCols, 'base_level')) digimonSelectCols.push('base_level');
+    if (has(digidexCols, 'next_evolution_id')) digimonSelectCols.push('next_evolution_id');
+    if (has(digidexCols, 'stage')) digimonSelectCols.push('stage');
+    if (has(digidexCols, 'evolution_level')) digimonSelectCols.push('evolution_level');
+    if (has(digidexCols, 'level')) digimonSelectCols.push('level');
+    const [digRows] = await db.execute(`SELECT ${digimonSelectCols.join(', ')} FROM digidex WHERE id=?`, [userDigimonRow.digimon_id]);
     const userDigimon = digRows && digRows[0];
     if (!userDigimon) return res.status(404).json({ message: 'Digimon não encontrado' });
     
@@ -208,7 +240,13 @@ exports.startBattle = async (req, res) => {
     }
     
     // Enemy selection logic
-    let enemyQuery = 'SELECT id, name, type, hp, attack, defense, attack_speed, difficulty, sprite_path FROM enemydex';
+    const enemyCols = await getColumns('enemydex');
+    const enemyStageCol = pick(enemyCols, ['base_level', 'evolution_level', 'stage', 'level']);
+    const enemySelectCols = ['id', 'name', 'type', 'hp', 'attack', 'defense', 'attack_speed', 'difficulty', 'sprite_path'];
+    if (enemyStageCol && !enemySelectCols.includes(enemyStageCol)) {
+      enemySelectCols.push(enemyStageCol);
+    }
+    let enemyQuery = `SELECT ${enemySelectCols.join(', ')} FROM enemydex`;
     let enemyParams = [];
 
     if (map_id) {
@@ -326,6 +364,7 @@ exports.startBattle = async (req, res) => {
         xp: effXp,
         max_xp: nextLevelXp,
         level: level,
+        stage_level: resolveStageLevel(userDigimon, digidexCols),
         sprite_path: userDigimon.sprite_path || null
       },
       enemy: {
@@ -338,6 +377,7 @@ exports.startBattle = async (req, res) => {
         defense: enemyDef,
         attack_speed: enemySpd,
         difficulty: enemy.difficulty || 'Normal',
+        stage_level: enemyStageCol ? enemy?.[enemyStageCol] ?? null : null,
         sprite_path: enemy.sprite_path || null
       },
       log: []
@@ -375,9 +415,22 @@ exports.attack = async (req, res) => {
     if (!map) return res.status(404).json({ message: 'Digimon do usuário não encontrado' });
     // Use the correct column for digimon_id based on mapping
     const digimonId = map[digiIdCol];
-    const [digRows] = await db.execute('SELECT id, name, type, base_hp, base_attack, base_defense, base_attack_speed, sprite_path FROM digidex WHERE id=?', [digimonId]);
+    const digidexCols = await getColumns('digidex');
+    const digimonSelectCols = ['id', 'name', 'type', 'base_hp', 'base_attack', 'base_defense', 'base_attack_speed', 'sprite_path'];
+    if (has(digidexCols, 'base_level')) digimonSelectCols.push('base_level');
+    if (has(digidexCols, 'next_evolution_id')) digimonSelectCols.push('next_evolution_id');
+    if (has(digidexCols, 'stage')) digimonSelectCols.push('stage');
+    if (has(digidexCols, 'evolution_level')) digimonSelectCols.push('evolution_level');
+    if (has(digidexCols, 'level')) digimonSelectCols.push('level');
+    const [digRows] = await db.execute(`SELECT ${digimonSelectCols.join(', ')} FROM digidex WHERE id=?`, [digimonId]);
     const userDigimon = digRows && digRows[0];
-    const [enemyRows] = await db.execute('SELECT id, name, type, hp, attack, defense, attack_speed, difficulty, sprite_path, exp_reward, bits_reward FROM enemydex WHERE id=?', [battle.enemy_id]);
+    const enemyCols = await getColumns('enemydex');
+    const enemyStageCol = pick(enemyCols, ['base_level', 'stage', 'evolution_level', 'level']);
+    const enemySelectCols = ['id', 'name', 'type', 'hp', 'attack', 'defense', 'attack_speed', 'difficulty', 'sprite_path', 'exp_reward', 'bits_reward'];
+    if (enemyStageCol && !enemySelectCols.includes(enemyStageCol)) {
+      enemySelectCols.push(enemyStageCol);
+    }
+    const [enemyRows] = await db.execute(`SELECT ${enemySelectCols.join(', ')} FROM enemydex WHERE id=?`, [battle.enemy_id]);
     const enemy = enemyRows && enemyRows[0];
 
     // Calculate effective stats (prefer stored columns; fallback base + extras)
@@ -450,6 +503,9 @@ exports.attack = async (req, res) => {
        const newUserHpCapped = Math.min(newUserHp, maxHpToSave);
        await db.execute(`UPDATE ${table} SET current_hp=?, max_hp=? WHERE id=?`, [newUserHpCapped, maxHpToSave, battle.user_digimon_id]);
     }
+
+    let userStageLevel = resolveStageLevel(userDigimon, digidexCols);
+    let enemyStageLevel = enemyStageCol ? enemy?.[enemyStageCol] ?? null : null;
 
     if (win) {
       // Fetch global multipliers
@@ -774,11 +830,18 @@ exports.attack = async (req, res) => {
        // Atualizar nome/sprite se houve evolução (digimon_id mudou)
        const digimonId2 = fullMap && mapping ? fullMap[mapping.digiIdCol] : null;
        if (digimonId2 && digimonId2 !== userDigimon?.id) {
-         const [digRows2] = await db.execute('SELECT id, name, sprite_path, base_attack_speed FROM digidex WHERE id=?', [digimonId2]);
+         const digimonSelectCols2 = ['id', 'name', 'sprite_path', 'base_attack_speed'];
+         if (has(digidexCols, 'base_level')) digimonSelectCols2.push('base_level');
+         if (has(digidexCols, 'next_evolution_id')) digimonSelectCols2.push('next_evolution_id');
+         if (has(digidexCols, 'stage')) digimonSelectCols2.push('stage');
+        if (has(digidexCols, 'evolution_level')) digimonSelectCols2.push('evolution_level');
+        if (has(digidexCols, 'level')) digimonSelectCols2.push('level');
+         const [digRows2] = await db.execute(`SELECT ${digimonSelectCols2.join(', ')} FROM digidex WHERE id=?`, [digimonId2]);
          if (digRows2 && digRows2[0]) {
            userName = digRows2[0].name;
            userSprite = digRows2[0].sprite_path || userSprite;
            effSpd = Number(digRows2[0].base_attack_speed || 2.0);
+           userStageLevel = resolveStageLevel(digRows2[0], digidexCols) ?? userStageLevel;
          }
        }
     }
@@ -820,6 +883,7 @@ exports.attack = async (req, res) => {
         xp: effXp + (win ? (rewards?.xp || 0) : 0),
         max_xp: nextLevelXp,
         level: level,
+        stage_level: userStageLevel,
         sprite_path: userSprite
       },
       enemy: {
@@ -832,6 +896,7 @@ exports.attack = async (req, res) => {
         defense: enemyDef,
         attack_speed: Number(enemy?.attack_speed) || 2.0,
         difficulty: enemy?.difficulty || 'Normal',
+        stage_level: enemyStageLevel,
         sprite_path: enemy?.sprite_path || null
       },
       crit: isCrit,
@@ -914,7 +979,13 @@ exports.flee = async (req, res) => {
         }
     }
 
-    let enemyQuery = 'SELECT id, name, type, hp, attack, defense, attack_speed, difficulty, sprite_path FROM enemydex';
+    const enemyCols = await getColumns('enemydex');
+    const enemyStageCol = pick(enemyCols, ['base_level', 'evolution_level', 'stage', 'level']);
+    const enemySelectCols = ['id', 'name', 'type', 'hp', 'attack', 'defense', 'attack_speed', 'difficulty', 'sprite_path'];
+    if (enemyStageCol && !enemySelectCols.includes(enemyStageCol)) {
+      enemySelectCols.push(enemyStageCol);
+    }
+    let enemyQuery = `SELECT ${enemySelectCols.join(', ')} FROM enemydex`;
     let enemyParams = [];
 
     if (map_id) {
@@ -953,6 +1024,7 @@ exports.flee = async (req, res) => {
         defense: enemyDef,
         attack_speed: Number(enemy.attack_speed) || 2.0,
         difficulty: enemy.difficulty || 'Normal',
+        stage_level: enemyStageCol ? enemy?.[enemyStageCol] ?? null : null,
         sprite_path: enemy.sprite_path || null
       },
       log: [`Você fugiu. Novo inimigo: ${enemy.name}`]

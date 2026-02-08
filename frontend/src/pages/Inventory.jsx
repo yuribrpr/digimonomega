@@ -288,7 +288,7 @@ export default function Inventory() {
                     <div className="flex items-center gap-4">
                          <div className="bg-secondary/20 rounded-md p-2">
                             {selectedItem.icon ? (
-                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${selectedItem.icon}`} alt={selectedItem.name} className="w-12 h-12 object-contain" />
+                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${selectedItem.icon}`} alt={selectedItem.name} className="w-12 h-12 object-contain" />
                             ) : <Backpack className="w-12 h-12 text-muted-foreground" />}
                          </div>
                          <div>
@@ -366,7 +366,7 @@ export default function Inventory() {
                     <div className="flex items-center gap-4">
                          <div className="bg-secondary/20 rounded-md p-2">
                             {selectedItem.icon ? (
-                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${selectedItem.icon}`} alt={selectedItem.name} className="w-12 h-12 object-contain" />
+                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${selectedItem.icon}`} alt={selectedItem.name} className="w-12 h-12 object-contain" />
                             ) : <Backpack className="w-12 h-12 text-muted-foreground" />}
                          </div>
                          <div>

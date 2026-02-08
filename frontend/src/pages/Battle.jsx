@@ -818,7 +818,41 @@ export default function Battle() {
     return Number.isFinite(n) ? n : 0;
   };
   const toInt = (v) => Math.floor(toNum(v));
+  const normalizeStageLevel = (value) => {
+    if (value === undefined || value === null) return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? Math.floor(value) : null;
+    const raw = String(value).trim();
+    if (!raw) return null;
+    const asNumber = Number(raw);
+    if (Number.isFinite(asNumber)) return Math.floor(asNumber);
+    const key = raw.toLowerCase();
+    if (key === 'rookie') return 1;
+    if (key === 'champion') return 2;
+    if (key === 'ultimate') return 3;
+    if (key === 'mega') return 4;
+    if (key === 'burst mode' || key === 'burst_mode' || key === 'burst') return 5;
+    return null;
+  };
+  const resolveStageLevel = (digimon) => {
+    const stage = normalizeStageLevel(
+      digimon?.stage_level ??
+      digimon?.base_level ??
+      digimon?.stage ??
+      digimon?.evolution_level ??
+      (toInt(digimon?.level) <= 5 ? digimon?.level : null)
+    );
+    return stage;
+  };
+  const getStageScale = (stageLevel) => {
+    const level = normalizeStageLevel(stageLevel);
+    if (level === 2) return 1.2;
+    if (level === 3) return 1.5;
+    if (level === 4 || level === 5) return 1.8;
+    return 1;
+  };
 
+  const playerStageScale = getStageScale(resolveStageLevel(myDigimon));
+  const enemyStageScale = getStageScale(resolveStageLevel(enemy));
   const playerExtraAtk = toInt(myDigimon?.extra_attack);
   const playerExtraDef = toInt(myDigimon?.extra_defense);
   const playerExtraHp = toInt(myDigimon?.extra_hp);
@@ -1316,7 +1350,10 @@ export default function Battle() {
                     </div>
                   ) : myDigimon ? (
                     <GlobalTooltip content={playerTooltipContent}>
-                      <div className="w-40 h-40 flex items-center justify-center">
+                      <div
+                        className="w-40 h-40 flex items-center justify-center"
+                        style={{ width: `${160 * playerStageScale}px`, height: `${160 * playerStageScale}px` }}
+                      >
                         {myDigimon?.sprite_path ? (
                           <img
                             src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${myDigimon.sprite_path}`}
@@ -1324,7 +1361,7 @@ export default function Battle() {
                             className="max-h-full max-w-full object-contain"
                             style={{
                               filter: isPlayerAttacking ? 'brightness(1.5)' : (isPlayerHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
-                              transform: `${isPlayerAttacking ? 'translateX(50px)' : (isPlayerHit ? 'translateX(-20px)' : 'translateX(0)')} scaleX(-1)`,
+                              transform: `${isPlayerAttacking ? 'translateX(50px)' : (isPlayerHit ? 'translateX(-20px)' : 'translateX(0)')} scale(${playerStageScale}) scaleX(-1)`,
                               transition: 'transform 0.2s, filter 0.2s'
                             }}
                           />
@@ -1367,7 +1404,10 @@ export default function Battle() {
                      </div>
                    ) : enemy ? (
                      <GlobalTooltip content={enemyTooltipContent}>
-                       <div className="w-40 h-40 flex items-center justify-center">
+                       <div
+                         className="w-40 h-40 flex items-center justify-center"
+                         style={{ width: `${160 * enemyStageScale}px`, height: `${160 * enemyStageScale}px` }}
+                       >
                         {enemy?.sprite_path ? (
                           <img
                             src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`}
@@ -1375,7 +1415,7 @@ export default function Battle() {
                             className="max-h-full max-w-full object-contain"
                             style={{
                                filter: isEnemyAttacking ? 'brightness(1.5)' : (isEnemyHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
-                               transform: isEnemyAttacking ? 'translateX(-50px)' : (isEnemyHit ? 'translateX(20px)' : 'translateX(0)'),
+                               transform: `${isEnemyAttacking ? 'translateX(-50px)' : (isEnemyHit ? 'translateX(20px)' : 'translateX(0)')} scale(${enemyStageScale})`,
                                transition: 'transform 0.2s, filter 0.2s'
                             }}
                           />

@@ -142,7 +142,7 @@ export default function Exploration() {
                         <>
                         {reqItem.icon ? (
                             <img 
-                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${reqItem.icon}`} 
+                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${reqItem.icon}`} 
                             alt={reqItem.name} 
                             className="w-5 h-5 rounded-sm object-contain"
                             title={reqItem.description || reqItem.name}

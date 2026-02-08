@@ -50,14 +50,15 @@ exports.createEnemy = async (req, res) => {
     const bAtk = base_attack ? parseInt(base_attack, 10) : 0;
     const bDef = base_defense ? parseInt(base_defense, 10) : 0;
     const bSpd = attack_speed ? parseFloat(attack_speed) : 2.0;
+    const bLvl = base_level ? parseInt(base_level, 10) : 1;
     const expReward = exp_reward ? parseInt(exp_reward, 10) : Math.round((bAtk + bDef) / 2);
     const bitsReward = bits_reward ? parseInt(bits_reward, 10) : Math.round(expReward * 0.5);
     const diffText = (String(difficulty) === '1' || String(difficulty).toLowerCase() === 'boss') ? 'Boss' : 'Normal';
 
-    const sql = `INSERT INTO ${enemyTable} (name, type, hp, attack, defense, attack_speed, exp_reward, difficulty, sprite_path, bits_reward)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const sql = `INSERT INTO ${enemyTable} (name, type, hp, attack, defense, attack_speed, base_level, exp_reward, difficulty, sprite_path, bits_reward)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     const [result] = await db.execute(sql, [
-      name, type, bHp, bAtk, bDef, bSpd, expReward, diffText, sprite_path, bitsReward
+      name, type, bHp, bAtk, bDef, bSpd, bLvl, expReward, diffText, sprite_path, bitsReward
     ]);
 
     // Handle drops
@@ -103,13 +104,14 @@ exports.updateEnemy = async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      name, type, difficulty, base_hp, base_attack, base_defense, exp_reward, bits_reward, attack_speed
+      name, type, difficulty, base_hp, base_attack, base_defense, base_level, exp_reward, bits_reward, attack_speed
     } = req.body;
 
     const bHp = base_hp ? parseInt(base_hp, 10) : null;
     const bAtk = base_attack ? parseInt(base_attack, 10) : null;
     const bDef = base_defense ? parseInt(base_defense, 10) : null;
     const bSpd = attack_speed ? parseFloat(attack_speed) : null;
+    const bLvl = base_level ? parseInt(base_level, 10) : null;
     const expReward = exp_reward ? parseInt(exp_reward, 10) : null;
     const bitsReward = bits_reward ? parseInt(bits_reward, 10) : null;
     const diffText = (difficulty !== undefined)
@@ -128,6 +130,7 @@ exports.updateEnemy = async (req, res) => {
     if (bAtk !== null) { sets.push('attack=?'); params.push(bAtk); }
     if (bDef !== null) { sets.push('defense=?'); params.push(bDef); }
     if (bSpd !== null) { sets.push('attack_speed=?'); params.push(bSpd); }
+    if (bLvl !== null) { sets.push('base_level=?'); params.push(bLvl); }
 
     const effectiveAtk = bAtk !== null ? bAtk : current.attack;
     const effectiveDef = bDef !== null ? bDef : current.defense;
