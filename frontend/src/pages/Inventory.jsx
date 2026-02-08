@@ -218,7 +218,7 @@ export default function Inventory() {
                       <CardContent className="p-4 flex flex-col items-center text-center space-y-3 pt-6">
                           <div className="w-16 h-16 bg-secondary/50 rounded-md flex items-center justify-center mb-2 relative">
                               {slot.icon ? (
-                                  <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${slot.icon}`} alt={slot.name} className="w-12 h-12 object-contain" />
+                                  <img src={slot.icon.startsWith('http') ? slot.icon : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${slot.icon}`} alt={slot.name} className="w-12 h-12 object-contain" />
                               ) : (
                                   <Backpack className="w-8 h-8 text-muted-foreground/50" />
                               )}
@@ -288,7 +288,7 @@ export default function Inventory() {
                     <div className="flex items-center gap-4">
                          <div className="bg-secondary/20 rounded-md p-2">
                             {selectedItem.icon ? (
-                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${selectedItem.icon}`} alt={selectedItem.name} className="w-12 h-12 object-contain" />
+                                <img src={selectedItem.icon.startsWith('http') ? selectedItem.icon : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${selectedItem.icon}`} alt={selectedItem.name} className="w-12 h-12 object-contain" />
                             ) : <Backpack className="w-12 h-12 text-muted-foreground" />}
                          </div>
                          <div>
@@ -366,7 +366,7 @@ export default function Inventory() {
                     <div className="flex items-center gap-4">
                          <div className="bg-secondary/20 rounded-md p-2">
                             {selectedItem.icon ? (
-                                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${selectedItem.icon}`} alt={selectedItem.name} className="w-12 h-12 object-contain" />
+                                <img src={selectedItem.icon.startsWith('http') ? selectedItem.icon : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${selectedItem.icon}`} alt={selectedItem.name} className="w-12 h-12 object-contain" />
                             ) : <Backpack className="w-12 h-12 text-muted-foreground" />}
                          </div>
                          <div>

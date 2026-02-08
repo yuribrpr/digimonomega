@@ -293,7 +293,7 @@ export default function AdminItems() {
                 <div className="w-16 h-16 bg-secondary/50 rounded-md flex items-center justify-center mb-2 relative">
                     {item.icon ? (
                         <img 
-                          src={`${API_URL}/${item.icon}`} 
+                          src={item.icon.startsWith('http') ? item.icon : `${API_URL}/${item.icon}`} 
                           alt={item.name} 
                           className="w-12 h-12 object-contain"
                           onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}

@@ -83,11 +83,11 @@ export default function Digidex() {
                 <div className="w-full h-32 my-4 flex items-center justify-center p-2 bg-gradient-to-b from-transparent to-black/5 dark:to-white/5 rounded-lg">
                   {digimon.sprite_path ? (
                     <img 
-                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${digimon.sprite_path}`}
-                      alt={digimon.name}
-                      className="h-full w-full object-contain drop-shadow-lg transition-transform duration-300 group-hover:scale-110"
-                      onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}
-                    />
+                src={digimon.sprite_path.startsWith('http') ? digimon.sprite_path : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${digimon.sprite_path}`}
+                alt={digimon.name}
+                className="h-full w-full object-contain drop-shadow-lg transition-transform duration-300 group-hover:scale-110"
+                onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}
+              />
                   ) : (
                     <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center">
                         <span className="text-xs text-muted-foreground">?</span>

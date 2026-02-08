@@ -113,7 +113,7 @@ export default function Adoption() {
              {selectedDigimon && (
                 <div className="w-24 h-24 bg-muted/30 rounded-lg flex items-center justify-center border-2 border-muted">
                     <img 
-                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${selectedDigimon.sprite_path}`} 
+                        src={selectedDigimon.sprite_path.startsWith('http') ? selectedDigimon.sprite_path : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${selectedDigimon.sprite_path}`} 
                         alt={selectedDigimon.name} 
                         className="w-16 h-16 object-contain"
                         style={{imageRendering: 'pixelated'}}

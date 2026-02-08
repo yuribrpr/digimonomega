@@ -1285,7 +1285,7 @@ export default function Battle() {
                       >
                         {myDigimon?.sprite_path ? (
                           <img
-                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${myDigimon.sprite_path}`}
+                            src={myDigimon.sprite_path.startsWith('http') ? myDigimon.sprite_path : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${myDigimon.sprite_path}`}
                             alt={myDigimon?.name}
                             className="max-h-full max-w-full object-contain"
                             style={{
@@ -1370,7 +1370,7 @@ export default function Battle() {
                                         >
                                             {drop.icon ? (
                                                 <img 
-                                                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.icon}`} 
+                                                    src={drop.icon.startsWith('http') ? drop.icon : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.icon}`} 
                                                     alt={drop.name} 
                                                     className="h-7 w-7 object-contain" 
                                                 />
@@ -1392,9 +1392,10 @@ export default function Battle() {
                       >
                         {enemy?.sprite_path ? (
                           <img
-                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`}
+                            src={enemy.sprite_path.startsWith('http') ? enemy.sprite_path : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`}
                             alt={enemy?.name}
                             className="max-h-full max-w-full object-contain"
+                            onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}
                             style={{
                                filter: isEnemyAttacking ? 'brightness(1.5)' : (isEnemyHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
                                transform: `${isEnemyAttacking ? 'translateX(-50px)' : (isEnemyHit ? 'translateX(20px)' : 'translateX(0)')} scale(${enemyStageScale})`,
@@ -1645,7 +1646,7 @@ export default function Battle() {
                                   <div className="relative grid h-9 w-9 place-items-center overflow-hidden rounded-lg border border-white/10 bg-white/5">
                                     {item.icon ? (
                                       <img
-                                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${item.icon}`}
+                                        src={item.icon.startsWith('http') ? item.icon : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${item.icon}`}
                                         alt={item.name}
                                         className="h-7 w-7 object-contain"
                                       />

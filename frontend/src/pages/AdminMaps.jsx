@@ -261,8 +261,8 @@ export default function AdminMaps() {
                                 {selectedEnemies.includes(enemy.id) && <div className="w-2 h-2 bg-white rounded-full" />}
                             </div>
                             <div className="flex items-center gap-2 text-sm">
-                                {enemy.sprite_path && <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`} className="w-8 h-8 object-contain" alt="" />}
-                                <span className="truncate">{enemy.name} (Lvl {enemy.base_level || '?'})</span>
+                                {enemy.sprite_path && <img src={enemy.sprite_path.startsWith('http') ? enemy.sprite_path : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`} className="w-8 h-8 object-contain" alt="" />}
+                                <span className="truncate">{enemy.name} ({enemy.stage || enemy.base_level || 'Rookie'})</span>
                             </div>
                         </div>
                     ))}

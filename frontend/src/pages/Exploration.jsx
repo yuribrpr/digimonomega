@@ -102,7 +102,7 @@ export default function Exploration() {
                     String(map.image_path).toLowerCase().endsWith('.mp4') ? (
                         <video
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${String(map.image_path).replace(/\\/g, '/')}`}
+                            src={String(map.image_path).replace(/\\/g, '/').startsWith('http') ? String(map.image_path).replace(/\\/g, '/') : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${String(map.image_path).replace(/\\/g, '/')}`}
                             autoPlay
                             loop
                             muted
@@ -111,7 +111,7 @@ export default function Exploration() {
                         />
                     ) : (
                         <img 
-                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${String(map.image_path).replace(/\\/g, '/')}`} 
+                            src={String(map.image_path).replace(/\\/g, '/').startsWith('http') ? String(map.image_path).replace(/\\/g, '/') : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${String(map.image_path).replace(/\\/g, '/')}`} 
                             alt={map.name} 
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                         />
@@ -142,7 +142,7 @@ export default function Exploration() {
                         <>
                         {reqItem.icon ? (
                             <img 
-                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${reqItem.icon}`} 
+                            src={reqItem.icon.startsWith('http') ? reqItem.icon : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${reqItem.icon}`} 
                             alt={reqItem.name} 
                             className="w-5 h-5 rounded-sm object-contain"
                             title={reqItem.description || reqItem.name}

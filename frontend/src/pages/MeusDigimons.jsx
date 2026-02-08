@@ -177,7 +177,7 @@ export default function MeusDigimons() {
             <div className="relative h-48 bg-gradient-to-b from-transparent to-black/20 p-4 flex items-center justify-center">
                 {it.sprite_path ? (
                   <img
-                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${it.sprite_path}`}
+                    src={it.sprite_path.startsWith('http') ? it.sprite_path : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${it.sprite_path}`}
                     alt={it.species_name || it.name}
                     className="h-full w-auto object-contain drop-shadow-xl transition-transform duration-300 group-hover:scale-110"
                   />

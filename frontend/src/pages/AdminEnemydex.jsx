@@ -29,6 +29,7 @@ export default function AdminEnemydex() {
   const [def, setDef] = useState('');
   const [atkSpeed, setAtkSpeed] = useState('');
   const [baseLevel, setBaseLevel] = useState('');
+  const [stage, setStage] = useState('Rookie');
   const [file, setFile] = useState(null);
   const [spritePreview, setSpritePreview] = useState('');
   const [saving, setSaving] = useState(false);
@@ -157,7 +158,8 @@ export default function AdminEnemydex() {
     setAtk('');
     setDef('');
     setAtkSpeed('2.0');
-    setBaseLevel('');
+    setBaseLevel('1');
+    setStage('Rookie');
     setFile(null);
     setEditingEnemy(null);
     setExpReward('');
@@ -181,6 +183,7 @@ export default function AdminEnemydex() {
     setDef(enemy.base_defense ?? enemy.defense ?? enemy.def ?? enemy.defesa ?? '');
     setAtkSpeed(enemy.attack_speed || '2.0');
     setBaseLevel(enemy.base_level ?? enemy.level ?? enemy.nivel ?? '');
+    setStage(enemy.stage ?? 'Rookie');
     setExpReward(enemy.exp_reward ?? '');
     setBitsReward(enemy.bits_reward ?? '');
     fetchDrops(enemy.id);
@@ -261,6 +264,7 @@ export default function AdminEnemydex() {
         formData.append('base_defense', def);
         formData.append('attack_speed', atkSpeed || '2.0');
         formData.append('base_level', baseLevel);
+        formData.append('stage', stage || 'Rookie');
         formData.append('exp_reward', expReward);
         formData.append('bits_reward', bitsReward);
         if (file) {
@@ -349,7 +353,18 @@ export default function AdminEnemydex() {
       default: return level || '?';
     }
   };
-  const generateStats = (level, diffOverride) => {
+  const stageToLevel = (stageName) => {
+    const s = String(stageName).toLowerCase();
+    if (s === 'rookie') return 1;
+    if (s === 'champion') return 2;
+    if (s === 'ultimate') return 3;
+    if (s === 'mega') return 4;
+    if (s === 'burst mode' || s === 'burst_mode') return 5;
+    return 1;
+  };
+
+  const generateStats = (stageVal, diffOverride) => {
+    const level = stageToLevel(stageVal);
     const base = parseInt(level);
     if (!base) return;
     const minHp = base * 1000;
@@ -365,8 +380,10 @@ export default function AdminEnemydex() {
     setAtk(newAtk * factor);
     setDef(newDef * factor);
   };
-  const handleBaseLevelChange = (val) => {
-    setBaseLevel(val);
+
+  const handleStageChange = (val) => {
+    setStage(val);
+    setBaseLevel(stageToLevel(val));
     generateStats(val, difficulty);
   };
   const addDrop = () => {
@@ -723,7 +740,14 @@ export default function AdminEnemydex() {
             filtered.map((item) => (
               <SelectItem key={item.id} value={String(item.id)}>
                 <div className="flex items-center gap-2">
-                  {item.icon && <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${item.icon}`} alt="" className="w-4 h-4 object-contain" />}
+                  {item.icon && (
+                    <img 
+                      src={item.icon.startsWith('http') ? item.icon : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${item.icon}`} 
+                      alt="" 
+                      className="w-4 h-4 object-contain"
+                      onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}
+                    />
+                  )}
                   {item.name}
                 </div>
               </SelectItem>
@@ -736,7 +760,7 @@ export default function AdminEnemydex() {
     );
   };
   const itemIndex = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
-  const previewUrl = spritePreview || (editingEnemy?.sprite_path ? `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${editingEnemy.sprite_path}` : '');
+  const previewUrl = spritePreview || (editingEnemy?.sprite_path ? (editingEnemy.sprite_path.startsWith('http') ? editingEnemy.sprite_path : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${editingEnemy.sprite_path}`) : '');
   const typeOptions = [
     { value: 'Vacina', label: 'Vacina' },
     { value: 'Vírus', label: 'Vírus' },
@@ -746,6 +770,13 @@ export default function AdminEnemydex() {
   const difficultyOptions = [
     { value: 'Normal', label: 'Normal' },
     { value: 'Boss', label: 'Boss' }
+  ];
+  const stageOptions = [
+    { value: 'Rookie', label: 'Rookie' },
+    { value: 'Champion', label: 'Champion' },
+    { value: 'Ultimate', label: 'Ultimate' },
+    { value: 'Mega', label: 'Mega' },
+    { value: 'Burst Mode', label: 'Burst Mode' }
   ];
   const bulkTypeOptions = [{ value: 'keep', label: 'Sem alteração' }, ...typeOptions];
   const bulkDifficultyOptions = [{ value: 'keep', label: 'Sem alteração' }, ...difficultyOptions];
@@ -913,20 +944,20 @@ export default function AdminEnemydex() {
                               <Label htmlFor="difficulty">Dificuldade</Label>
                               <FilterSelect
                                 value={difficulty}
-                                onValueChange={(val) => { setDifficulty(val); if (baseLevel) generateStats(baseLevel, val); }}
+                                onValueChange={(val) => { setDifficulty(val); if (stage) generateStats(stage, val); }}
                                 placeholder="Selecione a dificuldade"
                                 searchPlaceholder="Filtrar dificuldade"
                                 options={difficultyOptions}
                               />
                             </div>
-                            <div className="space-y-2 md:col-span-2">
-                              <Label htmlFor="baseLevel">Nível Base</Label>
+                            <div className="space-y-2">
+                              <Label htmlFor="stage">Estágio</Label>
                               <FilterSelect
-                                value={baseLevel ? String(baseLevel) : ''}
-                                onValueChange={handleBaseLevelChange}
-                                placeholder="Selecione o estágio..."
+                                value={stage}
+                                onValueChange={handleStageChange}
+                                placeholder="Selecione o estágio"
                                 searchPlaceholder="Filtrar estágio"
-                                options={levelOptions}
+                                options={stageOptions}
                               />
                             </div>
                           </div>
@@ -947,7 +978,7 @@ export default function AdminEnemydex() {
                               <Input id="def" type="number" value={def} onChange={(e) => setDef(e.target.value)} required />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="atkSpeed">Vel. Ataque</Label>
+                              <Label htmlFor="atkSpeed">Vel. Ataque (segundos)</Label>
                               <Input id="atkSpeed" type="number" step="0.1" value={atkSpeed} onChange={(e) => setAtkSpeed(e.target.value)} required />
                             </div>
                           </div>
@@ -983,7 +1014,7 @@ export default function AdminEnemydex() {
                           <div className="flex flex-wrap gap-2">
                             <Badge variant="outline" className="text-xs uppercase">{type}</Badge>
                             <Badge variant="secondary" className="text-xs">{difficulty}</Badge>
-                            {baseLevel && <Badge variant="outline" className="text-xs">{getStageName(baseLevel)}</Badge>}
+                            {stage && <Badge variant="outline" className="text-xs">{stage}</Badge>}
                           </div>
                         </div>
                         <div className="rounded-lg border bg-muted/10 p-4 space-y-2">
@@ -1334,7 +1365,7 @@ export default function AdminEnemydex() {
           <div>Inimigo</div>
           <div>Tipo</div>
           <div>Dificuldade</div>
-          <div>Nível</div>
+          <div>Estágio</div>
           <div>Drops</div>
           <div>Mapas</div>
           <div className="text-right">Ações</div>
@@ -1352,7 +1383,7 @@ export default function AdminEnemydex() {
                 <div className="h-10 w-10 rounded-md bg-muted/50 flex items-center justify-center overflow-hidden">
                   {enemy.sprite_path ? (
                     <img
-                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`}
+                      src={enemy.sprite_path.startsWith('http') ? enemy.sprite_path : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`}
                       alt={enemy.name}
                       className="h-full w-full object-contain"
                     />
@@ -1364,7 +1395,7 @@ export default function AdminEnemydex() {
                   <span className="font-medium leading-tight">{enemy.name}</span>
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
                     <Layers className="h-3 w-3" />
-                    {getStageName(enemy.base_level ?? enemy.level ?? enemy.nivel)}
+                    {enemy.stage ?? 'Rookie'}
                   </span>
                 </div>
               </div>
@@ -1374,7 +1405,7 @@ export default function AdminEnemydex() {
               <div>
                 <Badge variant="secondary" className="text-xs">{diffLabel}</Badge>
               </div>
-              <div className="text-xs font-medium">{enemy.base_level ?? enemy.level ?? '-'}</div>
+              <div className="text-xs font-medium">{enemy.stage ?? '-'}</div>
               <div className="text-xs">{renderDropsCell(enemy.id, dropsList)}</div>
               <div className="flex flex-wrap gap-1">
                 {mapNames.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
@@ -1413,7 +1444,7 @@ export default function AdminEnemydex() {
                     <div className="h-12 w-12 rounded-md bg-muted/50 flex items-center justify-center overflow-hidden">
                       {enemy.sprite_path ? (
                         <img
-                          src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`}
+                          src={enemy.sprite_path.startsWith('http') ? enemy.sprite_path : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${enemy.sprite_path}`}
                           alt={enemy.name}
                           className="h-full w-full object-contain"
                         />
@@ -1425,7 +1456,7 @@ export default function AdminEnemydex() {
                       <div className="font-semibold">{enemy.name}</div>
                       <div className="text-xs text-muted-foreground flex items-center gap-1">
                         <Layers className="h-3 w-3" />
-                        {getStageName(enemy.base_level ?? enemy.level ?? enemy.nivel)}
+                        {enemy.stage ?? 'Rookie'}
                       </div>
                     </div>
                   </div>

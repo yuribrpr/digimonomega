@@ -485,7 +485,7 @@ export function QuestDetailDialog({ quest, open, onOpenChange, userProgress, onS
                             <div className="flex-shrink-0 flex flex-col items-center gap-2">
                                 <div className="w-16 h-16  flex items-center justify-center overflow-hidden">
                                     <img 
-                                        src={details.npc.sprite_path ? `${API_URL}/${details.npc.sprite_path}` : (details.npc.image || `/digimons/${details.npc.name.toLowerCase()}.gif`)} 
+                                        src={details.npc.sprite_path ? (details.npc.sprite_path.startsWith('http') ? details.npc.sprite_path : `${API_URL}/${details.npc.sprite_path}`) : (details.npc.image || `/digimons/${details.npc.name.toLowerCase()}.gif`)} 
                                         alt={details.npc.name} 
                                         className="w-12 h-12 object-contain"
                                         onError={(e) => { e.target.src = '/placeholder-digimon.png' }}
@@ -566,7 +566,7 @@ export function QuestDetailDialog({ quest, open, onOpenChange, userProgress, onS
                                     <div className="p-2 rounded-full bg-secondary flex items-center justify-center w-12 h-12 overflow-hidden">
                                         {reward.image ? (
                                             <img 
-                                                src={`${API_URL}/${reward.image}`} 
+                                                src={reward.image.startsWith('http') ? reward.image : `${API_URL}/${reward.image}`} 
                                                 alt={reward.name} 
                                                 className="w-full h-full object-contain"
                                                 onError={(e) => { e.target.style.display = 'none' }}
