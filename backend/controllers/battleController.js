@@ -26,12 +26,21 @@ function pick(colList, candidates) {
 
 function resolveStageLevel(row, colList) {
   if (!row) return null;
+  // Prefer textual stage if present
+  if (has(colList, 'stage')) {
+    const s = row.stage;
+    if (typeof s === 'string') {
+      const key = s.trim().toLowerCase();
+      if (key === 'rookie') return 1;
+      if (key === 'champion') return 2;
+      if (key === 'ultimate') return 3;
+      if (key === 'mega') return 4;
+      if (key === 'burst mode' || key === 'burst_mode' || key === 'burst') return 5;
+    }
+  }
+  // Numeric stage fields, limited to 1-5
   if (has(colList, 'base_level')) {
     const v = Number(row.base_level);
-    if (Number.isFinite(v) && v >= 1 && v <= 5) return v;
-  }
-  if (has(colList, 'stage')) {
-    const v = Number(row.stage);
     if (Number.isFinite(v) && v >= 1 && v <= 5) return v;
   }
   if (has(colList, 'evolution_level')) {
@@ -42,7 +51,19 @@ function resolveStageLevel(row, colList) {
     const v = Number(row.level);
     if (Number.isFinite(v) && v >= 1 && v <= 5) return v;
   }
-if (has(colList, 'next_evolution_id')) {
+  // Fallback: bucketize base_level ranges into 1..5 (campaign tiers)
+  if (has(colList, 'base_level')) {
+    const v = Number(row.base_level);
+    if (Number.isFinite(v)) {
+      if (v <= 15) return 1;
+      if (v <= 30) return 2;
+      if (v <= 45) return 3;
+      if (v <= 60) return 4;
+      return 5;
+    }
+  }
+  // Heuristic: if next evolution is missing/null, treat as high stage
+  if (has(colList, 'next_evolution_id')) {
     const v = row.next_evolution_id;
     if (v === null || v === undefined || Number(v) === 0) return 4;
   }
@@ -241,7 +262,7 @@ exports.startBattle = async (req, res) => {
     
     // Enemy selection logic
     const enemyCols = await getColumns('enemydex');
-    const enemyStageCol = pick(enemyCols, ['base_level', 'evolution_level', 'stage', 'level']);
+    const enemyStageCol = pick(enemyCols, ['stage', 'base_level', 'evolution_level', 'level']);
     const enemySelectCols = ['id', 'name', 'type', 'base_hp', 'base_attack', 'base_defense', 'attack_speed', 'difficulty', 'sprite_path'];
     if (enemyStageCol && !enemySelectCols.includes(enemyStageCol)) {
       enemySelectCols.push(enemyStageCol);
@@ -377,7 +398,7 @@ exports.startBattle = async (req, res) => {
         defense: enemyDef,
         attack_speed: enemySpd,
         difficulty: enemy.difficulty || 'Normal',
-        stage_level: enemyStageCol ? enemy?.[enemyStageCol] ?? null : null,
+        stage_level: resolveStageLevel(enemy, enemyCols),
         sprite_path: enemy.sprite_path || null
       },
       log: []
@@ -425,7 +446,7 @@ exports.attack = async (req, res) => {
     const [digRows] = await db.execute(`SELECT ${digimonSelectCols.join(', ')} FROM digidex WHERE id=?`, [digimonId]);
     const userDigimon = digRows && digRows[0];
     const enemyCols = await getColumns('enemydex');
-    const enemyStageCol = pick(enemyCols, ['base_level', 'stage', 'evolution_level', 'level']);
+    const enemyStageCol = pick(enemyCols, ['stage', 'base_level', 'evolution_level', 'level']);
     const enemySelectCols = ['id', 'name', 'type', 'base_hp', 'base_attack', 'base_defense', 'attack_speed', 'difficulty', 'sprite_path', 'exp_reward', 'bits_reward'];
     if (enemyStageCol && !enemySelectCols.includes(enemyStageCol)) {
       enemySelectCols.push(enemyStageCol);
@@ -505,7 +526,7 @@ exports.attack = async (req, res) => {
     }
 
     let userStageLevel = resolveStageLevel(userDigimon, digidexCols);
-    let enemyStageLevel = enemyStageCol ? enemy?.[enemyStageCol] ?? null : null;
+    let enemyStageLevel = resolveStageLevel(enemy, enemyCols);
 
     if (win) {
       // Fetch global multipliers
@@ -980,7 +1001,7 @@ exports.flee = async (req, res) => {
     }
 
     const enemyCols = await getColumns('enemydex');
-    const enemyStageCol = pick(enemyCols, ['base_level', 'evolution_level', 'stage', 'level']);
+    const enemyStageCol = pick(enemyCols, ['stage', 'base_level', 'evolution_level', 'level']);
     const enemySelectCols = ['id', 'name', 'type', 'base_hp', 'base_attack', 'base_defense', 'attack_speed', 'difficulty', 'sprite_path'];
     if (enemyStageCol && !enemySelectCols.includes(enemyStageCol)) {
       enemySelectCols.push(enemyStageCol);
@@ -1024,7 +1045,7 @@ exports.flee = async (req, res) => {
         defense: enemyDef,
         attack_speed: Number(enemy.attack_speed) || 2.0,
         difficulty: enemy.difficulty || 'Normal',
-        stage_level: enemyStageCol ? enemy?.[enemyStageCol] ?? null : null,
+        stage_level: resolveStageLevel(enemy, enemyCols),
         sprite_path: enemy.sprite_path || null
       },
       log: [`Você fugiu. Novo inimigo: ${enemy.name}`]
