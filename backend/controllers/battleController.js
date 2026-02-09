@@ -242,7 +242,7 @@ exports.startBattle = async (req, res) => {
     // Enemy selection logic
     const enemyCols = await getColumns('enemydex');
     const enemyStageCol = pick(enemyCols, ['base_level', 'evolution_level', 'stage', 'level']);
-    const enemySelectCols = ['id', 'name', 'type', 'hp', 'attack', 'defense', 'attack_speed', 'difficulty', 'sprite_path'];
+    const enemySelectCols = ['id', 'name', 'type', 'base_hp', 'base_attack', 'base_defense', 'attack_speed', 'difficulty', 'sprite_path'];
     if (enemyStageCol && !enemySelectCols.includes(enemyStageCol)) {
       enemySelectCols.push(enemyStageCol);
     }
@@ -267,9 +267,9 @@ exports.startBattle = async (req, res) => {
     if (!enemy) return res.status(404).json({ message: 'Nenhum inimigo disponível' });
     
     // Apply difficulty multiplier
-    const enemyHp = Math.floor((Number(enemy.hp) || 0) * mapDifficulty);
-    const enemyAtk = Math.floor((Number(enemy.attack) || 0) * mapDifficulty);
-    const enemyDef = Math.floor((Number(enemy.defense) || 0) * mapDifficulty);
+    const enemyHp = Math.floor((Number(enemy.base_hp) || 0) * mapDifficulty);
+    const enemyAtk = Math.floor((Number(enemy.base_attack) || 0) * mapDifficulty);
+    const enemyDef = Math.floor((Number(enemy.base_defense) || 0) * mapDifficulty);
     const enemySpd = Number(enemy.attack_speed) || 2.0;
 
     let effHp = Number(userDigimon.base_hp || 0);

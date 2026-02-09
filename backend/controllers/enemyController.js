@@ -56,7 +56,7 @@ exports.createEnemy = async (req, res) => {
     const bitsReward = bits_reward ? parseInt(bits_reward, 10) : Math.round(expReward * 0.5);
     const diffText = (String(difficulty) === '1' || String(difficulty).toLowerCase() === 'boss') ? 'Boss' : 'Normal';
 
-    const sql = `INSERT INTO ${enemyTable} (name, type, hp, attack, defense, attack_speed, base_level, stage, exp_reward, difficulty, sprite_path, bits_reward)
+    const sql = `INSERT INTO ${enemyTable} (name, type, base_hp, base_attack, base_defense, attack_speed, base_level, stage, exp_reward, difficulty, sprite_path, bits_reward)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     const [result] = await db.execute(sql, [
       name, type, bHp, bAtk, bDef, bSpd, bLvl, stg, expReward, diffText, sprite_path, bitsReward
@@ -120,23 +120,23 @@ exports.updateEnemy = async (req, res) => {
       ? ((String(difficulty) === '1' || String(difficulty).toLowerCase() === 'boss') ? 'Boss' : 'Normal')
       : undefined;
 
-    const [rows] = await db.execute(`SELECT attack, defense FROM ${enemyTable} WHERE id=?`, [id]);
-    const current = rows && rows[0] ? rows[0] : { attack: null, defense: null };
+    const [rows] = await db.execute(`SELECT base_attack, base_defense FROM ${enemyTable} WHERE id=?`, [id]);
+    const current = rows && rows[0] ? rows[0] : { base_attack: null, base_defense: null };
 
     const sets = [];
     const params = [];
     if (name !== undefined) { sets.push('name=?'); params.push(name); }
     if (type !== undefined) { sets.push('type=?'); params.push(type); }
     if (diffText !== undefined) { sets.push('difficulty=?'); params.push(diffText); }
-    if (bHp !== null) { sets.push('hp=?'); params.push(bHp); }
-    if (bAtk !== null) { sets.push('attack=?'); params.push(bAtk); }
-    if (bDef !== null) { sets.push('defense=?'); params.push(bDef); }
+    if (bHp !== null) { sets.push('base_hp=?'); params.push(bHp); }
+    if (bAtk !== null) { sets.push('base_attack=?'); params.push(bAtk); }
+    if (bDef !== null) { sets.push('base_defense=?'); params.push(bDef); }
     if (bSpd !== null) { sets.push('attack_speed=?'); params.push(bSpd); }
     if (bLvl !== null) { sets.push('base_level=?'); params.push(bLvl); }
     if (stg !== null) { sets.push('stage=?'); params.push(stg); }
 
-    const effectiveAtk = bAtk !== null ? bAtk : current.attack;
-    const effectiveDef = bDef !== null ? bDef : current.defense;
+    const effectiveAtk = bAtk !== null ? bAtk : current.base_attack;
+    const effectiveDef = bDef !== null ? bDef : current.base_defense;
 
     if (expReward !== null) {
       sets.push('exp_reward=?'); params.push(expReward);

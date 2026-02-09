@@ -189,7 +189,7 @@ exports.getMapById = async (req, res) => {
         
         const map = rows[0];
         const [enemies] = await db.execute(`
-            SELECT e.id, e.name, e.difficulty, e.sprite_path, e.hp, e.attack 
+            SELECT e.id, e.name, e.difficulty, e.sprite_path, e.base_hp, e.base_attack 
             FROM map_enemies me
             JOIN enemydex e ON me.enemy_id = e.id
             WHERE me.map_id = ?
