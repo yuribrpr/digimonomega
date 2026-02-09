@@ -445,7 +445,8 @@ export function QuestDetailDialog({ quest, open, onOpenChange, userProgress, onS
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-lg bg-card border-border"
+        overlayClassName="z-[60] backdrop-blur-sm"
+        className="z-[60] bg-card border-border w-[92vw] max-w-[92vw] sm:max-w-lg sm:w-auto"
         onEscapeKeyDown={requireClickToClose ? (e) => e.preventDefault() : undefined}
         onPointerDownOutside={requireClickToClose ? (e) => e.preventDefault() : undefined}
         onInteractOutside={requireClickToClose ? (e) => e.preventDefault() : undefined}

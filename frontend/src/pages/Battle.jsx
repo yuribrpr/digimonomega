@@ -1261,7 +1261,7 @@ export default function Battle() {
 
 {/* Modal de Vitória removido para imersão */}
             {/* Player Side */}
-            <div className={`absolute bottom-[140px] left-4 z-30 flex flex-col items-center gap-2 md:bottom-[80px] md:left-[25%] md:-ml-20 ${getPlayerStyle()}`}>
+            <div className={`absolute bottom-[170px] left-4 z-30 flex flex-col items-center gap-2 md:bottom-[80px] md:left-[25%] md:-ml-20 ${getPlayerStyle()}`}>
                <div className="relative">
                   {/* Impact Effect Overlay */}
                   {showImpact === 'player' && (
@@ -1316,7 +1316,7 @@ export default function Battle() {
             {/* VS Divider - Fades out during combat action */}
             <div className={`absolute bottom-[180px] left-1/2 z-20 h-40 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-slate-800 to-transparent transition-opacity duration-300 md:bottom-[165px] ${animState !== 'idle' ? 'opacity-0' : 'opacity-100'}`}></div>
             {/* Enemy Side */}
-            <div className={`absolute bottom-[220px] right-4 left-auto z-20 flex flex-col items-center gap-2 md:z-30 md:bottom-[80px] md:left-[75%] md:right-auto md:-ml-20 ${getEnemyStyle()} ${!isFetchingBattleData ? 'animate-slide-in-right' : ''}`}>
+            <div className={`absolute bottom-[260px] right-4 left-auto z-20 flex flex-col items-center gap-2 md:z-30 md:bottom-[80px] md:left-[75%] md:right-auto md:-ml-20 ${getEnemyStyle()} ${!isFetchingBattleData ? 'animate-slide-in-right' : ''}`}>
                <div className="relative">
                   {/* Impact Effect Overlay */}
                   {showImpact === 'enemy' && (
