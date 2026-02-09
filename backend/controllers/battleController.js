@@ -891,7 +891,7 @@ exports.attack = async (req, res) => {
         name: enemy?.name,
         type: enemy?.type || null,
         hp: newEnemyHp,
-        max_hp: Number(battle.enemy_max_hp ?? enemy.hp ?? 0),
+        max_hp: Number(battle.enemy_max_hp ?? enemy.base_hp ?? 0),
         attack: enemyAtk,
         defense: enemyDef,
         attack_speed: Number(enemy?.attack_speed) || 2.0,
@@ -981,7 +981,7 @@ exports.flee = async (req, res) => {
 
     const enemyCols = await getColumns('enemydex');
     const enemyStageCol = pick(enemyCols, ['base_level', 'evolution_level', 'stage', 'level']);
-    const enemySelectCols = ['id', 'name', 'type', 'hp', 'attack', 'defense', 'attack_speed', 'difficulty', 'sprite_path'];
+    const enemySelectCols = ['id', 'name', 'type', 'base_hp', 'base_attack', 'base_defense', 'attack_speed', 'difficulty', 'sprite_path'];
     if (enemyStageCol && !enemySelectCols.includes(enemyStageCol)) {
       enemySelectCols.push(enemyStageCol);
     }
@@ -1007,9 +1007,9 @@ exports.flee = async (req, res) => {
     if (!enemy) return res.status(404).json({ message: 'Nenhum inimigo disponível' });
 
     // Apply difficulty
-    const enemyHp = Math.floor((Number(enemy.hp) || 0) * mapDifficulty);
-    const enemyAtk = Math.floor((Number(enemy.attack) || 0) * mapDifficulty);
-    const enemyDef = Math.floor((Number(enemy.defense) || 0) * mapDifficulty);
+    const enemyHp = Math.floor((Number(enemy.base_hp) || 0) * mapDifficulty);
+    const enemyAtk = Math.floor((Number(enemy.base_attack) || 0) * mapDifficulty);
+    const enemyDef = Math.floor((Number(enemy.base_defense) || 0) * mapDifficulty);
 
     await db.execute(`UPDATE battles SET enemy_id=?, enemy_current_hp=?, enemy_max_hp=?, enemy_multiplier=? WHERE id=?`, [enemy.id, enemyHp, enemyHp, mapDifficulty, id]);
 
