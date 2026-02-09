@@ -1368,11 +1368,12 @@ export default function Battle() {
                                             className="flex h-10 w-10 animate-in fade-in slide-in-from-bottom-8 items-center justify-center rounded-lg border border-white/20 bg-black/60 shadow-[0_0_10px_rgba(255,255,255,0.2)] backdrop-blur-sm transition-transform hover:scale-110 duration-500"
                                             style={{ animationDelay: `${200 + (idx * 100)}ms` }}
                                         >
-                                            {drop.icon ? (
+                                            {(drop.image || drop.icon) ? (
                                                 <img 
-                                                    src={drop.icon.startsWith('http') ? drop.icon : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.icon}`} 
+                                                    src={(drop.image || drop.icon).startsWith('http') ? (drop.image || drop.icon) : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.image || drop.icon}`} 
                                                     alt={drop.name} 
                                                     className="h-7 w-7 object-contain" 
+                                                    onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<div class="h-4 w-4 rounded-full bg-white/20"></div>'; }}
                                                 />
                                             ) : (
                                                 <div className="h-4 w-4 rounded-full bg-white/20" />

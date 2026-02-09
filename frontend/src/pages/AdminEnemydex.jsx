@@ -824,31 +824,33 @@ export default function AdminEnemydex() {
             <HoverCard key={`${drop.item_id}-${drop.drop_rate}`}>
               <HoverCardTrigger asChild>
                 <div className="h-7 w-7 rounded-md border bg-muted/30 flex items-center justify-center">
-                  {drop.item_icon ? (
-                    <img
-                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.item_icon}`}
-                      alt=""
-                      className="h-5 w-5 object-contain"
-                    />
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">?</span>
-                  )}
-                </div>
-              </HoverCardTrigger>
-              <HoverCardContent align="start" className="w-80">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-md border bg-muted/40 flex items-center justify-center">
-                      {drop.item_icon ? (
-                        <img
-                          src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.item_icon}`}
-                          alt=""
-                          className="h-7 w-7 object-contain"
-                        />
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground">?</span>
-                      )}
-                    </div>
+                    {drop.item_icon ? (
+                      <img
+                        src={(drop.item_icon || '').startsWith('http') ? drop.item_icon : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.item_icon}`}
+                        alt=""
+                        className="h-5 w-5 object-contain"
+                        onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span class="text-[10px] text-muted-foreground">?</span>'; }}
+                      />
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">?</span>
+                    )}
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent align="start" className="w-80">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-md border bg-muted/40 flex items-center justify-center">
+                        {drop.item_icon ? (
+                          <img
+                            src={(drop.item_icon || '').startsWith('http') ? drop.item_icon : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${drop.item_icon}`}
+                            alt=""
+                            className="h-7 w-7 object-contain"
+                            onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span class="text-[10px] text-muted-foreground">?</span>'; }}
+                          />
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">?</span>
+                        )}
+                      </div>
                     <div className="min-w-0">
                       <div className="text-sm font-semibold truncate">{itemName}</div>
                       <div className="text-xs text-muted-foreground">ID {drop.item_id}</div>
