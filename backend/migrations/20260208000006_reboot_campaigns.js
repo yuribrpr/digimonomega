@@ -11,17 +11,11 @@ exports.up = async function(knex) {
   await knex.raw('SET FOREIGN_KEY_CHECKS = 0');
   
   // Drop tables to ensure clean slate and correct schema
-  // Order matters: Drop dependent tables first
+  // Order matters: Drop dependent tables first (safer)
   const tablesToDrop = [
-    'battles', // Depends on enemydex
+    'inventory', 'market_listings', 'battles', // Tables referencing items/enemydex
     'quest_rewards', 'quest_objectives', 'quest_dependencies', 'quests', 'campaigns',
-    'map_enemies', 'enemy_drops', 'enemydex', 'items', 'maps', 
-    'inventory', 'market_listings' 
-    // user_digimons depends on digidex, usually safe. If it depends on items (equipped?), might need drop.
-    // Let's assume user_digimons is safe for now, or we'd wipe user progress completely.
-    // If we want a FULL reboot including user progress, we should drop inventory/battles/user_digimons.
-    // Given the request "Excluir todos os dados atuais", dropping user progress seems consistent with a "campaign reboot".
-    // But keeping user accounts (users table) is polite.
+    'map_enemies', 'enemy_drops', 'enemydex', 'items', 'maps'
   ];
   
   for (const table of tablesToDrop) {
@@ -40,10 +34,12 @@ exports.up = async function(knex) {
     table.integer('effect_value').defaultTo(0);
     table.integer('price').defaultTo(0);
     table.text('description');
-    table.string('image', 255); 
+    table.string('icon', 255); // Changed from image to icon to match Controller
     table.enum('effect_target', ['hp', 'mp', 'revive', 'capture', 'attack', 'defense', 'none']).defaultTo('none');
     table.boolean('is_percent').defaultTo(false);
     table.enum('recovery_type', ['current', 'max']).defaultTo('current');
+    table.timestamp('created_at').defaultTo(knex.fn.now()); // Added for Controller ordering
+    table.timestamp('updated_at').defaultTo(knex.fn.now());
   });
 
   // ENEMYDEX
@@ -59,8 +55,10 @@ exports.up = async function(knex) {
     table.float('attack_speed').defaultTo(2.0); // Seconds
     table.integer('exp_reward').defaultTo(10);
     table.integer('bits_reward').defaultTo(5);
-    table.string('image', 255);
+    table.string('sprite_path', 255); // Changed from image to sprite_path to match Controller
     table.string('difficulty', 20).defaultTo('Normal');
+    table.timestamp('created_at').defaultTo(knex.fn.now());
+    table.timestamp('updated_at').defaultTo(knex.fn.now());
   });
 
   // MAPS
@@ -204,33 +202,34 @@ exports.up = async function(knex) {
 
   // --- 3. ITEMS ---
   // Consumables
-  const itemPotionS = await insertOne('items', { name: 'Poção Pequena', type: 'consumable', description: 'Recupera 50 HP.', effect_target: 'hp', effect_value: 50, recovery_type: 'current', image: icons.potionSmall, price: 50 });
-  const itemPotionM = await insertOne('items', { name: 'Poção Média', type: 'consumable', description: 'Recupera 200 HP.', effect_target: 'hp', effect_value: 200, recovery_type: 'current', image: icons.potionMed, price: 150 });
-  const itemPotionL = await insertOne('items', { name: 'Poção Grande', type: 'consumable', description: 'Recupera 1000 HP.', effect_target: 'hp', effect_value: 1000, recovery_type: 'current', image: icons.potionLarge, price: 500 });
+  // Using 'icon' instead of 'image'
+  const itemPotionS = await insertOne('items', { name: 'Poção Pequena', type: 'consumable', description: 'Recupera 50 HP.', effect_target: 'hp', effect_value: 50, recovery_type: 'current', icon: icons.potionSmall, price: 50 });
+  const itemPotionM = await insertOne('items', { name: 'Poção Média', type: 'consumable', description: 'Recupera 200 HP.', effect_target: 'hp', effect_value: 200, recovery_type: 'current', icon: icons.potionMed, price: 150 });
+  const itemPotionL = await insertOne('items', { name: 'Poção Grande', type: 'consumable', description: 'Recupera 1000 HP.', effect_target: 'hp', effect_value: 1000, recovery_type: 'current', icon: icons.potionLarge, price: 500 });
   
-  const itemAtkBoost = await insertOne('items', { name: 'X-Attack', type: 'consumable', description: 'Aumenta Ataque por 5 min.', effect_target: 'attack', effect_value: 10, is_percent: true, image: icons.atkBoost, price: 300 });
-  const itemDefBoost = await insertOne('items', { name: 'X-Defense', type: 'consumable', description: 'Aumenta Defesa por 5 min.', effect_target: 'defense', effect_value: 10, is_percent: true, image: icons.defBoost, price: 300 });
+  const itemAtkBoost = await insertOne('items', { name: 'X-Attack', type: 'consumable', description: 'Aumenta Ataque por 5 min.', effect_target: 'attack', effect_value: 10, is_percent: true, icon: icons.atkBoost, price: 300 });
+  const itemDefBoost = await insertOne('items', { name: 'X-Defense', type: 'consumable', description: 'Aumenta Defesa por 5 min.', effect_target: 'defense', effect_value: 10, is_percent: true, icon: icons.defBoost, price: 300 });
 
   // Quest Items (Camp 1)
-  const itemMetroTicket = await insertOne('items', { name: 'Bilhete de Metrô', type: 'quest', description: 'Bilhete antigo de Shibuya.', image: icons.ticket });
-  const itemDataFrag = await insertOne('items', { name: 'Fragmento de Dados', type: 'quest', description: 'Pedaço de código corrompido.', image: icons.data });
-  const itemOgremonClub = await insertOne('items', { name: 'Clava de Ogremon', type: 'quest', description: 'Arma pesada deixada para trás.', image: icons.badge });
+  const itemMetroTicket = await insertOne('items', { name: 'Bilhete de Metrô', type: 'quest', description: 'Bilhete antigo de Shibuya.', icon: icons.ticket });
+  const itemDataFrag = await insertOne('items', { name: 'Fragmento de Dados', type: 'quest', description: 'Pedaço de código corrompido.', icon: icons.data });
+  const itemOgremonClub = await insertOne('items', { name: 'Clava de Ogremon', type: 'quest', description: 'Arma pesada deixada para trás.', icon: icons.badge });
 
   // Quest Items (Camp 2)
-  const itemSheriffStar = await insertOne('items', { name: 'Estrela de Xerife', type: 'quest', description: 'Insígnia de Starmon.', image: icons.sheriffStar });
-  const itemGunPowder = await insertOne('items', { name: 'Pólvora Digital', type: 'quest', description: 'Restos de Revolmon.', image: icons.data });
+  const itemSheriffStar = await insertOne('items', { name: 'Estrela de Xerife', type: 'quest', description: 'Insígnia de Starmon.', icon: icons.sheriffStar });
+  const itemGunPowder = await insertOne('items', { name: 'Pólvora Digital', type: 'quest', description: 'Restos de Revolmon.', icon: icons.data });
 
   // Quest Items (Camp 3)
-  const itemIceCrystal = await insertOne('items', { name: 'Cristal de Gelo', type: 'quest', description: 'Nunca derrete.', image: icons.iceShard });
-  const itemVikingShield = await insertOne('items', { name: 'Fragmento de Escudo', type: 'quest', description: 'Pedaço do escudo de Vikemon.', image: icons.badge });
+  const itemIceCrystal = await insertOne('items', { name: 'Cristal de Gelo', type: 'quest', description: 'Nunca derrete.', icon: icons.iceShard });
+  const itemVikingShield = await insertOne('items', { name: 'Fragmento de Escudo', type: 'quest', description: 'Pedaço do escudo de Vikemon.', icon: icons.badge });
 
   // Quest Items (Camp 4)
-  const itemRefinedOil = await insertOne('items', { name: 'Óleo Refinado', type: 'quest', description: 'Combustível de alta pureza.', image: icons.oilDrum });
-  const itemChromeDigizoid = await insertOne('items', { name: 'Chrome Digizoid', type: 'quest', description: 'Metal raríssimo.', image: icons.badge });
+  const itemRefinedOil = await insertOne('items', { name: 'Óleo Refinado', type: 'quest', description: 'Combustível de alta pureza.', icon: icons.oilDrum });
+  const itemChromeDigizoid = await insertOne('items', { name: 'Chrome Digizoid', type: 'quest', description: 'Metal raríssimo.', icon: icons.badge });
 
   // Quest Items (Camp 5)
-  const itemGoldenScarab = await insertOne('items', { name: 'Escaravelho Dourado', type: 'quest', description: 'Relíquia antiga.', image: icons.scarab });
-  const itemDarkCore = await insertOne('items', { name: 'Núcleo das Trevas', type: 'quest', description: 'Pulsa com energia maligna.', image: icons.data });
+  const itemGoldenScarab = await insertOne('items', { name: 'Escaravelho Dourado', type: 'quest', description: 'Relíquia antiga.', icon: icons.scarab });
+  const itemDarkCore = await insertOne('items', { name: 'Núcleo das Trevas', type: 'quest', description: 'Pulsa com energia maligna.', icon: icons.data });
 
   // --- 4. ENEMIES & DROPS ---
   // Helper to create enemy
@@ -238,7 +237,7 @@ exports.up = async function(knex) {
     const id = await insertOne('enemydex', {
       name, type, stage, base_hp: hp, base_attack: atk, base_defense: def,
       base_level: lvl, attack_speed: speed, exp_reward: exp, bits_reward: bits,
-      difficulty: diff, image: img || `/enemies/${name.toLowerCase().replace(/ /g, '_')}.png`
+      difficulty: diff, sprite_path: img || `/enemies/${name.toLowerCase().replace(/ /g, '_')}.png` // Changed to sprite_path
     });
     for (const d of drops) {
       await insertOne('enemy_drops', { enemy_id: id, item_id: d.id, drop_rate: d.rate });
@@ -372,9 +371,10 @@ exports.up = async function(knex) {
   const b5_4 = await createEnemy('Ogudomon', 'Vírus', 'Mega', 99999, 5000, 5000, 80, 2.0, 20000, 10000, 'Boss', null, [{id: itemDarkCore, rate: 100}]);
 
   // --- 5. MAPS ---
-  const createMap = async (name, minLvl, diff, img, type, enemies) => {
+  // Added description parameter and value
+  const createMap = async (name, minLvl, diff, img, type, enemies, desc) => {
     const id = await insertOne('maps', {
-      name, min_level: minLvl, difficulty: diff, image_path: img, type, is_active: true
+      name, min_level: minLvl, difficulty: diff, image_path: img, type, is_active: true, description: desc
     });
     for (const eid of enemies) {
       await knex('map_enemies').insert({ map_id: id, enemy_id: eid });
@@ -383,34 +383,34 @@ exports.up = async function(knex) {
   };
 
   // Camp 1 Maps
-  const m1_1 = await createMap('Subúrbio de Shibuya', 1, 1.0, '/maps/shibuya.png', 'Campanha', [e1_1_1, e1_1_2, e1_1_3, b1_1]);
-  const m1_2 = await createMap('Parque Yoyogi', 5, 1.2, '/maps/yoyogi.png', 'Campanha', [e1_2_1, e1_2_2, e1_2_3, b1_2]);
-  const m1_3 = await createMap('Torre de Tóquio', 10, 1.5, '/maps/tokyo_tower.png', 'Campanha', [e1_3_1, e1_3_2, e1_3_3, b1_3]);
-  const m1_4 = await createMap('Odaiba', 12, 1.8, '/maps/odaiba.png', 'Campanha', [e1_4_1, e1_4_2, e1_4_3, b1_4]);
+  const m1_1 = await createMap('Subúrbio de Shibuya', 1, 1.0, '/maps/shibuya.png', 'Campanha', [e1_1_1, e1_1_2, e1_1_3, b1_1], 'O cruzamento mais movimentado do mundo, agora vazio e digitalizado.');
+  const m1_2 = await createMap('Parque Yoyogi', 5, 1.2, '/maps/yoyogi.png', 'Campanha', [e1_2_1, e1_2_2, e1_2_3, b1_2], 'Um parque urbano tomado pela natureza digital e digimons selvagens.');
+  const m1_3 = await createMap('Torre de Tóquio', 10, 1.5, '/maps/tokyo_tower.png', 'Campanha', [e1_3_1, e1_3_2, e1_3_3, b1_3], 'A icônica torre de comunicação, cercada por chamas digitais.');
+  const m1_4 = await createMap('Odaiba', 12, 1.8, '/maps/odaiba.png', 'Campanha', [e1_4_1, e1_4_2, e1_4_3, b1_4], 'A ilha artificial futurista, palco de batalhas decisivas.');
 
   // Camp 2 Maps
-  const m2_1 = await createMap('Cidade Fantasma', 15, 2.0, '/maps/ghost_town.png', 'Campanha', [e2_1_1, e2_1_2, e2_1_3, b2_1]);
-  const m2_2 = await createMap('Canyon de Poeira', 20, 2.2, '/maps/canyon.png', 'Campanha', [e2_2_1, e2_2_2, e2_2_3, b2_2]);
-  const m2_3 = await createMap('Minas Abandonadas', 25, 2.5, '/maps/mines.png', 'Campanha', [e2_3_1, e2_3_2, e2_3_3, b2_3]);
-  const m2_4 = await createMap('Forte de Ferro', 28, 2.8, '/maps/iron_fort.png', 'Campanha', [e2_4_1, e2_4_2, e2_4_3, b2_4]);
+  const m2_1 = await createMap('Cidade Fantasma', 15, 2.0, '/maps/ghost_town.png', 'Campanha', [e2_1_1, e2_1_2, e2_1_3, b2_1], 'Uma cidade do velho oeste onde o tempo parou.');
+  const m2_2 = await createMap('Canyon de Poeira', 20, 2.2, '/maps/canyon.png', 'Campanha', [e2_2_1, e2_2_2, e2_2_3, b2_2], 'Desfiladeiros profundos e poeirentos, lar de digimons dinossauros.');
+  const m2_3 = await createMap('Minas Abandonadas', 25, 2.5, '/maps/mines.png', 'Campanha', [e2_3_1, e2_3_2, e2_3_3, b2_3], 'Túneis escuros e perigosos, ricos em minérios e perigos.');
+  const m2_4 = await createMap('Forte de Ferro', 28, 2.8, '/maps/iron_fort.png', 'Campanha', [e2_4_1, e2_4_2, e2_4_3, b2_4], 'Uma fortaleza impenetrável feita de ferro e dados.');
 
   // Camp 3 Maps
-  const m3_1 = await createMap('Campos de Neve', 30, 3.0, '/maps/snow_fields.png', 'Campanha', [e3_1_1, e3_1_2, e3_1_3, b3_1]);
-  const m3_2 = await createMap('Caverna de Cristal', 35, 3.2, '/maps/crystal_cave.png', 'Campanha', [e3_2_1, e3_2_2, e3_2_3, b3_2]);
-  const m3_3 = await createMap('Pico Congelado', 40, 3.5, '/maps/frozen_peak.png', 'Campanha', [e3_3_1, e3_3_2, e3_3_3, b3_3]);
-  const m3_4 = await createMap('Templo de Gelo', 42, 3.8, '/maps/ice_temple.png', 'Campanha', [e3_4_1, e3_4_2, e3_4_3, b3_4]);
+  const m3_1 = await createMap('Campos de Neve', 30, 3.0, '/maps/snow_fields.png', 'Campanha', [e3_1_1, e3_1_2, e3_1_3, b3_1], 'Campos cobertos por neve eterna e ventos cortantes.');
+  const m3_2 = await createMap('Caverna de Cristal', 35, 3.2, '/maps/crystal_cave.png', 'Campanha', [e3_2_1, e3_2_2, e3_2_3, b3_2], 'Uma caverna iluminada por cristais de gelo pulsantes.');
+  const m3_3 = await createMap('Pico Congelado', 40, 3.5, '/maps/frozen_peak.png', 'Campanha', [e3_3_1, e3_3_2, e3_3_3, b3_3], 'O ponto mais alto e frio, onde apenas os fortes sobrevivem.');
+  const m3_4 = await createMap('Templo de Gelo', 42, 3.8, '/maps/ice_temple.png', 'Campanha', [e3_4_1, e3_4_2, e3_4_3, b3_4], 'Um templo sagrado congelado no tempo.');
 
   // Camp 4 Maps
-  const m4_1 = await createMap('Setor de Tubulações', 45, 4.0, '/maps/pipes.png', 'Campanha', [e4_1_1, e4_1_2, e4_1_3, b4_1]);
-  const m4_2 = await createMap('Reator Central', 50, 4.2, '/maps/reactor.png', 'Campanha', [e4_2_1, e4_2_2, e4_2_3, b4_2]);
-  const m4_3 = await createMap('Depósito de Resíduos', 55, 4.5, '/maps/waste.png', 'Campanha', [e4_3_1, e4_3_2, e4_3_3, b4_3]);
-  const m4_4 = await createMap('Torre de Controle', 58, 4.8, '/maps/control_tower.png', 'Campanha', [e4_4_1, e4_4_2, e4_4_3, b4_4]);
+  const m4_1 = await createMap('Setor de Tubulações', 45, 4.0, '/maps/pipes.png', 'Campanha', [e4_1_1, e4_1_2, e4_1_3, b4_1], 'Labirinto de tubulações transportando dados brutos.');
+  const m4_2 = await createMap('Reator Central', 50, 4.2, '/maps/reactor.png', 'Campanha', [e4_2_1, e4_2_2, e4_2_3, b4_2], 'O coração energético da refinaria, instável e perigoso.');
+  const m4_3 = await createMap('Depósito de Resíduos', 55, 4.5, '/maps/waste.png', 'Campanha', [e4_3_1, e4_3_2, e4_3_3, b4_3], 'Onde os dados corrompidos são descartados e esquecidos.');
+  const m4_4 = await createMap('Torre de Controle', 58, 4.8, '/maps/control_tower.png', 'Campanha', [e4_4_1, e4_4_2, e4_4_3, b4_4], 'A torre central que controla toda a operação obscura.');
 
   // Camp 5 Maps
-  const m5_1 = await createMap('Dunas Infinitas', 60, 5.0, '/maps/dunes.png', 'Campanha', [e5_1_1, e5_1_2, e5_1_3, b5_1]);
-  const m5_2 = await createMap('Oásis Amaldiçoado', 65, 5.5, '/maps/cursed_oasis.png', 'Campanha', [e5_2_1, e5_2_2, e5_2_3, b5_2]);
-  const m5_3 = await createMap('Pirâmide Invertida', 70, 6.0, '/maps/pyramid.png', 'Campanha', [e5_3_1, e5_3_2, e5_3_3, b5_3]);
-  const m5_4 = await createMap('Câmara do Faraó', 75, 7.0, '/maps/chamber.png', 'Campanha', [e5_4_1, e5_4_2, e5_4_3, b5_4]);
+  const m5_1 = await createMap('Dunas Infinitas', 60, 5.0, '/maps/dunes.png', 'Campanha', [e5_1_1, e5_1_2, e5_1_3, b5_1], 'Dunas de areia digital que se estendem até o horizonte.');
+  const m5_2 = await createMap('Oásis Amaldiçoado', 65, 5.5, '/maps/cursed_oasis.png', 'Campanha', [e5_2_1, e5_2_2, e5_2_3, b5_2], 'Um refúgio enganoso no meio do deserto escaldante.');
+  const m5_3 = await createMap('Pirâmide Invertida', 70, 6.0, '/maps/pyramid.png', 'Campanha', [e5_3_1, e5_3_2, e5_3_3, b5_3], 'Uma pirâmide que desafia a gravidade e a lógica.');
+  const m5_4 = await createMap('Câmara do Faraó', 75, 7.0, '/maps/chamber.png', 'Campanha', [e5_4_1, e5_4_2, e5_4_3, b5_4], 'A câmara final onde o mal antigo reside.');
 
   // --- 6. CAMPAIGNS & QUESTS ---
   // Helper for quests
@@ -451,129 +451,107 @@ exports.up = async function(knex) {
 
   const q1_7 = await createQuest(c1, 'Batalha Final em Odaiba', 'Ogremon sequestrou um ônibus em Odaiba.', 7, 12,
     [{ type: 'KILL_ENEMY', target_enemy_id: b1_4, quantity_required: 1 }],
-    [{ type: 'ITEM', item_id: itemOgremonClub, quantity: 1 }], [q1_6]);
-
-  // Repeatable Quests Camp 1
-  await createQuest(c1, 'Patrulha Diária', 'Derrote 5 Gazimons para manter as ruas seguras.', 8, 3, 
-    [{ type: 'KILL_ENEMY', target_enemy_id: e1_1_1, quantity_required: 5 }], 
-    [{ type: 'ITEM', item_id: itemPotionS, quantity: 2 }], [], true);
+    [{ type: 'ITEM', item_id: itemOgremonClub, quantity: 1 }, { type: 'BITS', quantity: 1000 }], [q1_6]);
 
   // Campaign 2
-  const c2 = await insertOne('campaigns', { title: 'O Velho Oeste', description: 'Um servidor esquecido onde a lei é a força.', order: 2, is_active: true });
-  
-  const q2_1 = await createQuest(c2, 'Duelo ao Meio-Dia', 'Derrote 3 Revolmons que desafiam viajantes.', 1, 15,
+  const c2 = await insertOne('campaigns', { title: 'O Velho Oeste', description: 'Uma zona de dados antigos.', order: 2, is_active: true });
+
+  const q2_1 = await createQuest(c2, 'Duelo ao Meio-Dia', 'Revolmon desafiou você para um duelo.', 1, 15,
     [{ type: 'KILL_ENEMY', target_enemy_id: e2_1_1, quantity_required: 3 }],
-    [{ type: 'XP', quantity: 300 }]);
+    [{ type: 'XP', quantity: 800 }], []);
 
-  const q2_2 = await createQuest(c2, 'Estrela da Lei', 'Recupere Estrelas de Xerife de Starmons.', 2, 16,
-    [{ type: 'COLLECT_ITEM', target_item_id: itemSheriffStar, quantity_required: 3 }],
+  const q2_2 = await createQuest(c2, 'Lei e Ordem', 'Ajude Starmon a recuperar a ordem na cidade.', 2, 18,
+    [{ type: 'COLLECT_ITEM', target_item_id: itemSheriffStar, quantity_required: 1 }],
     [{ type: 'BITS', quantity: 500 }], [q2_1]);
-
-  const q2_3 = await createQuest(c2, 'O Xerife Corrupto', 'SuperStarmon tomou controle da cidade.', 3, 18,
+  
+  const q2_3 = await createQuest(c2, 'O Xerife Corrupto', 'SuperStarmon enlouqueceu. Pare-o.', 3, 20,
     [{ type: 'KILL_ENEMY', target_enemy_id: b2_1, quantity_required: 1 }],
     [{ type: 'ITEM', item_id: itemAtkBoost, quantity: 2 }], [q2_2]);
 
-  const q2_4 = await createQuest(c2, 'Corrida no Canyon', 'Centarumons estão bloqueando a passagem.', 4, 20,
-    [{ type: 'KILL_ENEMY', target_enemy_id: e2_2_1, quantity_required: 5 }],
-    [{ type: 'XP', quantity: 400 }], [q2_3]);
+  const q2_4 = await createQuest(c2, 'Dinossauros no Canyon', 'O canyon está infestado. Limpe o caminho.', 4, 22,
+    [{ type: 'KILL_ENEMY', target_enemy_id: e2_2_3, quantity_required: 5 }],
+    [{ type: 'XP', quantity: 1000 }], [q2_3]);
 
-  const q2_5 = await createQuest(c2, 'O Rei do Rock', 'Etemon está fazendo um show ensurdecedor nas minas.', 5, 25,
+  const q2_5 = await createQuest(c2, 'Rei do Rock', 'Etemon está causando terremotos nas minas.', 5, 28,
     [{ type: 'KILL_ENEMY', target_enemy_id: b2_3, quantity_required: 1 }],
     [{ type: 'ITEM', item_id: itemDefBoost, quantity: 2 }], [q2_4]);
 
-  const q2_6 = await createQuest(c2, 'Revolução das Máquinas', 'Andromon está construindo um exército.', 6, 28,
+  const q2_6 = await createQuest(c2, 'Invasão Robótica', 'Andromon controla o forte de ferro.', 6, 30,
     [{ type: 'KILL_ENEMY', target_enemy_id: b2_4, quantity_required: 1 }],
     [{ type: 'ITEM', item_id: itemChromeDigizoid, quantity: 1 }], [q2_5]);
 
-  // Repeatable Camp 2
-  await createQuest(c2, 'Caça aos Bandidos', 'Derrote 5 Igamons.', 7, 18,
-    [{ type: 'KILL_ENEMY', target_enemy_id: e2_1_2, quantity_required: 5 }],
-    [{ type: 'ITEM', item_id: itemPotionM, quantity: 3 }], [], true);
-
   // Campaign 3
-  const c3 = await insertOne('campaigns', { title: 'Fronteira Gelada', description: 'Onde o frio congela até os dados.', order: 3, is_active: true });
+  const c3 = await insertOne('campaigns', { title: 'Fronteira Gelada', description: 'Onde os dados congelam.', order: 3, is_active: true });
 
-  const q3_1 = await createQuest(c3, 'Guerreiros do Gelo', 'Derrote Panjyamons para provar sua força.', 1, 30,
-    [{ type: 'KILL_ENEMY', target_enemy_id: e3_1_1, quantity_required: 3 }],
-    [{ type: 'XP', quantity: 800 }]);
+  const q3_1 = await createQuest(c3, 'Frio Extremo', 'Colete Cristais de Gelo para sobreviver.', 1, 30,
+    [{ type: 'COLLECT_ITEM', target_item_id: itemIceCrystal, quantity_required: 5 }],
+    [{ type: 'XP', quantity: 1500 }], []);
 
-  const q3_2 = await createQuest(c3, 'O Lorde Viking', 'Vikemon governa os campos de neve.', 2, 33,
+  const q3_2 = await createQuest(c3, 'O Senhor do Gelo', 'Vikemon guarda a entrada da caverna.', 2, 35,
     [{ type: 'KILL_ENEMY', target_enemy_id: b3_1, quantity_required: 1 }],
     [{ type: 'ITEM', item_id: itemVikingShield, quantity: 1 }], [q3_1]);
-  
-  const q3_3 = await createQuest(c3, 'Cristais de Poder', 'Colete Cristais de Gelo de Panjyamons.', 3, 35,
-    [{ type: 'COLLECT_ITEM', target_item_id: itemIceCrystal, quantity_required: 5 }],
-    [{ type: 'BITS', quantity: 2000 }], [q3_2]);
 
-  const q3_4 = await createQuest(c3, 'A Lenda do Lobo', 'MetalGarurumon guarda a caverna.', 4, 38,
+  const q3_3 = await createQuest(c3, 'Lobo Solitário', 'MetalGarurumon está caçando na caverna.', 3, 40,
     [{ type: 'KILL_ENEMY', target_enemy_id: b3_2, quantity_required: 1 }],
-    [{ type: 'ITEM', item_id: itemPotionL, quantity: 2 }], [q3_3]);
+    [{ type: 'ITEM', item_id: itemPotionL, quantity: 3 }], [q3_2]);
 
-  const q3_5 = await createQuest(c3, 'Terror das Profundezas', 'MetalSeadramon ameaça destruir o templo.', 5, 42,
+  const q3_4 = await createQuest(c3, 'Serpente Marinha', 'MetalSeadramon domina o lago do templo.', 4, 45,
     [{ type: 'KILL_ENEMY', target_enemy_id: b3_4, quantity_required: 1 }],
-    [{ type: 'XP', quantity: 5000 }], [q3_4]);
+    [{ type: 'BITS', quantity: 5000 }], [q3_3]);
 
   // Campaign 4
-  const c4 = await insertOne('campaigns', { title: 'Refinaria Obscura', description: 'Poluição e trevas se misturam.', order: 4, is_active: true });
+  const c4 = await insertOne('campaigns', { title: 'Refinaria Obscura', description: 'Poluição e máquinas.', order: 4, is_active: true });
 
-  const q4_1 = await createQuest(c4, 'Vazamento de Dados', 'HiAndromons estão fora de controle.', 1, 45,
-    [{ type: 'KILL_ENEMY', target_enemy_id: e4_1_1, quantity_required: 5 }],
-    [{ type: 'XP', quantity: 2000 }]);
+  const q4_1 = await createQuest(c4, 'Vazamento de Óleo', 'Colete Óleo Refinado para limpar a área.', 1, 45,
+    [{ type: 'COLLECT_ITEM', target_item_id: itemRefinedOil, quantity_required: 5 }],
+    [{ type: 'XP', quantity: 3000 }], []);
 
-  const q4_2 = await createQuest(c4, 'O Tirano Ferrugem', 'RustTyranomon consome tudo.', 2, 48,
+  const q4_2 = await createQuest(c4, 'A Máquina Viva', 'RustTyranomon está destruindo as tubulações.', 2, 52,
     [{ type: 'KILL_ENEMY', target_enemy_id: b4_1, quantity_required: 1 }],
-    [{ type: 'ITEM', item_id: itemRefinedOil, quantity: 3 }], [q4_1]);
+    [{ type: 'ITEM', item_id: itemPotionL, quantity: 5 }], [q4_1]);
 
-  const q4_3 = await createQuest(c4, 'Energia Caótica', 'Chaosdramon protege o reator.', 3, 52,
+  const q4_3 = await createQuest(c4, 'Dragão do Caos', 'Chaosdramon protege o reator.', 3, 56,
     [{ type: 'KILL_ENEMY', target_enemy_id: b4_2, quantity_required: 1 }],
-    [{ type: 'BITS', quantity: 5000 }], [q4_2]);
+    [{ type: 'BITS', quantity: 10000 }], [q4_2]);
 
-  const q4_4 = await createQuest(c4, 'O Mestre das Trevas', 'VenomMyotismon ressurgiu.', 4, 55,
-    [{ type: 'KILL_ENEMY', target_enemy_id: b4_3, quantity_required: 1 }],
-    [{ type: 'ITEM', item_id: itemPotionL, quantity: 5 }], [q4_3]);
-
-  const q4_5 = await createQuest(c4, 'Fim dos Tempos', 'Millenniummon quer comprimir o tempo.', 5, 59,
+  const q4_4 = await createQuest(c4, 'O Mestre das Trevas', 'Millenniummon aguarda na torre.', 4, 60,
     [{ type: 'KILL_ENEMY', target_enemy_id: b4_4, quantity_required: 1 }],
-    [{ type: 'XP', quantity: 20000 }], [q4_4]);
+    [{ type: 'ITEM', item_id: itemDarkCore, quantity: 1 }], [q4_3]);
 
   // Campaign 5
-  const c5 = await insertOne('campaigns', { title: 'Deserto do Apocalipse', description: 'Onde os Lordes Demônios residem.', order: 5, is_active: true });
+  const c5 = await insertOne('campaigns', { title: 'Deserto do Apocalipse', description: 'O fim dos tempos.', order: 5, is_active: true });
 
-  const q5_1 = await createQuest(c5, 'Guardião do Submundo', 'Pharaohmon julga os invasores.', 1, 60,
-    [{ type: 'KILL_ENEMY', target_enemy_id: e5_1_1, quantity_required: 5 }],
-    [{ type: 'XP', quantity: 5000 }]);
+  const q5_1 = await createQuest(c5, 'Relíquias Perdidas', 'Encontre o Escaravelho Dourado nas dunas.', 1, 60,
+    [{ type: 'COLLECT_ITEM', target_item_id: itemGoldenScarab, quantity_required: 1 }],
+    [{ type: 'XP', quantity: 5000 }], []);
 
-  const q5_2 = await createQuest(c5, 'O Tesouro Perdido', 'Colete Escaravelhos Dourados.', 2, 62,
-    [{ type: 'COLLECT_ITEM', target_item_id: itemGoldenScarab, quantity_required: 5 }],
-    [{ type: 'BITS', quantity: 10000 }], [q5_1]);
-
-  const q5_3 = await createQuest(c5, 'Ganância Fatal', 'Barbamon quer seus tesouros.', 3, 65,
+  const q5_2 = await createQuest(c5, 'Lorde Demônio', 'Barbamon quer dominar o deserto.', 2, 65,
     [{ type: 'KILL_ENEMY', target_enemy_id: b5_1, quantity_required: 1 }],
-    [{ type: 'ITEM', item_id: itemPotionL, quantity: 10 }], [q5_2]);
+    [{ type: 'ITEM', item_id: itemPotionL, quantity: 10 }], [q5_1]);
 
-  const q5_4 = await createQuest(c5, 'Preguiça Destrutiva', 'Acorde Belphemon e derrote-o.', 4, 70,
+  const q5_3 = await createQuest(c5, 'Pecado Capital', 'Belphemon acordou de seu sono.', 3, 70,
     [{ type: 'KILL_ENEMY', target_enemy_id: b5_2, quantity_required: 1 }],
-    [{ type: 'XP', quantity: 50000 }], [q5_3]);
+    [{ type: 'BITS', quantity: 20000 }], [q5_2]);
 
-  const q5_5 = await createQuest(c5, 'Orgulho Supremo', 'Lucemon SM desafia sua existência.', 5, 75,
+  const q5_4 = await createQuest(c5, 'O Anjo Caído', 'Lucemon SM quer reescrever o mundo.', 4, 75,
     [{ type: 'KILL_ENEMY', target_enemy_id: b5_3, quantity_required: 1 }],
-    [{ type: 'ITEM', item_id: itemDarkCore, quantity: 1 }], [q5_4]);
+    [{ type: 'XP', quantity: 10000 }], [q5_3]);
 
-  const q5_6 = await createQuest(c5, 'O Pecado Original', 'Ogudomon, a encarnação de todos os pecados.', 6, 80,
+  const q5_5 = await createQuest(c5, 'O Mal Absoluto', 'Derrote Ogudomon na câmara final.', 5, 80,
     [{ type: 'KILL_ENEMY', target_enemy_id: b5_4, quantity_required: 1 }],
-    [{ type: 'BITS', quantity: 1000000 }], [q5_5]);
+    [{ type: 'ITEM', item_id: itemDarkCore, quantity: 5 }, { type: 'BITS', quantity: 100000 }], [q5_4]);
+
 };
 
 exports.down = async function(knex) {
-  // Wipe everything again on rollback to avoid inconsistent state
-  const tablesToWipe = [
-    'battles',
-    'quest_rewards', 'quest_objectives', 'quest_dependencies', 'quests', 'campaigns',
-    'map_enemies', 'enemy_drops', 'enemydex', 'items', 'maps', 'inventory', 'market_listings'
-  ];
-  await knex.raw('SET FOREIGN_KEY_CHECKS = 0');
-  for (const table of tablesToWipe) {
-    await knex.schema.dropTableIfExists(table);
-  }
-  await knex.raw('SET FOREIGN_KEY_CHECKS = 1');
-};
+    await knex.raw('SET FOREIGN_KEY_CHECKS = 0');
+    // Drop in reverse order (roughly)
+    const tables = [
+      'battles', 'market_listings', 'inventory',
+      'enemy_drops', 'map_enemies',
+      'quest_dependencies', 'quest_rewards', 'quest_objectives', 'quests', 'campaigns',
+      'maps', 'enemydex', 'items'
+    ];
+    for (const t of tables) await knex.schema.dropTableIfExists(t);
+    await knex.raw('SET FOREIGN_KEY_CHECKS = 1');
+  };
