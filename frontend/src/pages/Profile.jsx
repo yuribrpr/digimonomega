@@ -80,12 +80,19 @@ export default function Profile() {
             onClick={handleImageClick}
           >
              {user.profile_image ? (
-                 <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${user.profile_image}`} alt="Avatar" className="h-full w-full object-cover" />
-             ) : (
-                 <div className="h-full w-full bg-secondary flex items-center justify-center">
-                    <User className="h-8 w-8 text-muted-foreground" />
-                 </div>
-             )}
+                 <img 
+                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${user.profile_image}`} 
+                    alt="Avatar" 
+                    className="h-full w-full object-cover" 
+                    onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                    }}
+                 />
+             ) : null}
+             <div className={`h-full w-full bg-secondary flex items-center justify-center ${user.profile_image ? 'hidden' : ''}`}>
+                <User className="h-8 w-8 text-muted-foreground" />
+             </div>
              {isOwner && (
                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                      <Upload className="h-6 w-6 text-white" />

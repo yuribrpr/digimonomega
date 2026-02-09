@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { MessageCircle, Send, Users, User, Minimize2, Paperclip } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -356,22 +357,17 @@ export default function ChatWidget() {
                                         const isMe = msg.sender_id === user.id || msg.senderId === user.id;
                                         return (
                                             <div key={index} className={cn("flex gap-2 items-start", isMe ? "flex-row-reverse" : "flex-row")}>
-                                                <div 
-                                                    className="w-6 h-6 rounded-full bg-muted flex-shrink-0 overflow-hidden cursor-pointer hover:opacity-80 border border-border"
+                                                <Avatar 
+                                                    className="w-6 h-6 flex-shrink-0 cursor-pointer hover:opacity-80 border border-border"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         goToProfile(msg.sender_id || msg.senderId);
                                                     }}
                                                     title={msg.senderName}
                                                 >
-                                                    {msg.senderAvatar ? (
-                                                        <img src={getAvatarUrl(msg.senderAvatar)} alt={msg.senderName} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground font-bold">
-                                                            {(msg.senderName || '?')[0].toUpperCase()}
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                    <AvatarImage src={getAvatarUrl(msg.senderAvatar)} alt={msg.senderName} className="object-cover" />
+                                                    <AvatarFallback className="text-[10px] font-bold">{(msg.senderName || '?')[0].toUpperCase()}</AvatarFallback>
+                                                </Avatar>
                                                 <div className={cn(
                                                     "max-w-[75%] p-2 rounded-lg text-xs break-words",
                                                     isMe ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
@@ -461,11 +457,10 @@ export default function ChatWidget() {
                                                     }}
                                                     className="flex items-center gap-3 p-2 hover:bg-accent hover:text-accent-foreground rounded cursor-pointer transition-colors"
                                                 >
-                                                    <div className="w-8 h-8 rounded-full bg-muted overflow-hidden border border-border">
-                                                        <div className="w-full h-full flex items-center justify-center text-xs font-bold text-muted-foreground">
-                                                            {u.username[0].toUpperCase()}
-                                                        </div>
-                                                    </div>
+                                                    <Avatar className="w-8 h-8 border border-border">
+                                                        <AvatarImage src={getAvatarUrl(u.profile_image)} alt={u.username} className="object-cover" />
+                                                        <AvatarFallback className="text-xs font-bold text-muted-foreground">{u.username[0].toUpperCase()}</AvatarFallback>
+                                                    </Avatar>
                                                     <div>
                                                         <div className="font-bold text-sm text-foreground">{u.username}</div>
                                                         <div className="text-xs text-muted-foreground">Nível {u.level}</div>
@@ -489,19 +484,13 @@ export default function ChatWidget() {
                                                     }}
                                                     className="flex items-center gap-3 p-2 hover:bg-accent hover:text-accent-foreground rounded cursor-pointer transition-colors relative"
                                                 >
-                                                    <div className="w-8 h-8 rounded-full bg-muted overflow-hidden border border-border relative">
-                                                        {contact.avatar ? (
-                                                            <img src={getAvatarUrl(contact.avatar)} alt={contact.username} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <div className="w-full h-full flex items-center justify-center text-xs font-bold text-muted-foreground">
-                                                                {contact.username[0].toUpperCase()}
-                                                            </div>
-                                                        )}
-                                                        {/* Online Indicator */}
+                                                    <Avatar className="w-8 h-8 border border-border relative">
+                                                        <AvatarImage src={getAvatarUrl(contact.avatar)} alt={contact.username} className="object-cover" />
+                                                        <AvatarFallback className="text-xs font-bold text-muted-foreground">{contact.username[0].toUpperCase()}</AvatarFallback>
                                                         {onlineUsers.has(contact.id) && (
                                                             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full"></span>
                                                         )}
-                                                    </div>
+                                                    </Avatar>
                                                     <div className="flex-1">
                                                         <div className="font-bold text-sm text-foreground flex justify-between">
                                                             {contact.username}

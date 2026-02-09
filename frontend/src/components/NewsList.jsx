@@ -73,6 +73,7 @@ export default function NewsList({ className, limit = 10, showHeader = true, com
                         {list.map((u, i) => (
                             <div key={i} className="flex items-center gap-2">
                                 <Avatar className="h-5 w-5">
+                                    <AvatarImage src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${u.profile_image}`} alt={u.username} />
                                     <AvatarFallback className="text-[9px] bg-muted text-muted-foreground">{u.username.substring(0,2).toUpperCase()}</AvatarFallback>
                                 </Avatar>
                                 {isLoggedIn ? (

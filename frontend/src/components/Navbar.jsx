@@ -247,12 +247,19 @@ export default function Navbar({ isPlaying, toggleMusic }) {
                       }}
                     >
                        {result.profile_image ? (
-                          <img src={`${API_URL}/${result.profile_image}`} alt={result.username} className="h-8 w-8 rounded-full object-cover" />
-                       ) : (
-                          <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
-                             <User className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                       )}
+                          <img 
+                            src={`${API_URL}/${result.profile_image}`} 
+                            alt={result.username} 
+                            className="h-8 w-8 rounded-full object-cover" 
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
+                          />
+                       ) : null}
+                       <div className={`h-8 w-8 rounded-full bg-secondary flex items-center justify-center ${result.profile_image ? 'hidden' : ''}`}>
+                          <User className="h-4 w-4 text-muted-foreground" />
+                       </div>
                        <div className="flex flex-col">
                           <span className="text-sm font-medium leading-none">{result.username}</span>
                           <span className="text-[10px] text-muted-foreground">Lvl {result.level || 1}</span>

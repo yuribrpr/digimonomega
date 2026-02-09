@@ -27,7 +27,7 @@ exports.getAllNews = async (req, res) => {
         (SELECT COUNT(*) FROM news_likes WHERE news_id = n.id AND is_like = FALSE) as dislikes_count,
         (
           SELECT JSON_ARRAYAGG(
-            JSON_OBJECT('user_id', u.id, 'username', u.username, 'is_like', nl.is_like)
+            JSON_OBJECT('user_id', u.id, 'username', u.username, 'profile_image', u.profile_image, 'is_like', nl.is_like)
           )
           FROM news_likes nl
           JOIN users u ON nl.user_id = u.id

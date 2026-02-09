@@ -426,7 +426,7 @@ exports.attack = async (req, res) => {
     const userDigimon = digRows && digRows[0];
     const enemyCols = await getColumns('enemydex');
     const enemyStageCol = pick(enemyCols, ['base_level', 'stage', 'evolution_level', 'level']);
-    const enemySelectCols = ['id', 'name', 'type', 'hp', 'attack', 'defense', 'attack_speed', 'difficulty', 'sprite_path', 'exp_reward', 'bits_reward'];
+    const enemySelectCols = ['id', 'name', 'type', 'base_hp', 'base_attack', 'base_defense', 'attack_speed', 'difficulty', 'sprite_path', 'exp_reward', 'bits_reward'];
     if (enemyStageCol && !enemySelectCols.includes(enemyStageCol)) {
       enemySelectCols.push(enemyStageCol);
     }
@@ -444,8 +444,8 @@ exports.attack = async (req, res) => {
     let userAtk = (atkCol ? Number(map[atkCol] || 0) : Number(userDigimon?.base_attack || 0)) + bonusAtk;
     let userDef = (defCol ? Number(map[defCol] || 0) : Number(userDigimon?.base_defense || 0)) + bonusDef;
     
-    const enemyAtk = Math.floor(Number(enemy?.attack || 0) * enemyMultiplier);
-    const enemyDef = Math.floor(Number(enemy?.defense || 0) * enemyMultiplier);
+    const enemyAtk = Math.floor(Number(enemy?.base_attack || 0) * enemyMultiplier);
+    const enemyDef = Math.floor(Number(enemy?.base_defense || 0) * enemyMultiplier);
 
     let userDamage = 0;
     let enemyDamage = 0;
@@ -454,7 +454,7 @@ exports.attack = async (req, res) => {
     let win = false;
     let rewards = null;
 
-    let newEnemyHp = Number(battle.enemy_current_hp ?? enemy.hp ?? 0);
+    let newEnemyHp = Number(battle.enemy_current_hp ?? enemy.base_hp ?? 0);
     // Usar user_current_hp do banco se existir, senão calcular do máximo
     const currentHp = battle.user_current_hp !== null ? Number(battle.user_current_hp) : Number(battle.user_max_hp || userDigimon.base_hp);
     let newUserHp = currentHp;
@@ -519,7 +519,7 @@ exports.attack = async (req, res) => {
       });
 
       // Calcular recompensas usando dados do banco se disponíveis
-      const baseXp = Math.floor((enemy.exp_reward ? Number(enemy.exp_reward) : Math.floor((Number(enemy.hp || 10) + Number(enemy.attack || 0)) / 2)) * enemyMultiplier);
+      const baseXp = Math.floor((enemy.exp_reward ? Number(enemy.exp_reward) : Math.floor((Number(enemy.base_hp || 10) + Number(enemy.base_attack || 0)) / 2)) * enemyMultiplier);
       const baseBits = Math.floor((enemy.bits_reward ? Number(enemy.bits_reward) : Math.floor(baseXp * 1.5)) * enemyMultiplier);
       
       const xpGain = Math.floor(baseXp * xpMult);
