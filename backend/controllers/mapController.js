@@ -23,6 +23,25 @@ async function ensureRequirementColumns() {
   }
 }
 
+async function ensureSoundtrackColumns() {
+  const [cols] = await db.execute('DESCRIBE maps');
+  const names = cols.map(c => c.Field);
+  if (!names.includes('soundtrack_url')) {
+    await db.execute('ALTER TABLE maps ADD COLUMN soundtrack_url VARCHAR(1024) DEFAULT NULL');
+  }
+  if (!names.includes('soundtrack_path')) {
+    await db.execute('ALTER TABLE maps ADD COLUMN soundtrack_path VARCHAR(255) DEFAULT NULL');
+  }
+}
+
+async function ensureCampaignColumns() {
+  const [cols] = await db.execute('DESCRIBE maps');
+  const names = cols.map(c => c.Field);
+  if (!names.includes('campaign_id')) {
+    await db.execute('ALTER TABLE maps ADD COLUMN campaign_id INT DEFAULT NULL');
+  }
+}
+
 exports.getAllMaps = async (req, res) => {
   try {
     const [maps] = await db.execute('SELECT * FROM maps ORDER BY min_level ASC');
@@ -46,12 +65,17 @@ exports.getAllMaps = async (req, res) => {
 
 exports.createMap = async (req, res) => {
   try {
-    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active, difficulty } = req.body;
-    const image_path = req.file ? `assets/maps/${req.file.filename}` : null;
+    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active, difficulty, soundtrack_url, campaign_id } = req.body;
+    const imageFile = req.files && req.files.image && req.files.image[0];
+    const soundtrackFile = req.files && req.files.soundtrack && req.files.soundtrack[0];
+    const image_path = imageFile ? `assets/maps/${imageFile.filename}` : null;
+    const soundtrack_path = soundtrackFile ? `assets/maps/${soundtrackFile.filename}` : null;
 
     if (!name) return res.status(400).json({ message: 'Nome é obrigatório' });
 
     await ensureRequirementColumns();
+    await ensureSoundtrackColumns();
+    await ensureCampaignColumns();
 
     // Insert Map
     const [result] = await db.execute(
@@ -79,6 +103,17 @@ exports.createMap = async (req, res) => {
         mapId
       ]
     );
+    let finalSoundtrackUrl = soundtrack_url || null;
+    let finalSoundtrackPath = soundtrack_path || null;
+    if (finalSoundtrackPath) finalSoundtrackUrl = null;
+    await db.execute(
+      'UPDATE maps SET soundtrack_url = ?, soundtrack_path = ? WHERE id = ?',
+      [finalSoundtrackUrl, finalSoundtrackPath, mapId]
+    );
+    if (campaign_id !== undefined) {
+      const cid = campaign_id ? Number(campaign_id) : null;
+      await db.execute('UPDATE maps SET campaign_id = ? WHERE id = ?', [cid, mapId]);
+    }
 
     // Insert Enemies
     if (enemies) {
@@ -106,17 +141,31 @@ exports.createMap = async (req, res) => {
 exports.updateMap = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active, difficulty } = req.body;
+    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active, difficulty, soundtrack_url, clear_soundtrack, campaign_id } = req.body;
     
     // Check if map exists
     const [existing] = await db.execute('SELECT * FROM maps WHERE id = ?', [id]);
     if (existing.length === 0) return res.status(404).json({ message: 'Mapa não encontrado' });
 
     await ensureRequirementColumns();
+    await ensureSoundtrackColumns();
+    await ensureCampaignColumns();
 
+    const imageFile = req.files && req.files.image && req.files.image[0];
+    const soundtrackFile = req.files && req.files.soundtrack && req.files.soundtrack[0];
     let image_path = existing[0].image_path;
-    if (req.file) {
-        image_path = `assets/maps/${req.file.filename}`;
+    if (imageFile) {
+        image_path = `assets/maps/${imageFile.filename}`;
+    }
+    let finalSoundtrackUrl = typeof soundtrack_url === 'string' ? (soundtrack_url || null) : existing[0].soundtrack_url || null;
+    let finalSoundtrackPath = existing[0].soundtrack_path || null;
+    if (soundtrackFile) {
+        finalSoundtrackPath = `assets/maps/${soundtrackFile.filename}`;
+        finalSoundtrackUrl = null;
+    }
+    if (String(clear_soundtrack).toLowerCase() === 'true') {
+        finalSoundtrackUrl = null;
+        finalSoundtrackPath = null;
     }
 
     // Update Map
@@ -144,6 +193,14 @@ exports.updateMap = async (req, res) => {
         id
       ]
     );
+    await db.execute(
+      'UPDATE maps SET soundtrack_url = ?, soundtrack_path = ? WHERE id = ?',
+      [finalSoundtrackUrl, finalSoundtrackPath, id]
+    );
+    if (campaign_id !== undefined) {
+      const cid = campaign_id ? Number(campaign_id) : null;
+      await db.execute('UPDATE maps SET campaign_id = ? WHERE id = ?', [cid, id]);
+    }
 
     // Update Enemies
     if (enemies) {

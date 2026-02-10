@@ -28,20 +28,21 @@ const upload = multer({
     const ext = path.extname(file.originalname).toLowerCase();
     const isImage = file.mimetype && file.mimetype.startsWith('image/');
     const isMp4 = file.mimetype === 'video/mp4' || ext === '.mp4';
+    const isAudio = (file.mimetype && file.mimetype.startsWith('audio/')) || ['.mp3', '.ogg', '.wav', '.webm'].includes(ext);
 
-    if (isImage || isMp4) {
+    if (isImage || isMp4 || isAudio) {
       cb(null, true);
       return;
     }
 
-    cb(new Error('Apenas imagens ou vídeo mp4 são permitidos!'));
+    cb(new Error('Apenas imagens, vídeo mp4 ou áudio (mp3/ogg/wav/webm) são permitidos!'));
   }
 });
 
 router.get('/', mapController.getAllMaps);
 router.get('/:id', mapController.getMapById);
-router.post('/', upload.single('image'), mapController.createMap);
-router.put('/:id', upload.single('image'), mapController.updateMap);
+router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'soundtrack', maxCount: 1 }]), mapController.createMap);
+router.put('/:id', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'soundtrack', maxCount: 1 }]), mapController.updateMap);
 router.delete('/:id', mapController.deleteMap);
 
 module.exports = router;

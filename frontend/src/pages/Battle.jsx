@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -138,7 +138,6 @@ export default function Battle() {
   const [showWinModal, setShowWinModal] = useState(false);
   const [winInteractionReady, setWinInteractionReady] = useState(false);
   const [rewards, setRewards] = useState(null);
-  const [levelUpInfo, setLevelUpInfo] = useState(null);
   
   const [activeQuests, setActiveQuests] = useState([]);
   const [selectedQuestForDetails, setSelectedQuestForDetails] = useState(null);
@@ -177,8 +176,6 @@ export default function Battle() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const [healCooldownUntil, setHealCooldownUntil] = useState(0);
-  const [healCooldownMs, setHealCooldownMs] = useState(0);
   const [fleeCooldownUntil, setFleeCooldownUntil] = useState(0);
   const [fleeCooldownMs, setFleeCooldownMs] = useState(0);
   const [showNoItemsModal, setShowNoItemsModal] = useState(false);
@@ -206,6 +203,25 @@ export default function Battle() {
   const [mapDetails, setMapDetails] = useState(null);
   const [lastCrit, setLastCrit] = useState(false);
   const audioCtxRef = useRef(null);
+  const bgAudioRef = useRef(null);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+
+  useEffect(() => {
+    if (!fleeCooldownUntil) {
+      setFleeCooldownMs(0);
+      return;
+    }
+
+    const tick = () => {
+      const ms = Math.max(0, fleeCooldownUntil - Date.now());
+      setFleeCooldownMs(ms);
+      if (ms <= 0) setFleeCooldownUntil(0);
+    };
+
+    tick();
+    const id = window.setInterval(tick, 50);
+    return () => window.clearInterval(id);
+  }, [fleeCooldownUntil]);
 
   const ensureAudio = () => {
     if (!audioCtxRef.current) {
@@ -322,9 +338,6 @@ export default function Battle() {
       await fetchActiveQuests({ detectCompletion: false });
       setShowWinModal(false);
       setRewards(null);
-      setLevelUpInfo(null);
-      setHealCooldownUntil(0);
-      setHealCooldownMs(0);
       setFleeCooldownUntil(0);
       setFleeCooldownMs(0);
       setAnimState('idle');
@@ -461,15 +474,6 @@ export default function Battle() {
 
     // Check Win/Defeat
     if (newData.win) {
-         if (battle?.user && newData.user) {
-             const prevLevel = Number(battle.user.level || 0);
-             const newLevel = Number(newData.user.level || prevLevel);
-             const leveledUp = newLevel > prevLevel;
-             const hpGain = Number(newData.user.max_hp || 0) - Number(battle.user.max_hp || 0);
-             const atkGain = Number(newData.user.attack || 0) - Number(battle.user.attack || 0);
-             const defGain = Number(newData.user.defense || 0) - Number(battle.user.defense || 0);
-             setLevelUpInfo({ leveledUp, prevLevel, newLevel, hpGain, atkGain, defGain });
-         }
          setRewards(newData.rewards);
          const newlyCompleted = await fetchActiveQuests({ detectCompletion: true });
          if (newlyCompleted.length > 0) {
@@ -532,22 +536,6 @@ export default function Battle() {
     } catch (error) {
       console.error('Erro ao atacar:', error);
     }
-  };
-  const onHeal = async () => {
-    if (!battle || healCooldownMs > 0) return;
-    setLoading(true);
-    try {
-      const res = await api.post(`/api/battles/${battle.id}/heal`);
-      setBattle(prev => ({ 
-        ...prev, 
-        user: { ...prev.user, hp: res.data.user.hp, max_hp: res.data.user.max_hp } 
-      }));
-      setLogs(prev => [formatLog(res.data.log), ...prev]);
-      setHealCooldownUntil(Date.now() + 2500);
-    } catch (error) {
-      console.error('Erro ao curar:', error);
-    }
-    setLoading(false);
   };
   const onFlee = async () => {
     if (!battle || fleeCooldownMs > 0) return;
@@ -778,6 +766,55 @@ export default function Battle() {
     ? `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${String(mapMediaPath).replace(/\\/g, '/')}`
     : null;
   const isMapVideo = !!(mapMediaPath && String(mapMediaPath).toLowerCase().endsWith('.mp4'));
+  const mapSoundUrl = mapDetails?.soundtrack_url
+    ? mapDetails.soundtrack_url
+    : (mapDetails?.soundtrack_path
+      ? `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${String(mapDetails.soundtrack_path).replace(/\\/g, '/')}`
+      : null);
+
+  useEffect(() => {
+    const el = bgAudioRef.current;
+    if (!el) return;
+    el.loop = true;
+    el.volume = 0.6;
+    if (mapSoundUrl) {
+      el.src = mapSoundUrl;
+      const tryPlay = async () => {
+        try {
+          await el.play();
+          setIsMusicPlaying(true);
+        } catch {
+          setIsMusicPlaying(false);
+        }
+      };
+      tryPlay();
+    } else {
+      el.pause();
+      setIsMusicPlaying(false);
+    }
+    return () => {
+      el.pause();
+      el.removeAttribute('src');
+      el.load?.();
+      setIsMusicPlaying(false);
+    };
+  }, [mapSoundUrl]);
+
+  const toggleMusic = async () => {
+    const el = bgAudioRef.current;
+    if (!el) return;
+    try {
+      if (isMusicPlaying) {
+        el.pause();
+        setIsMusicPlaying(false);
+      } else {
+        await el.play();
+        setIsMusicPlaying(true);
+      }
+    } catch {
+      setIsMusicPlaying(false);
+    }
+  };
   const getAttributeBadgeMeta = (rawType) => {
     const t = String(rawType || 'unknown').toLowerCase();
     if (t === 'vaccine' || t === 'vacina') {
@@ -1042,27 +1079,53 @@ export default function Battle() {
           <CardContent className="p-0 h-full md:h-auto">
             <div className="relative h-full md:h-[640px] bg-slate-950 w-full overflow-hidden px-0 pb-0 md:px-24 md:pb-10">
               {mapMediaUrl ? (
-                isMapVideo ? (
-                  <video
-                    className="absolute inset-0 z-0 h-full w-full object-cover"
-                    src={mapMediaUrl}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="auto"
-                  />
-                ) : (
-                  <div
-                    className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0"
-                    style={{ backgroundImage: `url(${mapMediaUrl})` }}
-                  />
-                )
+                <div className="absolute inset-0 z-0">
+                  {isMapVideo ? (
+                    <>
+                      <video
+                        className="absolute inset-0 h-full w-full object-cover blur-md scale-110 opacity-60"
+                        src={mapMediaUrl}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        preload="auto"
+                        aria-hidden="true"
+                      />
+                      <video
+                        className="absolute inset-0 h-full w-full object-contain"
+                        src={mapMediaUrl}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        preload="auto"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <img
+                        className="absolute inset-0 h-full w-full object-cover blur-md scale-110 opacity-70 brightness-110 saturate-110"
+                        src={mapMediaUrl}
+                        alt=""
+                        aria-hidden="true"
+                        draggable="false"
+                      />
+                      <img
+                        className="absolute inset-0 h-full w-full object-contain"
+                        src={mapMediaUrl}
+                        alt=""
+                        aria-hidden="true"
+                        draggable="false"
+                      />
+                    </>
+                  )}
+                </div>
               ) : null}
               <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/30 via-black/10 to-black/60" />
               <div className="absolute inset-0 z-10 [background:radial-gradient(70%_55%_at_50%_45%,rgba(255,255,255,0.06),rgba(0,0,0,0.55))]" />
 
-              <div className="absolute left-2 right-2 top-2 z-40 md:left-6 md:right-6 md:top-4">
+              <div className="absolute left-1/2 top-2 z-40 w-[min(980px,calc(100%-16px))] -translate-x-1/2 md:top-4 md:w-[min(1120px,calc(100%-48px))]">
                 <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-2 shadow-[0_14px_40px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md md:border-transparent md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-0">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -1073,6 +1136,16 @@ export default function Battle() {
                           <span className="ml-1 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold tracking-[0.24em] text-slate-200">
                             PAUSADO
                           </span>
+                        ) : null}
+                        {mapSoundUrl ? (
+                          <button
+                            type="button"
+                            className="ml-2 shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-slate-200 hover:bg-white/10"
+                            onClick={toggleMusic}
+                            title={isMusicPlaying ? 'Pausar música' : 'Tocar música'}
+                          >
+                            {isMusicPlaying ? 'Música: On' : 'Música: Off'}
+                          </button>
                         ) : null}
                       </div>
                     </div>
@@ -1258,6 +1331,8 @@ export default function Battle() {
                   </div>
                 </div>
               </div>
+
+              <audio ref={bgAudioRef} />
 
 {/* Modal de Vitória removido para imersão */}
             {/* Player Side */}
@@ -1750,15 +1825,15 @@ export default function Battle() {
             await api.post('/api/quests/claim', { questId });
           } catch (error) {
             console.error("Error claiming reward:", error);
-          } finally {
-            await fetchActiveQuests({ detectCompletion: false });
-            const [next, ...rest] = questCompletionQueue;
-            if (next) {
-              setActiveQuestCompletion(next);
-              setQuestCompletionQueue(rest);
-              setShowQuestCompletionDialog(true);
-              return;
-            }
+          }
+
+          await fetchActiveQuests({ detectCompletion: false });
+          const [next, ...rest] = questCompletionQueue;
+          if (next) {
+            setActiveQuestCompletion(next);
+            setQuestCompletionQueue(rest);
+            setShowQuestCompletionDialog(true);
+          } else {
             setActiveQuestCompletion(null);
             setQuestCompletionQueue([]);
             setShowQuestCompletionDialog(false);
