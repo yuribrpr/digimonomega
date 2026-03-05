@@ -197,6 +197,17 @@ const buildInitialQuestProgress = async (userId, questId) => {
   return initialProgress;
 };
 
+const parseProgressPayload = (progressRaw) => {
+  if (typeof progressRaw === 'string') {
+    try { return JSON.parse(progressRaw || '{}'); } catch { return {}; }
+  }
+  if (Buffer.isBuffer(progressRaw)) {
+    try { return JSON.parse(progressRaw.toString('utf8') || '{}'); } catch { return {}; }
+  }
+  if (!progressRaw || typeof progressRaw !== 'object') return {};
+  return progressRaw;
+};
+
 // Start a Quest
 exports.startQuest = async (req, res) => {
   const { questId } = req.body;
@@ -330,6 +341,57 @@ exports.cancelQuest = async (req, res) => {
       console.error('Error cancelling quest:', error);
       res.status(500).json({ message: 'Erro ao cancelar missão.' });
     }
+};
+
+exports.talkToNpc = async (req, res) => {
+  const { questId, objectiveId } = req.body;
+  const userId = req.user.id;
+
+  if (!questId) {
+    return res.status(400).json({ message: 'questId é obrigatório.' });
+  }
+
+  try {
+    const userQuest = await knex('user_quests')
+      .where({ user_id: userId, quest_id: questId, status: 'IN_PROGRESS' })
+      .first();
+
+    if (!userQuest) {
+      return res.status(404).json({ message: 'Missão não iniciada ou indisponível.' });
+    }
+
+    let query = knex('quest_objectives')
+      .where({ quest_id: questId, type: 'TALK_NPC' });
+
+    if (objectiveId) {
+      query = query.andWhere('id', Number(objectiveId));
+    }
+
+    const objectives = await query;
+    if (!objectives.length) {
+      return res.status(400).json({ message: 'Nenhum objetivo TALK_NPC encontrado para esta missão.' });
+    }
+
+    const progress = parseProgressPayload(userQuest.progress);
+    for (const obj of objectives) {
+      const target = Number(obj.quantity_required || 1);
+      const current = Number(progress[obj.id] || 0);
+      progress[obj.id] = Math.max(current, target);
+    }
+
+    await knex('user_quests')
+      .where('id', userQuest.id)
+      .update({ progress: JSON.stringify(progress) });
+
+    const completed = await checkQuestCompletion(userQuest.id, userId, questId);
+    res.json({
+      message: completed ? 'Conversa registrada e missão concluída.' : 'Conversa registrada com sucesso.',
+      completed
+    });
+  } catch (error) {
+    console.error('Error updating TALK_NPC objective:', error);
+    res.status(500).json({ message: 'Erro ao atualizar objetivo TALK_NPC.' });
+  }
 };
 
 // Delete Campaign (Admin)

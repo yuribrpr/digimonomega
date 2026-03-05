@@ -1,7 +1,32 @@
 const db = require('../config/db');
 
+let chatTimeColumnPromise;
+
+const getChatTimeColumn = async () => {
+    if (!chatTimeColumnPromise) {
+        chatTimeColumnPromise = db.execute('SHOW COLUMNS FROM chat_messages')
+            .then(([columns]) => {
+                const columnNames = new Set(columns.map((col) => col.Field));
+                if (columnNames.has('created_at')) return 'created_at';
+                if (columnNames.has('timestamp')) return 'timestamp';
+                return null;
+            })
+            .catch((error) => {
+                chatTimeColumnPromise = null;
+                throw error;
+            });
+    }
+
+    return chatTimeColumnPromise;
+};
+
 exports.getLobbyMessages = async (req, res) => {
     try {
+        const timeColumn = await getChatTimeColumn();
+        if (!timeColumn) {
+            return res.status(500).json({ message: 'Chat schema missing time column' });
+        }
+
         const [rows] = await db.execute(`
             SELECT 
                 m.id,
@@ -9,13 +34,13 @@ exports.getLobbyMessages = async (req, res) => {
                 m.receiver_id,
                 m.content,
                 m.is_read,
-                m.created_at AS created_at,
+                m.${timeColumn} AS created_at,
                 u.username AS senderName,
                 u.profile_image AS senderAvatar
             FROM chat_messages m
             JOIN users u ON m.sender_id = u.id
             WHERE m.receiver_id IS NULL
-            ORDER BY m.created_at DESC
+            ORDER BY m.${timeColumn} DESC
             LIMIT 50
         `);
         res.json(rows.reverse());
@@ -30,6 +55,11 @@ exports.getDMMessages = async (req, res) => {
     const userId = req.user.id;
 
     try {
+        const timeColumn = await getChatTimeColumn();
+        if (!timeColumn) {
+            return res.status(500).json({ message: 'Chat schema missing time column' });
+        }
+
         const [rows] = await db.execute(`
             SELECT 
                 m.id,
@@ -37,14 +67,14 @@ exports.getDMMessages = async (req, res) => {
                 m.receiver_id,
                 m.content,
                 m.is_read,
-                m.created_at AS created_at,
+                m.${timeColumn} AS created_at,
                 u.username AS senderName,
                 u.profile_image AS senderAvatar
             FROM chat_messages m
             JOIN users u ON m.sender_id = u.id
             WHERE (m.sender_id = ? AND m.receiver_id = ?) 
                OR (m.sender_id = ? AND m.receiver_id = ?)
-            ORDER BY m.created_at DESC
+            ORDER BY m.${timeColumn} DESC
             LIMIT 50
         `, [userId, targetId, targetId, userId]);
         res.json(rows.reverse());
@@ -57,6 +87,11 @@ exports.getDMMessages = async (req, res) => {
 exports.getRecentChats = async (req, res) => {
     const userId = req.user.id;
     try {
+        const timeColumn = await getChatTimeColumn();
+        if (!timeColumn) {
+            return res.status(500).json({ message: 'Chat schema missing time column' });
+        }
+
         // Find users who have exchanged messages with current user, ordered by most recent message
         const [rows] = await db.execute(`
             SELECT 
@@ -64,7 +99,7 @@ exports.getRecentChats = async (req, res) => {
                     WHEN sender_id = ? THEN receiver_id 
                     ELSE sender_id 
                 END AS partner_id,
-                MAX(created_at) AS last_msg_time,
+                MAX(${timeColumn}) AS last_msg_time,
                 SUM(CASE WHEN receiver_id = ? AND (is_read = 0 OR is_read IS NULL) THEN 1 ELSE 0 END) AS unread_count
             FROM chat_messages 
             WHERE sender_id = ? OR receiver_id = ?

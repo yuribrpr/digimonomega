@@ -34,6 +34,24 @@ function clampToNumberString(value, fallback) {
   return s;
 }
 
+function toSafeNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function compareMapsByLevel(a, b) {
+  const levelDiff = toSafeNumber(a?.min_level) - toSafeNumber(b?.min_level);
+  if (levelDiff !== 0) return levelDiff;
+
+  const routeDiff = toSafeNumber(a?.route_order) - toSafeNumber(b?.route_order);
+  if (routeDiff !== 0) return routeDiff;
+
+  const nameDiff = String(a?.name || '').localeCompare(String(b?.name || ''));
+  if (nameDiff !== 0) return nameDiff;
+
+  return toSafeNumber(a?.id) - toSafeNumber(b?.id);
+}
+
 export default function AdminMaps() {
   const [maps, setMaps] = useState([]);
   const [enemies, setEnemies] = useState([]);
@@ -198,7 +216,7 @@ export default function AdminMaps() {
         if (!term) return true;
         return String(m.name || '').toLowerCase().includes(term);
       })
-      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+      .sort(compareMapsByLevel);
   }, [maps, filterSearch, filterType, filterCampaign, filterActive]);
 
   const groupedMaps = useMemo(() => {

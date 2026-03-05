@@ -8,7 +8,13 @@
     "migrate": "knex migrate:latest",
     "migrate:make": "knex migrate:make",
     "migrate:rollback": "knex migrate:rollback",
-    "start": "node server.js"
+    "start": "node server.js",
+    "seed:beta:arc1": "node scripts/seed_beta_arc1.js",
+    "beta:rebalance-evolution": "node scripts/rebalance_evolution_beta_arc1.js",
+    "maps:refresh-descriptions": "node scripts/refresh_map_descriptions_arc1.js",
+    "maps:refresh-soundtracks": "node scripts/refresh_map_soundtracks_arc1.js",
+    "quests:replace-talk": "node scripts/replace_talk_objectives_beta_arc1.js",
+    "sprites:sync-digipets": "node scripts/sync_digipets_sprites.js"
   },
   "keywords": [],
   "author": "",

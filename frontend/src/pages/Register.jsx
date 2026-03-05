@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -7,36 +7,20 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2, ArrowRight, ArrowLeft, User, Mail, Lock } from 'lucide-react';
 import { cn } from "@/lib/utils"
 import api from '../services/api';
-// Hardcoded starter data for display - Minimal Style
-const STARTERS = [
-  {
-    id: 1,
-    name: 'Agumon',
-    type: 'Vaccine',
-    description: 'Alto potencial de ataque.',
-    stats: { hp: 100, atk: 12, def: 8 },
-    image: (import.meta.env.VITE_API_URL || 'http://localhost:3000') + '/assets/sprites/695db86a2548c.gif',
-  },
-  {
-    id: 5,
-    name: 'Gaomon',
-    type: 'Data',
-    description: 'Leal e ágil.',
-    stats: { hp: 90, atk: 11, def: 9 },
-    image: (import.meta.env.VITE_API_URL || 'http://localhost:3000') + '/assets/sprites/695dbb1f46cb2.gif',
-  },
-  {
-    id: 13,
-    name: 'Lalamon',
-    type: 'Data',
-    description: 'Suporte equilibrado.',
-    stats: { hp: 110, atk: 8, def: 11 },
-    image: (import.meta.env.VITE_API_URL || 'http://localhost:3000') + '/assets/sprites/695dbfae99fad.gif',
-  }
-];
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+const toStarterImage = (spritePath) => {
+  if (!spritePath) return null;
+  const clean = String(spritePath).replace(/\\/g, '/');
+  if (clean.startsWith('http://') || clean.startsWith('https://')) return clean;
+  return `${API_BASE}/${clean.replace(/^\//, '')}`;
+};
+
 export default function Register() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [loadingStarters, setLoadingStarters] = useState(false);
+  const [starters, setStarters] = useState([]);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -46,6 +30,35 @@ export default function Register() {
     starterId: null,
     nickname: ''
   });
+
+  useEffect(() => {
+    const loadStarters = async () => {
+      setLoadingStarters(true);
+      try {
+        const res = await api.get('/api/auth/starters');
+        const list = Array.isArray(res.data) ? res.data : [];
+        const mapped = list.map((starter) => ({
+          id: Number(starter.id),
+          name: starter.name,
+          type: starter.type || 'Unknown',
+          description: starter.description || 'Parceiro inicial.',
+          stats: {
+            hp: Number(starter.base_hp || 0),
+            atk: Number(starter.base_attack || 0),
+            def: Number(starter.base_defense || 0),
+          },
+          image: toStarterImage(starter.sprite_path)
+        }));
+        setStarters(mapped);
+      } catch (err) {
+        console.error('Erro ao carregar starters:', err);
+        setError('Não foi possível carregar os Digimons iniciais.');
+      } finally {
+        setLoadingStarters(false);
+      }
+    };
+    loadStarters();
+  }, []);
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
   };
@@ -81,8 +94,6 @@ export default function Register() {
     setLoading(true);
     setError('');
     try {
-      // Use API_URL from env or default to localhost:3000 (backend port)
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const res = await api.post('/api/auth/register', {
         username: formData.username,
         email: formData.email,
@@ -154,8 +165,8 @@ export default function Register() {
           )}
           {step === 2 && (
             <div className="space-y-8 py-2">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {STARTERS.map((starter) => (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {starters.map((starter) => (
                       <div
                         key={starter.id}
                         className={`
@@ -168,11 +179,17 @@ export default function Register() {
                         onClick={() => setFormData({ ...formData, starterId: starter.id })}
                       >
                         <div className="aspect-square relative mb-3 bg-muted/20 rounded-lg p-2">
-                          <img
-                            src={starter.image}
-                            alt={starter.name}
-                            className="h-full w-full object-contain"
-                          />
+                          {starter.image ? (
+                            <img
+                              src={starter.image}
+                              alt={starter.name}
+                              className="h-full w-full object-contain"
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">
+                              sem sprite
+                            </div>
+                          )}
                         </div>
                         <div className="text-center">
                           <h3 className="font-bold text-foreground">{starter.name}</h3>
@@ -186,6 +203,16 @@ export default function Register() {
                       </div>
                     ))}
                 </div>
+                {!loadingStarters && starters.length === 0 && (
+                  <div className="text-center text-sm text-muted-foreground">
+                    Nenhum Digimon inicial disponível no momento.
+                  </div>
+                )}
+                {loadingStarters && (
+                  <div className="text-center text-sm text-muted-foreground">
+                    Carregando iniciais...
+                  </div>
+                )}
                 <div className="max-w-sm mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-100">
                     <div className="space-y-2">
                         <Label htmlFor="nickname" className="text-center block text-xs uppercase tracking-wider text-muted-foreground">Apelido do Parceiro</Label>
@@ -201,7 +228,7 @@ export default function Register() {
                         <Button variant="ghost" onClick={handleBack} className="flex-1 text-muted-foreground hover:text-foreground">
                             <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
                         </Button>
-                        <Button onClick={handleRegister} className="flex-1" disabled={loading}>
+                        <Button onClick={handleRegister} className="flex-1" disabled={loading || loadingStarters || starters.length === 0}>
                             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Confirmar'}
                         </Button>
                     </div>

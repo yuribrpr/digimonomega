@@ -19,10 +19,25 @@ exports.register = async (req, res) => {
         return res.status(400).json({ message: 'Please provide all fields' });
     }
     
-    // Validate starterId
-    if (!starterId || ![1, 5, 13].includes(Number(starterId))) {
-         return res.status(400).json({ message: 'Please select a valid starter Digimon (Agumon, Gaomon, or Lalamon)' });
+    if (!starterId) {
+        return res.status(400).json({ message: 'Please select a starter Digimon' });
     }
+
+    const [digiCols] = await db.execute('DESCRIBE digidex');
+    const hasStarterColumn = digiCols.some(c => c.Field === 'is_starter');
+    let starterQuery = 'SELECT * FROM digidex WHERE id = ?';
+    const starterParams = [starterId];
+    if (hasStarterColumn) {
+      starterQuery += ' AND is_starter = 1';
+    } else {
+      starterQuery += ' AND base_level = 1';
+    }
+
+    const [starterRows] = await db.execute(starterQuery, starterParams);
+    if (starterRows.length === 0) {
+      return res.status(400).json({ message: 'Starter Digimon inválido ou indisponível' });
+    }
+    const starterDigimon = starterRows[0];
 
     // Check if user exists
     const [rows] = await db.execute('SELECT * FROM users WHERE email = ? OR username = ?', [email, username]);
@@ -41,24 +56,18 @@ exports.register = async (req, res) => {
     
     const userId = result.insertId;
 
-    // Create Starter Digimon
+    // Validate and create starter Digimon
     try {
         const table = await getUserDigimonTable();
-        
-        // Get base stats
-        const [digiRows] = await db.execute('SELECT * FROM digidex WHERE id = ?', [starterId]);
-        if (digiRows.length > 0) {
-             const baseHp = digiRows[0].base_hp || 100;
-             const baseAttack = digiRows[0].base_attack || 10;
-             const baseDefense = digiRows[0].base_defense || 10;
-             
-             const digimonNickname = nickname || digiRows[0].name;
+        const baseHp = starterDigimon.base_hp || 100;
+        const baseAttack = starterDigimon.base_attack || 10;
+        const baseDefense = starterDigimon.base_defense || 10;
+        const digimonNickname = nickname || starterDigimon.name;
 
-             // Insert with is_main = 1
-             const sql = `INSERT INTO ${table} (user_id, digidex_id, nickname, level, exp, current_hp, max_hp, attack, defense, is_main) VALUES (?, ?, ?, 1, 0, ?, ?, ?, ?, 1)`;
-             
-             await db.execute(sql, [userId, starterId, digimonNickname, baseHp, baseHp, baseAttack, baseDefense]);
-        }
+        // Insert with is_main = 1
+        const sql = `INSERT INTO ${table} (user_id, digidex_id, nickname, level, exp, current_hp, max_hp, attack, defense, is_main) VALUES (?, ?, ?, 1, 0, ?, ?, ?, ?, 1)`;
+
+        await db.execute(sql, [userId, starterId, digimonNickname, baseHp, baseHp, baseAttack, baseDefense]);
     } catch (digiError) {
         console.error('Error creating starter digimon:', digiError);
     }
@@ -199,5 +208,28 @@ exports.getMe = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+exports.getStarters = async (req, res) => {
+    try {
+        const [digiCols] = await db.execute('DESCRIBE digidex');
+        const hasStarterColumn = digiCols.some(c => c.Field === 'is_starter');
+
+        let query = `
+            SELECT id, name, type, base_hp, base_attack, base_defense, sprite_path, description
+            FROM digidex
+            WHERE base_level = 1
+        `;
+        if (hasStarterColumn) {
+            query += ' AND is_starter = 1';
+        }
+        query += ' ORDER BY id ASC';
+
+        const [rows] = await db.execute(query);
+        res.json(rows);
+    } catch (error) {
+        console.error('Error fetching starters:', error);
+        res.status(500).json({ message: 'Error fetching starters' });
     }
 };

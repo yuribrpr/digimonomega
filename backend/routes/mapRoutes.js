@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mapController = require('../controllers/mapController');
+const { verifyToken } = require('../controllers/authController');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -40,6 +41,7 @@ const upload = multer({
 });
 
 router.get('/', mapController.getAllMaps);
+router.get('/progress', verifyToken, mapController.getMapProgress);
 router.get('/:id', mapController.getMapById);
 router.post('/', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'soundtrack', maxCount: 1 }]), mapController.createMap);
 router.put('/:id', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'soundtrack', maxCount: 1 }]), mapController.updateMap);

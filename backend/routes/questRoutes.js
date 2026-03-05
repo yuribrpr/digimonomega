@@ -21,6 +21,7 @@ router.delete('/admin/quest/:id', verifyToken, questController.deleteQuest);
 router.post('/start', verifyToken, questController.startQuest);
 router.post('/restart', verifyToken, questController.restartQuest);
 router.post('/cancel', verifyToken, questController.cancelQuest);
+router.post('/talk', verifyToken, questController.talkToNpc);
 router.post('/claim', verifyToken, questController.claimReward);
 
 // Details Routes

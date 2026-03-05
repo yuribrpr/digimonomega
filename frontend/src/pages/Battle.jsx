@@ -202,6 +202,12 @@ export default function Battle() {
   const [damageIndicators, setDamageIndicators] = useState([]);
   const [mapDetails, setMapDetails] = useState(null);
   const [lastCrit, setLastCrit] = useState(false);
+  const [battleForms, setBattleForms] = useState([]);
+  const [formsLoading, setFormsLoading] = useState(false);
+  const [transformingToId, setTransformingToId] = useState(null);
+  const [transformFx, setTransformFx] = useState({ active: false, key: 0, label: '' });
+  const [levelUpFx, setLevelUpFx] = useState({ active: false, key: 0, level: 0 });
+  const previousLevelRef = useRef(null);
   const audioCtxRef = useRef(null);
   const bgAudioRef = useRef(null);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
@@ -288,6 +294,57 @@ export default function Battle() {
     osc2.connect(gain2).connect(ctx.destination);
     osc2.start(t0);
     osc2.stop(t0 + 0.6);
+  };
+  const playLevelUpSound = () => {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const tones = [620, 760, 930, 1140];
+    tones.forEach((freq, idx) => {
+      const start = t0 + idx * 0.08;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.16, start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.2);
+    });
+  };
+  const playTransformSound = () => {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const sweep = ctx.createOscillator();
+    const gain = ctx.createGain();
+    sweep.type = 'sawtooth';
+    sweep.frequency.setValueAtTime(320, t0);
+    sweep.frequency.exponentialRampToValueAtTime(1280, t0 + 0.5);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.22, t0 + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+    sweep.connect(gain).connect(ctx.destination);
+    sweep.start(t0);
+    sweep.stop(t0 + 0.58);
+  };
+  const triggerLevelUpFx = (newLevel) => {
+    playLevelUpSound();
+    const key = Date.now();
+    setLevelUpFx({ active: true, key, level: Number(newLevel) || 0 });
+    window.setTimeout(() => {
+      setLevelUpFx(prev => (prev.key === key ? { ...prev, active: false } : prev));
+    }, 1650);
+  };
+  const triggerTransformFx = (label = 'Digievolução') => {
+    playTransformSound();
+    const key = Date.now();
+    setTransformFx({ active: true, key, label });
+    window.setTimeout(() => {
+      setTransformFx(prev => (prev.key === key ? { ...prev, active: false } : prev));
+    }, 1250);
   };
 
   const logContainerRef = useRef(null);
@@ -771,28 +828,176 @@ export default function Battle() {
     : (mapDetails?.soundtrack_path
       ? `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${String(mapDetails.soundtrack_path).replace(/\\/g, '/')}`
       : null);
+  const currentDigidexId = Number(myDigimon?.digidex_id || myDigimon?.id || 0);
+  const currentUserDigimonId = Number(myDigimon?.user_digimon_id || 0);
+
+  const fetchBattleForms = async (userDigimonId) => {
+    if (!userDigimonId) {
+      setBattleForms([]);
+      return;
+    }
+    setFormsLoading(true);
+    try {
+      const res = await api.get(`/api/digimons/evolution-line/${userDigimonId}`);
+      const data = res.data || {};
+      const line = Array.isArray(data.line) ? data.line : [];
+      const unlockedSet = new Set(
+        (Array.isArray(data.unlockedIds) ? data.unlockedIds : []).map(id => Number(id))
+      );
+      const currentSpeciesId = Number(data?.currentSpecies?.id || currentDigidexId || 0);
+      const forms = line
+        .filter(form => unlockedSet.has(Number(form.id)) || Number(form.id) === currentSpeciesId || Number(form.base_level) === 1)
+        .sort((a, b) => {
+          const stageA = Number(a.base_level || 0);
+          const stageB = Number(b.base_level || 0);
+          if (stageA !== stageB) return stageA - stageB;
+          return Number(a.id || 0) - Number(b.id || 0);
+        })
+        .map(form => ({
+          ...form,
+          unlocked: unlockedSet.has(Number(form.id)) || Number(form.base_level) === 1 || Number(form.id) === currentSpeciesId
+        }));
+      setBattleForms(forms);
+    } catch (error) {
+      console.error('Erro ao carregar formas da evolução:', error);
+      setBattleForms([]);
+    } finally {
+      setFormsLoading(false);
+    }
+  };
+
+  const handleBattleTransform = async (form) => {
+    if (!battle?.id || !currentUserDigimonId || !form?.id || transformingToId) return;
+    const targetId = Number(form.id);
+    if (!Number.isFinite(targetId) || targetId === currentDigidexId) return;
+
+    setTransformingToId(targetId);
+    triggerTransformFx(`Forma: ${form.name}`);
+    try {
+      const res = await api.post('/api/digimons/evolve', {
+        userDigimonId: currentUserDigimonId,
+        targetDigidexId: targetId,
+        battleId: battle.id
+      });
+
+      const evolved = res.data?.newSpecies || {};
+      const updatedUser = res.data?.userDigimon || {};
+      const nextLevel = Number(updatedUser.level ?? updatedUser.base_level ?? myDigimon?.level ?? 1);
+      const nextAttackSpeed = Number(updatedUser.attack_speed ?? myDigimon?.attack_speed ?? 2.0);
+      const nextMaxHp = Number(updatedUser.max_hp ?? myDigimon?.max_hp ?? 1);
+      const nextHp = Number(updatedUser.current_hp ?? updatedUser.hp ?? nextMaxHp);
+      const nextAttack = Number(updatedUser.attack ?? myDigimon?.attack ?? 0);
+      const nextDefense = Number(updatedUser.defense ?? myDigimon?.defense ?? 0);
+      const nextXp = Number(updatedUser.xp ?? updatedUser.exp ?? myDigimon?.xp ?? 0);
+      const nextDigidexId = Number(evolved.id || targetId || currentDigidexId || 0);
+      const nextSprite = evolved.sprite_path || myDigimon?.sprite_path || null;
+      const nextStage = normalizeStageLevel(evolved.stage ?? evolved.base_level ?? evolved.evolution_level ?? myDigimon?.stage_level);
+
+      setBattle(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          user: {
+            ...prev.user,
+            id: nextDigidexId,
+            digidex_id: nextDigidexId,
+            user_digimon_id: currentUserDigimonId,
+            name: (myDigimon?.display_name || myDigimon?.nickname) ? (myDigimon?.display_name || myDigimon?.nickname) : (evolved.name || prev.user?.name),
+            type: evolved.type || prev.user?.type || null,
+            sprite_path: nextSprite,
+            hp: Math.max(1, nextHp),
+            max_hp: Math.max(1, nextMaxHp),
+            attack: Math.max(1, nextAttack),
+            defense: Math.max(0, nextDefense),
+            attack_speed: Math.max(0.3, nextAttackSpeed),
+            xp: Math.max(0, nextXp),
+            level: Math.max(1, nextLevel),
+            max_xp: Math.max(100, Math.max(1, nextLevel) * 100),
+            stage_level: nextStage ?? prev.user?.stage_level
+          }
+        };
+      });
+
+      setPlayerMaxCooldown(Math.max(350, Math.round(Math.max(0.3, nextAttackSpeed) * 1000)));
+      setPlayerCooldown(0);
+      setCanAttack(true);
+      setLogs(prev => [`Digievolução ativada: ${form.name}`, ...prev]);
+      await fetchBattleForms(currentUserDigimonId);
+    } catch (error) {
+      const msg = error?.response?.data?.message || 'Falha ao trocar forma.';
+      setLogs(prev => [msg, ...prev]);
+    } finally {
+      setTransformingToId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUserDigimonId) {
+      setBattleForms([]);
+      return;
+    }
+    fetchBattleForms(currentUserDigimonId);
+  }, [currentUserDigimonId]);
+
+  useEffect(() => {
+    const lvl = Number(myDigimon?.level);
+    if (!Number.isFinite(lvl) || lvl <= 0) return;
+    if (previousLevelRef.current !== null && lvl > previousLevelRef.current) {
+      triggerLevelUpFx(lvl);
+    }
+    previousLevelRef.current = lvl;
+  }, [myDigimon?.level]);
 
   useEffect(() => {
     const el = bgAudioRef.current;
     if (!el) return;
+    let cleaned = false;
+    let retryBound = false;
+
+    const detachRetry = () => {
+      if (!retryBound) return;
+      retryBound = false;
+      window.removeEventListener('pointerdown', onUserGesture);
+      window.removeEventListener('keydown', onUserGesture);
+    };
+
+    const attachRetry = () => {
+      if (retryBound) return;
+      retryBound = true;
+      window.addEventListener('pointerdown', onUserGesture, { once: true });
+      window.addEventListener('keydown', onUserGesture, { once: true });
+    };
+
+    const tryPlay = async () => {
+      try {
+        await el.play();
+        if (!cleaned) setIsMusicPlaying(true);
+        detachRetry();
+      } catch {
+        if (!cleaned) setIsMusicPlaying(false);
+        attachRetry();
+      }
+    };
+
+    function onUserGesture() {
+      void tryPlay();
+    }
+
     el.loop = true;
     el.volume = 0.6;
+    el.defaultPlaybackRate = 0.95;
+    el.playbackRate = 0.95;
     if (mapSoundUrl) {
       el.src = mapSoundUrl;
-      const tryPlay = async () => {
-        try {
-          await el.play();
-          setIsMusicPlaying(true);
-        } catch {
-          setIsMusicPlaying(false);
-        }
-      };
-      tryPlay();
+      void tryPlay();
     } else {
+      detachRetry();
       el.pause();
       setIsMusicPlaying(false);
     }
     return () => {
+      cleaned = true;
+      detachRetry();
       el.pause();
       el.removeAttribute('src');
       el.load?.();
@@ -907,9 +1112,36 @@ export default function Battle() {
     if (level === 4 || level === 5) return 1.8;
     return 1;
   };
+  const getAuraTier = (level) => {
+    const lv = Number(level) || 0;
+    if (lv < 10) return 0;
+    return Math.min(10, Math.floor(lv / 10));
+  };
+  const getAuraPalette = (tier) => {
+    if (tier <= 0) return null;
+    const palette = [
+      { core: '#22d3ee', edge: '#67e8f9', ring: '#0ea5e9', particle: '#a5f3fc' },
+      { core: '#38bdf8', edge: '#93c5fd', ring: '#2563eb', particle: '#bfdbfe' },
+      { core: '#4f46e5', edge: '#818cf8', ring: '#6366f1', particle: '#c7d2fe' },
+      { core: '#7c3aed', edge: '#a78bfa', ring: '#8b5cf6', particle: '#ddd6fe' },
+      { core: '#c026d3', edge: '#e879f9', ring: '#d946ef', particle: '#f5d0fe' },
+      { core: '#db2777', edge: '#f472b6', ring: '#ec4899', particle: '#fbcfe8' },
+      { core: '#ea580c', edge: '#fb923c', ring: '#f97316', particle: '#fed7aa' },
+      { core: '#f59e0b', edge: '#facc15', ring: '#fbbf24', particle: '#fef08a' },
+      { core: '#84cc16', edge: '#bef264', ring: '#65a30d', particle: '#d9f99d' },
+      { core: '#f8fafc', edge: '#e2e8f0', ring: '#cbd5e1', particle: '#ffffff' }
+    ];
+    return palette[Math.max(0, Math.min(palette.length - 1, tier - 1))];
+  };
 
   const playerStageScale = getStageScale(resolveStageLevel(myDigimon));
   const enemyStageScale = getStageScale(resolveStageLevel(enemy));
+  const playerAuraTier = getAuraTier(myDigimon?.level);
+  const playerAuraPalette = getAuraPalette(playerAuraTier);
+  const playerAuraStrength = playerAuraTier > 0 ? Math.min(0.52, 0.16 + playerAuraTier * 0.03) : 0;
+  const playerAuraParticleCount = playerAuraTier > 0 ? Math.min(12, 4 + playerAuraTier) : 0;
+  const playerAuraRadius = isMobile ? 30 : 42;
+  const spriteVerticalOffset = isMobile ? -10 : -18;
   const playerExtraAtk = toInt(myDigimon?.extra_attack);
   const playerExtraDef = toInt(myDigimon?.extra_defense);
   const playerExtraHp = toInt(myDigimon?.extra_hp);
@@ -1073,6 +1305,59 @@ export default function Battle() {
         .animate-slide-in-right {
              animation: slide-in-right 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
          }
+        @keyframes aura-glow-breathe {
+          0%, 100% { transform: scale(0.98); opacity: 0.2; }
+          50% { transform: scale(1.03); opacity: 0.5; }
+        }
+        @keyframes aura-orbit-drift {
+          0% {
+            transform: rotate(var(--orbit-angle)) translateY(calc(var(--aura-radius) * -1)) scale(0.75);
+            opacity: 0;
+          }
+          20% { opacity: 0.95; }
+          100% {
+            transform: rotate(calc(var(--orbit-angle) + 18deg)) translateY(calc((var(--aura-radius) + 10px) * -1)) scale(1.15);
+            opacity: 0;
+          }
+        }
+        @keyframes aura-spark-flicker {
+          0%, 100% { transform: scale(0.9); opacity: 0.2; }
+          50% { transform: scale(1.2); opacity: 0.9; }
+        }
+        @keyframes level-up-pop {
+          0% { transform: translate(-50%, 14px) scale(0.7); opacity: 0; }
+          18% { transform: translate(-50%, -6px) scale(1.18); opacity: 1; }
+          75% { transform: translate(-50%, -20px) scale(1.04); opacity: 1; }
+          100% { transform: translate(-50%, -34px) scale(0.95); opacity: 0; }
+        }
+        @keyframes transform-burst {
+          0% { transform: scale(0.45); opacity: 0; }
+          30% { opacity: 1; }
+          100% { transform: scale(1.42); opacity: 0; }
+        }
+        @keyframes transform-slice {
+          0% { transform: translateX(-50%) scaleX(0.2); opacity: 0; }
+          20% { transform: translateX(-50%) scaleX(1); opacity: 1; }
+          100% { transform: translateX(-50%) scaleX(0.2); opacity: 0; }
+        }
+        .battle-aura-glow {
+          animation: aura-glow-breathe 3s ease-in-out infinite;
+        }
+        .battle-aura-orb {
+          animation: aura-orbit-drift 2.15s ease-out infinite;
+        }
+        .battle-aura-spark {
+          animation: aura-spark-flicker 1.4s ease-in-out infinite;
+        }
+        .battle-levelup-badge {
+          animation: level-up-pop 1.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .battle-transform-burst {
+          animation: transform-burst 1.05s ease-out forwards;
+        }
+        .battle-transform-slice {
+          animation: transform-slice 0.8s ease-out forwards;
+        }
       `}</style>
       <div className="w-full h-full md:h-auto">
         <Card className="border-0 md:border shadow-none rounded-none md:rounded-2xl overflow-hidden bg-slate-950 text-slate-100 h-full md:h-auto w-full">
@@ -1093,7 +1378,7 @@ export default function Battle() {
                         aria-hidden="true"
                       />
                       <video
-                        className="absolute inset-0 h-full w-full object-contain"
+                        className="absolute inset-0 h-full w-full object-cover"
                         src={mapMediaUrl}
                         autoPlay
                         loop
@@ -1112,7 +1397,7 @@ export default function Battle() {
                         draggable="false"
                       />
                       <img
-                        className="absolute inset-0 h-full w-full object-contain"
+                        className="absolute inset-0 h-full w-full object-cover"
                         src={mapMediaUrl}
                         alt=""
                         aria-hidden="true"
@@ -1336,7 +1621,7 @@ export default function Battle() {
 
 {/* Modal de Vitória removido para imersão */}
             {/* Player Side */}
-            <div className={`absolute bottom-[170px] left-4 z-30 flex flex-col items-center gap-2 md:bottom-[80px] md:left-[25%] md:-ml-20 ${getPlayerStyle()}`}>
+            <div className={`absolute bottom-[186px] left-4 z-30 flex flex-col items-center gap-2 md:bottom-[96px] md:left-[25%] md:-ml-20 ${getPlayerStyle()}`}>
                <div className="relative">
                   {/* Impact Effect Overlay */}
                   {showImpact === 'player' && (
@@ -1352,12 +1637,68 @@ export default function Battle() {
                   ) : myDigimon ? (
                     <GlobalTooltip content={playerTooltipContent}>
                       <div
-                        className="flex items-center justify-center"
+                        className="relative flex items-center justify-center"
                         style={{ 
                             width: `${(isMobile ? 100 : 160) * playerStageScale}px`, 
                             height: `${(isMobile ? 100 : 160) * playerStageScale}px` 
                         }}
                       >
+                        {playerAuraTier > 0 && playerAuraPalette ? (
+                          <>
+                            <div
+                              className="pointer-events-none absolute inset-[-4%] rounded-full battle-aura-glow"
+                              style={{
+                                background: `radial-gradient(circle, ${playerAuraPalette.core}30 0%, ${playerAuraPalette.ring}14 48%, transparent 74%)`,
+                                opacity: playerAuraStrength,
+                                filter: `blur(${1 + Math.floor(playerAuraTier / 5)}px) drop-shadow(0 0 ${4 + playerAuraTier}px ${playerAuraPalette.ring})`
+                              }}
+                            />
+                            {Array.from({ length: playerAuraParticleCount }).map((_, idx) => (
+                              <div
+                                key={`player-aura-orb-${idx}`}
+                                className="pointer-events-none absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full battle-aura-orb"
+                                style={{
+                                  background: playerAuraPalette.particle,
+                                  boxShadow: `0 0 ${4 + Math.floor(playerAuraTier / 2)}px ${playerAuraPalette.edge}`,
+                                  opacity: Math.min(0.9, 0.45 + playerAuraTier * 0.04),
+                                  animationDelay: `${idx * 0.12}s`,
+                                  '--orbit-angle': `${Math.round((360 / playerAuraParticleCount) * idx)}deg`,
+                                  '--aura-radius': `${playerAuraRadius + (idx % 3)}px`
+                                }}
+                              />
+                            ))}
+                            {[0, 1, 2].map((idx) => (
+                              <div
+                                key={`player-aura-spark-${idx}`}
+                                className="pointer-events-none absolute h-2 w-2 rounded-full battle-aura-spark"
+                                style={{
+                                  left: `${22 + idx * 28}%`,
+                                  top: `${64 - (idx % 2) * 28}%`,
+                                  background: `${playerAuraPalette.edge}aa`,
+                                  boxShadow: `0 0 ${7 + playerAuraTier * 0.7}px ${playerAuraPalette.ring}`,
+                                  animationDelay: `${idx * 0.22}s`,
+                                  opacity: Math.min(0.72, 0.3 + playerAuraTier * 0.045)
+                                }}
+                              />
+                            ))}
+                          </>
+                        ) : null}
+                        {levelUpFx.active ? (
+                          <div className="pointer-events-none absolute -top-8 left-1/2 z-40 battle-levelup-badge">
+                            <div className="rounded-full border border-yellow-300/70 bg-yellow-500/20 px-3 py-1 text-[11px] font-black tracking-[0.18em] text-yellow-100 shadow-[0_0_18px_rgba(250,204,21,0.7)]">
+                              LEVEL {Math.max(1, Number(levelUpFx.level || 0))}
+                            </div>
+                          </div>
+                        ) : null}
+                        {transformFx.active ? (
+                          <div className="pointer-events-none absolute inset-[-26%] z-40">
+                            <div className="absolute inset-0 rounded-full border border-cyan-300/70 bg-cyan-300/15 battle-transform-burst shadow-[0_0_26px_rgba(34,211,238,0.85)]" />
+                            <div className="absolute left-1/2 top-1/2 h-1.5 w-[150%] -translate-y-1/2 rounded-full bg-cyan-100/85 battle-transform-slice" />
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded-full border border-cyan-200/80 bg-cyan-500/20 px-2.5 py-0.5 text-[10px] font-extrabold tracking-[0.22em] text-cyan-100">
+                              FORMA
+                            </div>
+                          </div>
+                        ) : null}
                         {myDigimon?.sprite_path ? (
                           <img
                             src={myDigimon.sprite_path.startsWith('http') ? myDigimon.sprite_path : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${myDigimon.sprite_path}`}
@@ -1365,7 +1706,7 @@ export default function Battle() {
                             className="max-h-full max-w-full object-contain"
                             style={{
                               filter: isPlayerAttacking ? 'brightness(1.5)' : (isPlayerHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
-                              transform: `${isPlayerAttacking ? 'translateX(50px)' : (isPlayerHit ? 'translateX(-20px)' : 'translateX(0)')} scale(${playerStageScale}) scaleX(-1)`,
+                              transform: `translateY(${spriteVerticalOffset}px) ${isPlayerAttacking ? 'translateX(50px)' : (isPlayerHit ? 'translateX(-20px)' : 'translateX(0)')} scale(${playerStageScale}) scaleX(-1)`,
                               transition: 'transform 0.2s, filter 0.2s'
                             }}
                           />
@@ -1391,7 +1732,7 @@ export default function Battle() {
             {/* VS Divider - Fades out during combat action */}
             <div className={`absolute bottom-[180px] left-1/2 z-20 h-40 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-slate-800 to-transparent transition-opacity duration-300 md:bottom-[165px] ${animState !== 'idle' ? 'opacity-0' : 'opacity-100'}`}></div>
             {/* Enemy Side */}
-            <div className={`absolute bottom-[260px] right-4 left-auto z-20 flex flex-col items-center gap-2 md:z-30 md:bottom-[80px] md:left-[75%] md:right-auto md:-ml-20 ${getEnemyStyle()} ${!isFetchingBattleData ? 'animate-slide-in-right' : ''}`}>
+            <div className={`absolute bottom-[276px] right-4 left-auto z-20 flex flex-col items-center gap-2 md:z-30 md:bottom-[96px] md:left-[75%] md:right-auto md:-ml-20 ${getEnemyStyle()} ${!isFetchingBattleData ? 'animate-slide-in-right' : ''}`}>
                <div className="relative">
                   {/* Impact Effect Overlay */}
                   {showImpact === 'enemy' && (
@@ -1474,7 +1815,7 @@ export default function Battle() {
                             onError={(e) => { e.target.src = 'https://placehold.co/150x150?text=No+Img'; }}
                             style={{
                                filter: isEnemyAttacking ? 'brightness(1.5)' : (isEnemyHit ? 'brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none'),
-                               transform: `${isEnemyAttacking ? 'translateX(-50px)' : (isEnemyHit ? 'translateX(20px)' : 'translateX(0)')} scale(${enemyStageScale})`,
+                               transform: `translateY(${spriteVerticalOffset}px) ${isEnemyAttacking ? 'translateX(-50px)' : (isEnemyHit ? 'translateX(20px)' : 'translateX(0)')} scale(${enemyStageScale})`,
                                transition: 'transform 0.2s, filter 0.2s'
                             }}
                           />
@@ -1508,6 +1849,68 @@ export default function Battle() {
                  ))}
                </div>
             </div>
+              {(formsLoading || battleForms.length > 1) ? (
+                <div className="absolute bottom-[72px] left-1/2 z-40 w-[min(720px,calc(100%-16px))] -translate-x-1/2 md:bottom-[88px]">
+                  <div className="flex items-center justify-start gap-1.5">
+                    <span className="hidden text-[9px] font-semibold tracking-[0.16em] text-slate-200/85 md:inline">
+                      FORMAS
+                    </span>
+                    {formsLoading ? (
+                      <span className="inline-flex items-center text-[9px] font-semibold text-cyan-200/85">
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" /> ...
+                      </span>
+                    ) : null}
+                    <div className="flex max-w-[62vw] items-center gap-1 overflow-x-auto pb-1 pr-1 md:max-w-[360px]">
+                      {battleForms.map((form) => {
+                        const formId = Number(form.id || 0);
+                        const stage = normalizeStageLevel(form.base_level ?? form.stage ?? form.evolution_level);
+                        const isCurrent = formId === currentDigidexId;
+                        const isTransforming = transformingToId === formId;
+                        const canSwitch = !battle?.win && !showBag && !loading && !formsLoading && animState === 'idle' && !isCurrent && !isTransforming && !!form.unlocked;
+                        const spriteUrl = form?.sprite_path
+                          ? (String(form.sprite_path).startsWith('http')
+                            ? form.sprite_path
+                            : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${form.sprite_path}`)
+                          : null;
+                        return (
+                          <button
+                            key={`battle-form-${formId}`}
+                            type="button"
+                            disabled={!canSwitch}
+                            onClick={() => handleBattleTransform(form)}
+                            className={`group relative h-9 w-9 shrink-0 overflow-hidden rounded-md border transition-all md:h-10 md:w-10 ${
+                              isCurrent
+                                ? 'border-cyan-300/80 bg-cyan-400/18 shadow-[0_0_10px_rgba(34,211,238,0.35)]'
+                                : canSwitch
+                                  ? 'border-white/30 bg-transparent hover:border-cyan-300/70'
+                                  : 'border-white/15 bg-transparent opacity-65'
+                            }`}
+                            title={isCurrent ? `${form.name} (forma atual)` : `Trocar para ${form.name}`}
+                          >
+                            {spriteUrl ? (
+                              <img
+                                src={spriteUrl}
+                                alt={form.name}
+                                className={`h-full w-full object-contain p-[2px] transition-transform ${canSwitch ? 'group-hover:scale-110' : ''}`}
+                              />
+                            ) : (
+                              <div className="grid h-full w-full place-items-center text-[10px] font-bold text-slate-200">?</div>
+                            )}
+                            <span className="absolute right-0 top-0 rounded-bl-sm bg-black/45 px-1 text-[8px] font-bold leading-4 text-slate-100">
+                              {stage || '-'}
+                            </span>
+                            {isTransforming ? (
+                              <span className="absolute inset-0 grid place-items-center bg-black/30">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-100" />
+                              </span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div className="absolute bottom-4 left-1/2 z-40 w-[min(720px,calc(100%-16px))] -translate-x-1/2 md:bottom-6">
                 <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-2 shadow-[0_24px_60px_-38px_rgba(0,0,0,0.95)] backdrop-blur-md">
                   {showWinModal ? (

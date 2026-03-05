@@ -1,5 +1,12 @@
 
 exports.up = async function(knex) {
+  // Compat guard: this legacy seed expects old enemydex columns (hp/attack/defense).
+  // If the current schema already uses base_hp/base_attack/base_defense, skip safely.
+  const hasLegacyHp = await knex.schema.hasColumn('enemydex', 'hp');
+  if (!hasLegacyHp) {
+    return;
+  }
+
   // Helper to insert and get ID
   const insertOne = async (table, data) => {
     // Check if exists to avoid duplicates if run multiple times without rollback
@@ -40,21 +47,21 @@ exports.up = async function(knex) {
   // --- ITEMS ---
   // Map 1 Items
   const itemMushroom = await insertOne('items', { name: 'Digi-Cogumelo', type: 'consumable', description: 'Um cogumelo que recupera 50 HP.', effect_target: 'hp', effect_value: 50, icon: icons.mushroom });
-  const itemDataFrag = await insertOne('items', { name: 'Fragmento de Dados', type: 'object', description: 'Restos de dados de um Digimon.', icon: icons.data });
+  const itemDataFrag = await insertOne('items', { name: 'Fragmento de Dados', type: 'material', description: 'Restos de dados de um Digimon.', icon: icons.data });
   const itemStinger = await insertOne('items', { name: 'Ferrão Quebrado', type: 'quest', description: 'Parte do ferrão de um Kuwagamon.', icon: icons.stinger });
   
   // Map 2 Items
-  const itemGear = await insertOne('items', { name: 'Engrenagem Velha', type: 'object', description: 'Peça de máquina antiga.', icon: icons.gear });
+  const itemGear = await insertOne('items', { name: 'Engrenagem Velha', type: 'material', description: 'Peça de máquina antiga.', icon: icons.gear });
   const itemOil = await insertOne('items', { name: 'Óleo de Máquina', type: 'quest', description: 'Óleo viscoso usado por digimons máquinas.', icon: icons.oil });
   const itemCircuit = await insertOne('items', { name: 'Circuito Lógico', type: 'quest', description: 'Chip retirado de Andromon.', icon: icons.circuit });
 
   // Map 3 Items
-  const itemIceCrystal = await insertOne('items', { name: 'Cristal de Gelo', type: 'object', description: 'Nunca derrete.', icon: icons.ice });
-  const itemWolfFur = await insertOne('items', { name: 'Pelo de Lobo Branco', type: 'object', description: 'Macio e quente.', icon: icons.fur });
+  const itemIceCrystal = await insertOne('items', { name: 'Cristal de Gelo', type: 'material', description: 'Nunca derrete.', icon: icons.ice });
+  const itemWolfFur = await insertOne('items', { name: 'Pelo de Lobo Branco', type: 'material', description: 'Macio e quente.', icon: icons.fur });
   const itemSeadramonScale = await insertOne('items', { name: 'Escama de Metal', type: 'quest', description: 'Escama indestrutível.', icon: icons.scale });
 
   // Map 4 Items
-  const itemDarkData = await insertOne('items', { name: 'Dados das Trevas', type: 'object', description: 'Corrompe quem toca.', icon: icons.dark });
+  const itemDarkData = await insertOne('items', { name: 'Dados das Trevas', type: 'material', description: 'Corrompe quem toca.', icon: icons.dark });
   const itemPuppetString = await insertOne('items', { name: 'Fio de Marionete', type: 'quest', description: 'Fio resistente usado por Puppetmon.', icon: icons.string });
   const itemApocalypseShard = await insertOne('items', { name: 'Fragmento do Apocalipse', type: 'quest', description: 'A essência da destruição.', icon: icons.shard });
 

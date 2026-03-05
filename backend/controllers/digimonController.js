@@ -16,6 +16,7 @@ async function ensureDigidexColumns() {
         if (!names.includes('required_item_id')) alterQueries.push("ADD COLUMN required_item_id INT DEFAULT 12");
         if (!names.includes('required_item_quantity')) alterQueries.push("ADD COLUMN required_item_quantity INT DEFAULT 0");
         if (!names.includes('base_attack_speed')) alterQueries.push("ADD COLUMN base_attack_speed FLOAT DEFAULT 2.0");
+        if (!names.includes('is_starter')) alterQueries.push("ADD COLUMN is_starter TINYINT(1) DEFAULT 0");
 
         for (const query of alterQueries) {
             await db.execute(`ALTER TABLE digidex ${query}`);
@@ -115,7 +116,7 @@ exports.createDigimon = async (req, res) => {
         const { 
             name, type, base_hp, base_attack, base_defense,
             evolution_line_id, next_evolution_id, evolution_level, base_level,
-            required_item_id, required_item_quantity, base_attack_speed
+            required_item_id, required_item_quantity, base_attack_speed, is_starter
         } = req.body;
         
         const sprite_path = req.file ? `assets/sprites/${req.file.filename}` : null;
@@ -126,10 +127,11 @@ exports.createDigimon = async (req, res) => {
         const reqItemId = required_item_id || 12; // Default to Evoluter
         const reqItemQty = required_item_quantity || 0;
         const bAtkSpeed = base_attack_speed || 2.0;
+        const starterFlag = is_starter === true || is_starter === 1 || String(is_starter).toLowerCase() === 'true' ? 1 : 0;
 
         const [result] = await db.execute(
-            'INSERT INTO digidex (name, type, base_hp, base_attack, base_defense, base_attack_speed, evolution_line_id, next_evolution_id, evolution_level, base_level, sprite_path, required_evoluters, required_item_id, required_item_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, type, base_hp, base_attack, base_defense, bAtkSpeed, evolution_line_id, nextEvoId, evoLevel, bLevel, sprite_path, reqItemQty, reqItemId, reqItemQty]
+            'INSERT INTO digidex (name, type, base_hp, base_attack, base_defense, base_attack_speed, evolution_line_id, next_evolution_id, evolution_level, base_level, sprite_path, required_evoluters, required_item_id, required_item_quantity, is_starter) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, type, base_hp, base_attack, base_defense, bAtkSpeed, evolution_line_id, nextEvoId, evoLevel, bLevel, sprite_path, reqItemQty, reqItemId, reqItemQty, starterFlag]
         );
         res.status(201).json({ message: 'Digimon created', id: result.insertId });
     } catch (error) {
@@ -145,7 +147,7 @@ exports.updateDigimon = async (req, res) => {
         const { 
             name, type, base_hp, base_attack, base_defense,
             evolution_line_id, next_evolution_id, evolution_level, base_level, required_evoluters,
-            required_item_id, required_item_quantity, base_attack_speed
+            required_item_id, required_item_quantity, base_attack_speed, is_starter
         } = req.body;
 
         const [rows] = await db.execute('SELECT * FROM digidex WHERE id = ?', [id]);
@@ -180,9 +182,12 @@ exports.updateDigimon = async (req, res) => {
         const reqItemId = required_item_id !== undefined && required_item_id !== ''
             ? required_item_id
             : (existing.required_item_id || 12);
+        const starterFlag = is_starter !== undefined
+            ? (is_starter === true || is_starter === 1 || String(is_starter).toLowerCase() === 'true' ? 1 : 0)
+            : Number(existing.is_starter || 0);
 
-        let query = 'UPDATE digidex SET name=?, type=?, base_hp=?, base_attack=?, base_defense=?, base_attack_speed=?, evolution_line_id=?, next_evolution_id=?, evolution_level=?, base_level=?, required_evoluters=?, required_item_id=?, required_item_quantity=?';
-        let params = [newName, newType, newBaseHp, newBaseAttack, newBaseDefense, newBaseAtkSpeed, newEvolutionLineId, nextEvoId, evoLevel, bLevel, reqItemQty, reqItemId, reqItemQty];
+        let query = 'UPDATE digidex SET name=?, type=?, base_hp=?, base_attack=?, base_defense=?, base_attack_speed=?, evolution_line_id=?, next_evolution_id=?, evolution_level=?, base_level=?, required_evoluters=?, required_item_id=?, required_item_quantity=?, is_starter=?';
+        let params = [newName, newType, newBaseHp, newBaseAttack, newBaseDefense, newBaseAtkSpeed, newEvolutionLineId, nextEvoId, evoLevel, bLevel, reqItemQty, reqItemId, reqItemQty, starterFlag];
 
         if (req.file) {
             query += ', sprite_path=?';
@@ -364,11 +369,11 @@ exports.unlockEvolution = async (req, res) => {
 
 exports.evolveDigimon = async (req, res) => {
     try {
-        const { userDigimonId, targetDigidexId } = req.body;
+        const { userDigimonId, targetDigidexId, battleId } = req.body;
         const userId = req.user.id;
 
         const mapping = await resolveUserDigimonsTable();
-        const { table, digiIdCol } = mapping;
+        const { table, digiIdCol, userIdCol } = mapping;
 
         // 1. Get User Digimon
         const [udRows] = await db.execute(`SELECT * FROM ${table} WHERE id = ? AND user_id = ?`, [userDigimonId, userId]);
@@ -414,7 +419,48 @@ exports.evolveDigimon = async (req, res) => {
         // Heal to full on evolution
         await db.execute(`UPDATE ${table} SET current_hp = max_hp WHERE id = ?`, [userDigimonId]);
 
-        res.json({ message: 'Digimon evolved!', newSpecies: targetSpecies });
+        // Return updated instance for realtime UIs (battle, etc)
+        const [updatedRows] = await db.execute(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [userDigimonId]);
+        const updatedUserDigimon = updatedRows && updatedRows[0] ? updatedRows[0] : null;
+
+        // Optional battle sync: keep battle HP caps in sync after form switch
+        let battleSync = null;
+        if (battleId && updatedUserDigimon) {
+            try {
+                const [battleRows] = await db.execute(
+                    `SELECT id, user_id, user_digimon_id, status FROM battles WHERE id = ? LIMIT 1`,
+                    [battleId]
+                );
+                const battle = battleRows && battleRows[0] ? battleRows[0] : null;
+                const ownerId = Number(updatedUserDigimon[userIdCol] || userId);
+                if (
+                    battle &&
+                    Number(battle.user_digimon_id) === Number(userDigimonId) &&
+                    Number(battle.user_id) === ownerId &&
+                    String(battle.status || '').toLowerCase() === 'active'
+                ) {
+                    const syncedHp = Number(updatedUserDigimon.max_hp || newMaxHp);
+                    await db.execute(
+                        'UPDATE battles SET user_current_hp = ?, user_max_hp = ? WHERE id = ?',
+                        [syncedHp, syncedHp, battleId]
+                    );
+                    battleSync = {
+                        battle_id: Number(battleId),
+                        user_current_hp: syncedHp,
+                        user_max_hp: syncedHp
+                    };
+                }
+            } catch (battleSyncErr) {
+                console.error('Error syncing evolve with battle:', battleSyncErr);
+            }
+        }
+
+        res.json({
+            message: 'Digimon evolved!',
+            newSpecies: targetSpecies,
+            userDigimon: updatedUserDigimon,
+            battleSync
+        });
 
     } catch (error) {
         console.error(error);

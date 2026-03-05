@@ -166,6 +166,9 @@ async function ensureBattleColumns() {
         if (!fields.includes('user_max_hp')) {
              await db.execute('ALTER TABLE battles ADD COLUMN user_max_hp INT DEFAULT NULL');
         }
+        if (!fields.includes('map_id')) {
+             await db.execute('ALTER TABLE battles ADD COLUMN map_id INT DEFAULT NULL');
+        }
     } catch (error) {
         console.error('Error ensuring battle columns:', error);
     }
@@ -354,7 +357,7 @@ exports.startBattle = async (req, res) => {
 
     await ensureBattleColumns();
 
-    const insertCols = ['user_id', 'user_digimon_id', 'enemy_id', 'enemy_current_hp', 'enemy_max_hp', 'user_current_hp', 'user_max_hp', 'status', 'enemy_multiplier'];
+    const insertCols = ['user_id', 'user_digimon_id', 'enemy_id', 'enemy_current_hp', 'enemy_max_hp', 'user_current_hp', 'user_max_hp', 'status', 'enemy_multiplier', 'map_id'];
     const params = [
       user_id, 
       userDigimonRow.id, 
@@ -364,13 +367,16 @@ exports.startBattle = async (req, res) => {
       currentHp, // user_current_hp recuperado do user_digimons
       effHp, // user_max_hp calculado
       'active',
-      mapDifficulty
+      mapDifficulty,
+      map_id ? Number(map_id) : null
     ];
     const sql = `INSERT INTO battles (${insertCols.join(', ')}) VALUES (${insertCols.map(() => '?').join(', ')})`;
     const [result] = await db.execute(sql, params);
     res.status(201).json({
       id: result.insertId,
       user: {
+        user_digimon_id: userDigimonRow.id,
+        digidex_id: userDigimon.id,
         id: userDigimon.id,
         name: userDisplayName,
         type: userDigimon.type || null,
@@ -421,7 +427,7 @@ exports.attack = async (req, res) => {
     const { actor } = req.query; // 'player' or 'enemy' (defaults to undefined = full turn)
 
     // Agora buscamos user_current_hp e user_max_hp da tabela battles
-    const [battleRows] = await db.execute(`SELECT user_id, user_digimon_id, enemy_id, enemy_current_hp, enemy_max_hp, user_current_hp, user_max_hp, enemy_multiplier FROM battles WHERE id=?`, [id]);
+    const [battleRows] = await db.execute(`SELECT user_id, user_digimon_id, enemy_id, enemy_current_hp, enemy_max_hp, user_current_hp, user_max_hp, enemy_multiplier, map_id FROM battles WHERE id=?`, [id]);
     const battle = battleRows && battleRows[0];
     if (!battle) return res.status(404).json({ message: 'Batalha não encontrada' });
     
@@ -606,6 +612,22 @@ exports.attack = async (req, res) => {
 
       // Atualizar status da batalha
       await db.execute(`UPDATE battles SET status='won' WHERE id=?`, [id]);
+
+      // Registrar progresso do mapa na primeira vitória do usuário
+      if (battle.map_id) {
+        try {
+          await db.execute(
+            `
+            INSERT INTO user_map_progress (user_id, map_id, completed_at)
+            VALUES (?, ?, NOW())
+            ON DUPLICATE KEY UPDATE completed_at = completed_at
+            `,
+            [battle.user_id, Number(battle.map_id)]
+          );
+        } catch (mapProgressError) {
+          console.error('Erro ao registrar progresso de mapa:', mapProgressError);
+        }
+      }
 
       // --- QUEST UPDATE LOGIC ---
       try {
@@ -890,6 +912,8 @@ exports.attack = async (req, res) => {
       win,
       rewards,
       user: {
+        user_digimon_id: battle.user_digimon_id,
+        digidex_id: fullMap && mapping ? Number(fullMap[mapping.digiIdCol] || userDigimon?.id || 0) : Number(userDigimon?.id || 0),
         id: userDigimon?.id,
         name: userName,
         type: userDigimon?.type || null,

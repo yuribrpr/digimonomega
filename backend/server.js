@@ -28,35 +28,56 @@ const server = http.createServer(app);
 socketHandler(server);
 
 const path = require('path');
-const axios = require('axios'); // Import Axios for proxy
+const axios = require('axios');
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 console.log('Serving static files from:', path.join(__dirname, 'public/assets'));
-app.use('/assets', express.static(path.join(__dirname, 'public/assets')));
+const localAssetsDir = path.join(__dirname, 'public/assets');
+const enableAssetProxy = process.env.ENABLE_ASSET_PROXY === 'true';
+const assetProxyBaseUrl = (process.env.ASSET_PROXY_BASE_URL || 'http://76.13.69.121:3000').replace(/\/$/, '');
 
-// --- SOLUÇÃO PARA DEV LOCAL ---
-// Proxy reverso: O backend local baixa a imagem do servidor de produção e entrega para o navegador.
-// Isso contorna bloqueios de navegador (CORS/Mixed Content) e não requer baixar arquivos manualmente.
-app.use('/assets', async (req, res) => {
-    try {
-        const prodUrl = `http://76.13.69.121:3000/assets${req.path}`;
-        const response = await axios({
-            method: 'get',
-            url: prodUrl,
-            responseType: 'stream'
-        });
-        
-        // Repassa os headers relevantes (Content-Type, etc)
-        res.set('Content-Type', response.headers['content-type']);
-        response.data.pipe(res);
-    } catch (error) {
-        // console.error(`[DEV Proxy] Falha ao buscar ${req.path}:`, error.message);
-        res.status(404).send('Image not found on production server');
-    }
-});
+app.use('/assets', express.static(localAssetsDir, {
+    fallthrough: enableAssetProxy,
+    etag: true,
+    lastModified: true,
+    maxAge: process.env.NODE_ENV === 'production' ? '7d' : '1h'
+}));
+
+if (enableAssetProxy) {
+    console.log(`[assets] Production proxy enabled -> ${assetProxyBaseUrl}`);
+    app.use('/assets', async (req, res) => {
+        try {
+            const prodUrl = `${assetProxyBaseUrl}/assets${req.path}`;
+            const response = await axios({
+                method: 'get',
+                url: prodUrl,
+                responseType: 'stream',
+                timeout: 2500,
+                validateStatus: (status) => status >= 200 && status < 500
+            });
+
+            if (response.status >= 400) {
+                return res.status(response.status).send('Image not found on production server');
+            }
+
+            if (response.headers['content-type']) {
+                res.set('Content-Type', response.headers['content-type']);
+            }
+            if (response.headers['cache-control']) {
+                res.set('Cache-Control', response.headers['cache-control']);
+            }
+
+            response.data.pipe(res);
+        } catch (error) {
+            return res.status(404).send('Image not found on production server');
+        }
+    });
+} else {
+    console.log('[assets] Production proxy disabled. Serving local assets only.');
+}
 
 // Routes
 app.use('/api/auth', authRoutes);

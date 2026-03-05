@@ -42,6 +42,40 @@ async function ensureCampaignColumns() {
   }
 }
 
+async function ensureRouteColumns() {
+  const [cols] = await db.execute('DESCRIBE maps');
+  const names = cols.map(c => c.Field);
+  if (!names.includes('route_order')) {
+    await db.execute('ALTER TABLE maps ADD COLUMN route_order INT NOT NULL DEFAULT 0');
+  }
+  if (!names.includes('world_x')) {
+    await db.execute('ALTER TABLE maps ADD COLUMN world_x DECIMAL(6,2) DEFAULT NULL');
+  }
+  if (!names.includes('world_y')) {
+    await db.execute('ALTER TABLE maps ADD COLUMN world_y DECIMAL(6,2) DEFAULT NULL');
+  }
+}
+
+function parseRouteOrderInput(value, fallback = 0) {
+  if (value === undefined) return fallback;
+  if (value === null || value === '') return 0;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error('route_order deve ser inteiro >= 0');
+  }
+  return parsed;
+}
+
+function parseWorldCoordInput(value, fallback, label) {
+  if (value === undefined) return fallback;
+  if (value === null || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+    throw new Error(`${label} deve estar entre 0 e 100`);
+  }
+  return parsed;
+}
+
 exports.getAllMaps = async (req, res) => {
   try {
     const [maps] = await db.execute('SELECT * FROM maps ORDER BY min_level ASC');
@@ -63,9 +97,32 @@ exports.getAllMaps = async (req, res) => {
   }
 };
 
+exports.getMapProgress = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Não autenticado' });
+
+    const [rows] = await db.execute(
+      'SELECT map_id, completed_at FROM user_map_progress WHERE user_id = ? ORDER BY completed_at DESC',
+      [userId]
+    );
+
+    const completedMapIds = [...new Set((rows || []).map(r => Number(r.map_id)).filter(Number.isFinite))];
+    const records = (rows || []).map(r => ({
+      map_id: Number(r.map_id),
+      completed_at: r.completed_at
+    }));
+
+    res.json({ completedMapIds, records });
+  } catch (error) {
+    console.error('Erro ao buscar progresso dos mapas:', error);
+    res.status(500).json({ message: 'Erro ao buscar progresso dos mapas', error: error.message });
+  }
+};
+
 exports.createMap = async (req, res) => {
   try {
-    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active, difficulty, soundtrack_url, campaign_id } = req.body;
+    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active, difficulty, soundtrack_url, campaign_id, route_order, world_x, world_y } = req.body;
     const imageFile = req.files && req.files.image && req.files.image[0];
     const soundtrackFile = req.files && req.files.soundtrack && req.files.soundtrack[0];
     const image_path = imageFile ? `assets/maps/${imageFile.filename}` : null;
@@ -76,6 +133,11 @@ exports.createMap = async (req, res) => {
     await ensureRequirementColumns();
     await ensureSoundtrackColumns();
     await ensureCampaignColumns();
+    await ensureRouteColumns();
+
+    const routeOrder = parseRouteOrderInput(route_order, 0);
+    const worldX = parseWorldCoordInput(world_x, null, 'world_x');
+    const worldY = parseWorldCoordInput(world_y, null, 'world_y');
 
     // Insert Map
     const [result] = await db.execute(
@@ -114,6 +176,10 @@ exports.createMap = async (req, res) => {
       const cid = campaign_id ? Number(campaign_id) : null;
       await db.execute('UPDATE maps SET campaign_id = ? WHERE id = ?', [cid, mapId]);
     }
+    await db.execute(
+      'UPDATE maps SET route_order = ?, world_x = ?, world_y = ? WHERE id = ?',
+      [routeOrder, worldX, worldY, mapId]
+    );
 
     // Insert Enemies
     if (enemies) {
@@ -134,14 +200,15 @@ exports.createMap = async (req, res) => {
     res.status(201).json({ message: 'Mapa criado com sucesso', id: mapId });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Erro ao criar mapa', error: error.message });
+    const status = String(error.message || '').includes('route_order') || String(error.message || '').includes('world_') ? 400 : 500;
+    res.status(status).json({ message: 'Erro ao criar mapa', error: error.message });
   }
 };
 
 exports.updateMap = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active, difficulty, soundtrack_url, clear_soundtrack, campaign_id } = req.body;
+    const { name, min_level, description, enemies, require_item, required_item_id, consume_on_enter, type, is_active, difficulty, soundtrack_url, clear_soundtrack, campaign_id, route_order, world_x, world_y } = req.body;
     
     // Check if map exists
     const [existing] = await db.execute('SELECT * FROM maps WHERE id = ?', [id]);
@@ -150,6 +217,7 @@ exports.updateMap = async (req, res) => {
     await ensureRequirementColumns();
     await ensureSoundtrackColumns();
     await ensureCampaignColumns();
+    await ensureRouteColumns();
 
     const imageFile = req.files && req.files.image && req.files.image[0];
     const soundtrackFile = req.files && req.files.soundtrack && req.files.soundtrack[0];
@@ -202,6 +270,18 @@ exports.updateMap = async (req, res) => {
       await db.execute('UPDATE maps SET campaign_id = ? WHERE id = ?', [cid, id]);
     }
 
+    const existingRouteOrder = Number(existing[0].route_order || 0);
+    const existingWorldX = existing[0].world_x === null ? null : Number(existing[0].world_x);
+    const existingWorldY = existing[0].world_y === null ? null : Number(existing[0].world_y);
+    const routeOrder = parseRouteOrderInput(route_order, existingRouteOrder);
+    const worldX = parseWorldCoordInput(world_x, existingWorldX, 'world_x');
+    const worldY = parseWorldCoordInput(world_y, existingWorldY, 'world_y');
+
+    await db.execute(
+      'UPDATE maps SET route_order = ?, world_x = ?, world_y = ? WHERE id = ?',
+      [routeOrder, worldX, worldY, id]
+    );
+
     // Update Enemies
     if (enemies) {
         // Clear existing enemies
@@ -223,7 +303,8 @@ exports.updateMap = async (req, res) => {
     res.json({ message: 'Mapa atualizado com sucesso' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Erro ao atualizar mapa', error: error.message });
+    const status = String(error.message || '').includes('route_order') || String(error.message || '').includes('world_') ? 400 : 500;
+    res.status(status).json({ message: 'Erro ao atualizar mapa', error: error.message });
   }
 };
 
