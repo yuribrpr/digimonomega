@@ -1850,7 +1850,7 @@ export default function Battle() {
                </div>
             </div>
               {(formsLoading || battleForms.length > 1) ? (
-                <div className="absolute bottom-[72px] left-1/2 z-40 w-[min(720px,calc(100%-16px))] -translate-x-1/2 md:bottom-[88px]">
+                <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+92px)] left-1/2 z-40 w-[min(720px,calc(100%-16px))] -translate-x-1/2 md:bottom-[88px]">
                   <div className="flex items-center justify-start gap-1.5">
                     <span className="hidden text-[9px] font-semibold tracking-[0.16em] text-slate-200/85 md:inline">
                       FORMAS
@@ -1911,7 +1911,7 @@ export default function Battle() {
                   </div>
                 </div>
               ) : null}
-              <div className="absolute bottom-4 left-1/2 z-40 w-[min(720px,calc(100%-16px))] -translate-x-1/2 md:bottom-6">
+              <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+8px)] left-1/2 z-40 w-[min(720px,calc(100%-16px))] -translate-x-1/2 md:bottom-6">
                 <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-2 shadow-[0_24px_60px_-38px_rgba(0,0,0,0.95)] backdrop-blur-md">
                   {showWinModal ? (
                     <div className={isMobile ? "flex justify-center gap-6" : "grid grid-cols-2 gap-2 w-full"}>
